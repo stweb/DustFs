@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+VisualStudioVersion = 14.0.23107.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "DustFs", "DustFs\DustFs.fsproj", "{AA511B15-2792-400C-9E57-DE31145CDEE7}"
+EndProject
+Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "DustFsNews", "DustFsNews\DustFsNews.fsproj", "{D40C1290-A244-4E10-BC82-85C5D0884FEA}"
+EndProject
+Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "DustFsTest", "DustFsTest\DustFsTest.fsproj", "{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|AnyCPU = Debug|AnyCPU
+		Release|AnyCPU = Release|AnyCPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{AA511B15-2792-400C-9E57-DE31145CDEE7}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{AA511B15-2792-400C-9E57-DE31145CDEE7}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{AA511B15-2792-400C-9E57-DE31145CDEE7}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{AA511B15-2792-400C-9E57-DE31145CDEE7}.Release|AnyCPU.Build.0 = Release|Any CPU
+		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Release|AnyCPU.Build.0 = Release|Any CPU
+		{D40C1290-A244-4E10-BC82-85C5D0884FEA}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{D40C1290-A244-4E10-BC82-85C5D0884FEA}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{D40C1290-A244-4E10-BC82-85C5D0884FEA}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{D40C1290-A244-4E10-BC82-85C5D0884FEA}.Release|AnyCPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
