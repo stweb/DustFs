@@ -5,10 +5,6 @@ open System.Collections.Concurrent
 open System.Text.RegularExpressions
 open System.IO
 
-let keyPattern = "(?<key>[a-zA-Z_\$][\w\$]*)"
-let pathPattern = "^\s*(?<ident>(\.|[a-zA-Z_\$][\w\-\$]*)" + "(\.[a-zA-Z_\$][\-\w\$]*)*)" 
-let keyValuePattern = pathPattern + "\s*(?<all>(?<kvp>(" + keyPattern + "=(?<value>\".*?\"|\d+|[\.\w]+))\s*)*)/{0,1}"
-
 // key is defined as a character matching a to z, upper or lower case, followed by 0 or more alphanumeric characters
 // key "key" = h:[a-zA-Z_$] t:[0-9a-zA-Z_$-]*
 let _keyPattern  = "[a-zA-Z_\$][0-9a-zA-Z_\-\$]*" // h:[a-zA-Z_$] t:[0-9a-zA-Z_$-]*
@@ -17,25 +13,27 @@ let _keyPatternN = "(?<key>" + _keyPattern + ")"
 // path is defined as matching a key plus one or more characters of key preceded by a dot
 // path "path" = k:key? d:(array_part / array)+
 //             / "."    d:(array_part / array)*
-let _pathPattern = "^\s*(?<ident>(\.|" + _keyPattern + ")" + "(\.[a-zA-Z_\$][\-\w\$]*)*)" 
 
 // identifier is defined as matching a path or key
 // identifier "identifier" = p:path / k:key
-let _kvPattern = "(?<kvp>(" + _keyPatternN + "=(?<value>\".*?\"|\d+|[\.\w]+)" + ")\s*)*" 
-let identPattern = _pathPattern + "\s*(?<all>" + _kvPattern + ")/{0,1}"
+let _identPattern = "^\s*(?<ident>(\.|" + _keyPattern + ")" + "(\." + _keyPattern + ")*)" 
 
 // context is defined as matching a colon followed by an identifier
-
 // context = n:(":" n:identifier)?
+let _ctxPattern = "^:" + _identPattern; // TODO
+
+let _kvPattern = "(?<kvp>(" + _keyPatternN + "=(?<value>\".*?\"|\d+|[\.\w]+)" + ")\s*)*" 
+let _keyValPattern = _identPattern +  
+                     "\s*(?<ctx>" + _ctxPattern + ")/{0,1}" +     
+                     "\s*(?<all>" + _kvPattern + ")/{0,1}"
 
 // reference is defined as matching a opening brace followed by an identifier plus one or more filters and a closing brace
 // reference "reference" = { n:identifier f:filters }
 // filters "filters" = f:("|" n:key )*
 
-
-let rexRef = new Regex(pathPattern)
-let rexKvp = new Regex(keyValuePattern)
-let rexParams = new Regex(identPattern)
+let rexRef = new Regex(_identPattern)
+let rexKvp = new Regex(_keyValPattern)
+let rexCtx = new Regex(_ctxPattern)
 let rexStr = new Regex("\{[^}]*\}")
 let rexStr2 = new Regex("\[(.*?)\]")
 
@@ -221,7 +219,7 @@ let parseKeyValue input =
     let m = rexKvp.Match(input)
     if m.Success then
         let keys = m.Groups.["key"].Captures
-        let ctx = None // Some context
+        let ctx = optional m.Groups.["ctx"].Value // Some context
         let values = m.Groups.["value"].Captures
         ( 
             m.Groups.["ident"].Value, 

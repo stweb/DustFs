@@ -35,7 +35,7 @@ let page<'T> atmpl (model : 'T) r = async {
     doc |> List.iter(fun p -> render ctx [] p)
 
     let content = sb.ToString() 
-#if DEBUG
+#if DEBUG2
     File.WriteAllText(__SOURCE_DIRECTORY__ + "/out.html", content)
 #endif
     return! Response.response HTTP_200 (UTF8.bytes content) r 
