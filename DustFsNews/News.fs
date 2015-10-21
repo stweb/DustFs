@@ -44,13 +44,16 @@ let toDateTime (timestamp:int) =
   start.AddSeconds(float timestamp).ToLocalTime()
 
 let getWeather = async {
-  let! res = Forecast.AsyncLoad("http://api.openweathermap.org/data/2.5/forecast/daily?q=Cologne,Germany&mode=json&units=metric&cnt=10")
-  return
-    [ for item in res.List ->
-      { Date = toDateTime item.Dt
-        Icon = item.Weather.[0].Icon
-        Day = int item.Temp.Day
-        Night = int item.Temp.Night } ] }
+  try
+      let! res = Forecast.AsyncLoad("http://api.openweathermap.org/data/2.5/forecast/daily?q=Cologne,Germany&mode=json&units=metric&cnt=10")
+      return
+        [ for item in res.List ->
+          { Date = toDateTime item.Dt
+            Icon = item.Weather.[0].Icon
+            Day = int item.Temp.Day
+            Night = int item.Temp.Night } ] 
+  with e -> return []
+}
 
 // ----------------------------------------------------------------------------
 // Getting News from RSS feed and formatting it
