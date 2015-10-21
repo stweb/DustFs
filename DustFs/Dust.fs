@@ -82,6 +82,9 @@ let unquote (s:string) = if s.StartsWith("\"") then s.Substring(1, s.Length-2) e
 
 let optional o = if o = null then None else Some(o)
 
+let elapsedMs (sw:System.Diagnostics.Stopwatch) =
+    double sw.ElapsedTicks * 1000.0 / double System.Diagnostics.Stopwatch.Frequency
+
 // extension method to use objects like a Map, works with ExpandoObjects
 type System.Object with    // TODO if key.StartsWith(".") then let cur = true key = key.substr(1)
 
@@ -124,6 +127,25 @@ type Context =
         current:Option<obj>;
         scope:string list;
     }
+
+    member this.parseFile parse name : Body = 
+        let sw = System.Diagnostics.Stopwatch()
+        sw.Start()
+
+        let fname = this._templateDir + name 
+        if not(File.Exists fname) then failwith ("file not found: " + fname)
+        let body = File.ReadAllText fname |> parse
+
+        sw.Stop()
+        System.Console.WriteLine("parsed {0} {1:N3} [ms]", name, elapsedMs sw);
+        body  
+
+    member this.parseCached parse name = 
+        match cache.TryGetValue name with
+        | true, res -> res
+        | _ ->  let body = this.parseFile parse name
+                cache.[name] <- body
+                body
     
     member this.Write (s:string)      = this._w.Write(s)
     member this.Write (c:char)        = this._w.Write(c)
@@ -321,33 +343,11 @@ let rec getTree acc stop = function
                                                         getTree (s :: acc) stop tail2
     | head :: tail -> getTree (head :: acc) stop tail
 
-let elapsedMs (sw:System.Diagnostics.Stopwatch) =
-    double sw.ElapsedTicks * 1000.0 / double System.Diagnostics.Stopwatch.Frequency
-
-let mutable templateDir = __SOURCE_DIRECTORY__ + """/tmpl/""" 
+// let mutable templateDir = __SOURCE_DIRECTORY__ + """/tmpl/""" 
 
 let parse (doc:string) =
     let body,_,_ = doc |> List.ofSeq |> parseSpans (new Stack<string>()) [] |> Seq.toList |> getTree [] ""
     body 
-
-let parseFile name : Body = 
-    let sw = System.Diagnostics.Stopwatch()
-    sw.Start()
-
-    let fname = templateDir + name 
-    if not(File.Exists fname) then failwith ("file not found: " + fname)
-    let body = File.ReadAllText fname |> parse
-
-    sw.Stop()
-    System.Console.WriteLine("parsed {0} {1:N3} [ms]", name, elapsedMs sw);
-    body   
-
-let parseCached name = 
-    match cache.TryGetValue name with
-    | true, res -> res
-    | _ ->  let body = parseFile name
-            cache.[name] <- body
-            body
 
 let helper name =
     match helpers.TryGetValue name with
@@ -377,7 +377,7 @@ let rec render (c:Context) scope (part:Part) =
     //| Comment _      -> c.Write("<!-- " + text + " -->")
     | Special tag    -> c.WriteSpecial(tag)
     | Buffer text    -> if not (System.String.IsNullOrWhiteSpace(text)) then c.Write(text)
-    | Partial(n, kv) -> let body = parseCached n
+    | Partial(n, kv) -> let body = c.parseCached parse n
                         let c2 = { c with current = Some(kv :> obj) } 
                         if not kv.IsEmpty then
                             c.Log (">partial " + c2.current.Value.ToString())

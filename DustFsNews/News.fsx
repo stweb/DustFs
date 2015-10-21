@@ -1,4 +1,8 @@
-﻿module News
+#r "System.Xml.Linq"
+
+#r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
+#r "../packages/Suave/lib/net40/Suave.dll"
+#r "../build/DustFs.dll"
 
 open System
 open System.IO
@@ -36,7 +40,7 @@ type Home =
 // ----------------------------------------------------------------------------
 // Getting Weather information and formatting it
 // ----------------------------------------------------------------------------
-
+#if weather
 type Forecast = JsonProvider<"http://api.openweathermap.org/data/2.5/forecast/daily?q=London,UK&mode=json&units=metric&cnt=10">
 
 let toDateTime (timestamp:int) =
@@ -51,9 +55,10 @@ let getWeather = async {
           { Date = toDateTime item.Dt
             Icon = item.Weather.[0].Icon
             Day = int item.Temp.Day
-            Night = int item.Temp.Night } ] 
+            Night = int item.Temp.Night } ]
   with e -> return []
 }
+#endif
 
 // ----------------------------------------------------------------------------
 // Getting News from RSS feed and formatting it
@@ -86,17 +91,15 @@ let getNews = async {
 // Dust templating
 // ----------------------------------------------------------------------------
 
-templateDir <- __SOURCE_DIRECTORY__ + """/tmpl/""" 
-
 module NewsHelpers =
-    let niceDate (v:obj) : obj = 
+    let niceDate (v:obj) : obj =
         match v with
         | :? DateTime as dt -> dt.ToLongDateString() :> obj
                                 //dt.ToUniversalTime().ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'") :> obj
         | _ -> failwith "bad type"
 
 
-    let versionHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) =    
+    let versionHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) =
         c.Write("This is a test")
 
 filters.["niceDate"] <- NewsHelpers.niceDate
@@ -105,27 +108,38 @@ helpers.["version"] <- NewsHelpers.versionHelper
 // ----------------------------------------------------------------------------
 // Building asynchronous Suave server
 // ----------------------------------------------------------------------------
-let index getFeed : WebPart = fun ctx -> async { 
-    let sw = System.Diagnostics.Stopwatch()
-    sw.Start()
-    // perform in parallel
-    let! _news = Async.StartChild getFeed
-    let! _weather = Async.StartChild getWeather
-    let! _tmpl = Async.StartChild (parseToCache "index.html")
-    // await results
-    let! news = _news
-    let! weather = _weather
-    let e1 = elapsedMs sw
+let index getFeed : WebPart = fun ctx -> async {
+    try
+      printf "index1"
 
-    let! html = page _tmpl { News = news; Weather = weather } ctx
-    sw.Stop()
-    System.Console.WriteLine("{0} data {1:N3} render {2:N3} [ms]", ctx.request.url, e1, elapsedMs sw - e1)
-    return html
+      // perform in parallel
+      let! _news = Async.StartChild getFeed
+      //let! _weather = Async.StartChild getWeather
+      let! _tmpl = Async.StartChild (parseToCache "index.html")
+      // await results
+      let! news = _news
+  #if weather
+      let! weather = _weather
+  #else
+      let weather = []
+  #endif
+      printf "index2"
+      let! html = page _tmpl { News = news; Weather = weather } ctx
+      return html
+    with e -> return OK e.Message 
 }
 
 let app =
   choose
-    [ path "/" >>= Writers.setMimeType "text/html" >>= index getNews
+    [ path "/" >>= Writers.setMimeType "text/html" >>= (OK "Hallo World!")
+      path "/bbc" >>= Writers.setMimeType "text/html" >>= index getNews
       path "/spiegel" >>= Writers.setMimeType "text/html" >>= index getSpiegel
       path "/style.css" >>= Writers.setMimeType "text/css" >>= file (templateDir + "_style.css")
       NOT_FOUND "Found no handlers" ]
+
+// TODO directory is not correct when calling from interactive
+templateDir <- __SOURCE_DIRECTORY__ + """/tmpl/"""
+printfn "templates %s" templateDir
+//parseToCache "index.html" |> Async.RunSynchronously
+//let test = getSpiegel |> Async.RunSynchronously
+//Web.startWebServer serverConfig app

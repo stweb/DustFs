@@ -33,6 +33,8 @@ Global
 		{D40C1290-A244-4E10-BC82-85C5D0884FEA}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{D40C1290-A244-4E10-BC82-85C5D0884FEA}.Release|AnyCPU.Build.0 = Release|Any CPU
 	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
 	EndGlobalSection

@@ -46,11 +46,10 @@
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="News.fs" />
-    <Compile Include="NewsSuave.fs" />
     <Content Include="paket.references" />
     <Content Include="tmpl\_style.css" />
     <None Include="tmpl\index.html" />
+    <Compile Include="News.fsx" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
