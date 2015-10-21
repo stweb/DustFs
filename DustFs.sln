@@ -3,6 +3,11 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 VisualStudioVersion = 14.0.23107.0
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{1612609B-4A7E-4605-8C2D-C99A0A9275D2}"
+	ProjectSection(SolutionItems) = preProject
+		paket.dependencies = paket.dependencies
+	EndProjectSection
+EndProject
 Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "DustFs", "DustFs\DustFs.fsproj", "{AA511B15-2792-400C-9E57-DE31145CDEE7}"
 EndProject
 Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "DustFsNews", "DustFsNews\DustFsNews.fsproj", "{D40C1290-A244-4E10-BC82-85C5D0884FEA}"
