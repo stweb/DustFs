@@ -1,8 +1,10 @@
+#if INTERACTIVE
 #r "System.Xml.Linq"
 
 #r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
 #r "../packages/Suave/lib/net40/Suave.dll"
 #r "../build/DustFs.dll"
+#endif
 
 open System
 open System.IO
@@ -10,6 +12,7 @@ open FSharp.Data
 open Dust.Engine
 open Dust.Suave
 open Suave
+open Suave.Logging
 open Suave.Utils
 open Suave.Types
 open Suave.Http
@@ -81,11 +84,14 @@ let getNews = async {
   let! res = RSS.AsyncGetSample()
   return
     [ for item in res.Channel.Items |> Seq.take 15 do
-      if item.Thumbnails |> Seq.length > 0 then
-        let thumb = item.Thumbnails |> Seq.maxBy (fun t -> t.Width)
+        let thumb = if item.Thumbnails |> Seq.length > 0 then
+                        (item.Thumbnails |> Seq.maxBy (fun t -> t.Width)).Url
+                    else
+                        "http://placehold.it/144x81" // TODO placeholder
         yield
-          { ThumbUrl = thumb.Url; LinkUrl = item.Link;
-            Title = item.Title; Description = item.Description } ] }
+          { ThumbUrl = thumb; LinkUrl = item.Link;
+            Title = item.Title; Description = item.Description } ] 
+}
 
 // ----------------------------------------------------------------------------
 // Dust templating
@@ -109,37 +115,51 @@ helpers.["version"] <- NewsHelpers.versionHelper
 // Building asynchronous Suave server
 // ----------------------------------------------------------------------------
 let index getFeed : WebPart = fun ctx -> async {
-    try
-      printf "index1"
+      
+    Log.info ctx.runtime.logger "News.index" TraceHeader.empty 
+        (sprintf "Getting News %s" ctx.request.url.AbsolutePath)
 
-      // perform in parallel
-      let! _news = Async.StartChild getFeed
-      //let! _weather = Async.StartChild getWeather
-      let! _tmpl = Async.StartChild (parseToCache "index.html")
-      // await results
-      let! news = _news
-  #if weather
-      let! weather = _weather
-  #else
-      let weather = []
-  #endif
-      printf "index2"
-      let! html = page _tmpl { News = news; Weather = weather } ctx
-      return html
-    with e -> return OK e.Message 
+    // perform in parallel
+    let! _news = Async.StartChild getFeed
+    //let! _weather = Async.StartChild getWeather
+    let! _tmpl = Async.StartChild (parseToCache "index.html")
+
+    // await results
+    let! news = _news
+    #if weather
+    let! weather = _weather
+    #else
+    let weather = []
+    #endif
+
+    Log.info ctx.runtime.logger "News.index" TraceHeader.empty 
+        (sprintf "Got News %d" (List.length news))
+
+    let! html = page _tmpl { News = news; Weather = weather } ctx
+    return html
 }
 
-let app =
-  choose
-    [ path "/" >>= Writers.setMimeType "text/html" >>= (OK "Hallo World!")
-      path "/bbc" >>= Writers.setMimeType "text/html" >>= index getNews
-      path "/spiegel" >>= Writers.setMimeType "text/html" >>= index getSpiegel
-      path "/style.css" >>= Writers.setMimeType "text/css" >>= file (templateDir + "_style.css")
-      NOT_FOUND "Found no handlers" ]
+(*
+let timed : WebPart = fun ctx -> async {
+    let sw = System.Diagnostics.Stopwatch()
+    sw.Start()
+
+
+    sw.Stop()
+    Log.verbose ctx.runtime.logger "timed" TraceHeader.empty 
+        (sprintf "timed %s %f [ms]", ctx.request.url.AbsolutePath, elapsedMs sw];
+}*)
+
 
 // TODO directory is not correct when calling from interactive
 templateDir <- __SOURCE_DIRECTORY__ + """/tmpl/"""
 printfn "templates %s" templateDir
-//parseToCache "index.html" |> Async.RunSynchronously
-//let test = getSpiegel |> Async.RunSynchronously
-//Web.startWebServer serverConfig app
+
+let app =
+  let tdir = templateDir
+  choose
+    [ path "/"          >>= OK "Hallo World!"
+      path "/bbc"       >>= index getNews
+      path "/spiegel"   >>= index getSpiegel
+      path "/style.css" >>= Writers.setMimeType "text/css" >>= Files.sendFile (tdir + "_style.css") true
+      NOT_FOUND         "Found no handlers" ]
