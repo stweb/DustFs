@@ -126,7 +126,10 @@ type Context =
         index:int; // TODO
         current:Option<obj>;
         scope:string list;
+        logger: string -> unit
     }
+
+    static member defaults = { _templateDir = ""; _w = null; data = null; index = 0; current = None; scope = []; logger = fun s -> () }    
 
     member this.parseFile parse name : Body = 
         let sw = System.Diagnostics.Stopwatch()
@@ -137,7 +140,7 @@ type Context =
         let body = File.ReadAllText fname |> parse
 
         sw.Stop()
-        System.Console.WriteLine("parsed {0} {1:N3} [ms]", name, elapsedMs sw);
+        this.Log(System.String.Format("parsed {0} {1:N3} [ms]", name, elapsedMs sw))
         body  
 
     member this.parseCached parse name = 
@@ -172,7 +175,7 @@ type Context =
                                         | Some(o) -> o.ToString()
                                         | None    -> ""
 
-    member this.Log msg = () // printfn "%s" msg
+    member this.Log msg = this.logger msg
     member this.Unresolved scope key =
 #if DEBUG
                                         names.Add(key) |> ignore

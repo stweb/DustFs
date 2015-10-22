@@ -29,23 +29,28 @@ let fileData name =
 let mutable templateDir = ""
 
 let parseToCache name = async {
-    let ctx = { _templateDir = templateDir; _w = null; data = null; index = 0; current = None; scope = [] }
+    let ctx = { Context.defaults with _templateDir = templateDir }
     try
       return ctx.parseCached parse name
     with
       e -> return [] // TODO error handling
 }
 
-let page<'T> atmpl (model : 'T) r = async {
+let page<'T> atmpl (model : 'T) ctx = async {
+
+    let slog msg = 
+        Log.info ctx.runtime.logger "Dust" TraceHeader.empty 
+                 (sprintf "%s %s" msg ctx.request.url.AbsolutePath)
 
     let sb = System.Text.StringBuilder()
-    let ctx = { _templateDir = templateDir; _w = new StringWriter(sb); data = (box model); index = 0; current = None; scope = [] }
+    let dustctx = { Context.defaults with _templateDir = templateDir; _w = new StringWriter(sb); data = (box model); 
+                                      logger = slog }
     let! doc = atmpl
-    doc |> List.iter(fun p -> render ctx [] p)
+    doc |> List.iter(fun p -> render dustctx [] p)
 
     let content = sb.ToString()
 #if DEBUG2
     File.WriteAllText(__SOURCE_DIRECTORY__ + "/out.html", content)
 #endif
-    return! Response.response HTTP_200 (UTF8.bytes content) r
+    return! Response.response HTTP_200 (UTF8.bytes content) ctx
 }

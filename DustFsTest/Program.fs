@@ -27,8 +27,7 @@ let json s =
 let dust name source data =
     let body = parse source
     let sb = System.Text.StringBuilder()
-    let ctx = { _w = new StringWriter(sb); _templateDir = __SOURCE_DIRECTORY__ + """\null\"""
-                data = data; index = 0; current = None; scope = [] }
+    let ctx = { Context.defaults with _w = new StringWriter(sb); _templateDir = __SOURCE_DIRECTORY__ + """\null\""" }
     body |> List.iter(fun p -> render ctx [] p)
     sb.ToString() 
 
