@@ -1,7 +1,7 @@
 ﻿open News
 open Suave
 
-let port = 8086
+let port = 8083
 let serverConfig =
     { Web.defaultConfig with homeFolder = Some __SOURCE_DIRECTORY__
                              logger = Logging.Loggers.saneDefaultsFor Logging.LogLevel.Verbose

@@ -139,16 +139,19 @@ let index getFeed : WebPart = fun ctx -> async {
     return html
 }
 
-(*
-let timed : WebPart = fun ctx -> async {
+// measure time consumed by executing a web part
+let timed (part : WebPart) : WebPart = fun ctx -> async {
     let sw = System.Diagnostics.Stopwatch()
     sw.Start()
 
+    let! e = part ctx
 
     sw.Stop()
     Log.verbose ctx.runtime.logger "timed" TraceHeader.empty 
-        (sprintf "timed %s %f [ms]", ctx.request.url.AbsolutePath, elapsedMs sw];
-}*)
+       (sprintf "timed %s %.3f [ms]" ctx.request.url.AbsolutePath (elapsedMs sw))
+
+    return e
+}
 
 
 // TODO directory is not correct when calling from interactive
@@ -159,7 +162,7 @@ let app =
   let tdir = templateDir
   choose
     [ path "/"          >>= OK "Hallo World!"
-      path "/bbc"       >>= index getNews
-      path "/spiegel"   >>= index getSpiegel
+      path "/bbc"       >>= index getNews |> timed
+      path "/spiegel"   >>= index getSpiegel |> timed
       path "/style.css" >>= Writers.setMimeType "text/css" >>= Files.sendFile (tdir + "_style.css") true
       NOT_FOUND         "Found no handlers" ]
