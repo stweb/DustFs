@@ -135,7 +135,7 @@ type Context =
         let sw = System.Diagnostics.Stopwatch()
         sw.Start()
 
-        let fname = this._templateDir + name 
+        let fname = Path.Combine(this._templateDir, name )
         if not(File.Exists fname) then failwith ("file not found: " + fname)
         let body = File.ReadAllText fname |> parse
 

@@ -1,0 +1,57 @@
+﻿<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta charset="utf-8" />
+    <title>F# Times with DustFs</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.2/css/bootstrap.min.css">
+    <link href='http://fonts.googleapis.com/css?family=Arapey' rel='stylesheet' type='text/css'>
+    <style type="text/css">{>_style.css}</style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="page-header">
+                    <h1>F# Times <small>Powered by type providers, Suave.io, DustFs</small></h1>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-8 news">
+                <ul>
+                    {#News}
+                    <li>
+                        <img src="{ThumbUrl}" />
+                        <h3><a href="{LinkUrl}">{Title}</a></h3>
+                        <p>{Description}</p>
+                    </li>
+                    {/News}
+                </ul>
+            </div>
+            <div class="col-md-4 weather">
+                <ul>
+                    {#Weather}
+                    <li>
+                        <h3>{Date | niceDate}</h3>
+                        <img src="http://openweathermap.org/img/w/{Icon}.png">
+                        <p>Day: {Day}°C</p>
+                        <p>Night: {Night}°C</p>
+                    </li>
+                    {/Weather}
+                </ul>
+            </div>
+        </div>
+    </div>
+    <div class="container">
+        <div class="row">
+            <div class="col-md-12">
+                <div class="page-footer">
+                    <small>{@version}</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
