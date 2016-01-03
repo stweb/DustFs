@@ -4,6 +4,7 @@ open System.Collections.Generic
 open System.Collections.Concurrent
 open System.Text.RegularExpressions
 open System.IO
+open System
 
 // key is defined as a character matching a to z, upper or lower case, followed by 0 or more alphanumeric characters
 // key "key" = h:[a-zA-Z_$] t:[0-9a-zA-Z_$-]*
@@ -24,7 +25,7 @@ let _ctxPattern = "^:" + _identPattern; // TODO
 
 let _kvPattern = "(?<kvp>(" + _keyPatternN + "=(?<value>\".*?\"|\d+|[\.\w]+)" + ")\s*)*" 
 let _keyValPattern = _identPattern +  
-                     "\s*(?<ctx>" + _ctxPattern + ")/{0,1}" +     
+                     "\s*(?<ctx>" + _ctxPattern + ")??" +     
                      "\s*(?<all>" + _kvPattern + ")/{0,1}"
 
 // reference is defined as matching a opening brace followed by an identifier plus one or more filters and a closing brace
@@ -72,10 +73,20 @@ and BodyDict = Map<string, Body>
 
 let filters = new ConcurrentDictionary<string, Filter>()
 
-let cache = new ConcurrentDictionary<string, Body>() 
+let cache = new ConcurrentDictionary<string, DateTime * Body>() 
 #if DEBUG
 let names = new HashSet<string>() 
 #endif
+
+/// Memoize asynchronous function. An item is recomputed when `isValid` returns `false`
+let private asyncMemoize isValid f =
+  fun x -> async {
+      match cache.TryGetValue(x) with
+      | true, res when isValid x res -> return res
+      | _ ->
+          let! res = f x
+          cache.[x] <- res
+          return res }
 
 // trim quotes from a string - assumes proper double quoted
 let unquote (s:string) = if s.StartsWith("\"") then s.Substring(1, s.Length-2) else s
@@ -108,16 +119,11 @@ type System.Object with    // TODO if key.StartsWith(".") then let cur = true ke
     | [] -> None
     | h :: [] -> o.TryFindProp h
     | h :: tail ->  let xo = o.TryFindProp h
-                    if xo.IsSome then
-                        xo.Value.Get tail
-                    else
-                        None
+                    if xo.IsSome then xo.Value.Get tail else None
 
-  member o.TryFind (key:string) = 
-    // TODO if key.StartsWith(".") then let cur = true key = key.substr(1)
+  member o.TryFind (key:string) = // TODO if key.StartsWith(".") then let cur = true key = key.substr(1)
     let path = key.Split('.') |> Array.toList;
     o.Get path
-
 
 type Context = 
     {   _w:TextWriter; // private - access via this.Write
@@ -131,24 +137,30 @@ type Context =
 
     static member defaults = { _templateDir = ""; _w = null; data = null; index = 0; current = None; scope = []; logger = fun s -> () }    
 
-    member this.parseFile parse name : Body = 
+    member this.loadAndParse parse name = async {
         let sw = System.Diagnostics.Stopwatch()
         sw.Start()
 
         let fname = Path.Combine(this._templateDir, name )
+        let writeTime = File.GetLastWriteTime(fname)
         if not(File.Exists fname) then failwith ("file not found: " + fname)
         let body = File.ReadAllText fname |> parse
 
         sw.Stop()
         this.Log(System.String.Format("parsed {0} {1:N3} [ms]", name, elapsedMs sw))
-        body  
+        return (writeTime, body)
+    }
+
+    member this.parseCachedAsync parse = 
+        this.loadAndParse parse |> asyncMemoize (fun name (lastWrite, _) -> 
+                                                    let path = Path.Combine(this._templateDir, name )
+                                                    let date = File.GetLastWriteTime(path)
+                                                    this.Log(System.String.Format("check {0} {1} <?= {2}", path, date, lastWrite))
+                                                    date <= lastWrite ) 
 
     member this.parseCached parse name = 
-        match cache.TryGetValue name with
-        | true, res -> res
-        | _ ->  let body = this.parseFile parse name
-                cache.[name] <- body
-                body
+        let _, body = this.parseCachedAsync parse name |> Async.RunSynchronously
+        body
     
     member this.Write (s:string)      = this._w.Write(s)
     member this.Write (c:char)        = this._w.Write(c)
@@ -247,8 +259,7 @@ let parseKeyValue input =
         let ctx = optional m.Groups.["ctx"].Value // Some context
         let values = m.Groups.["value"].Captures
         ( 
-            m.Groups.["ident"].Value, 
-            ctx,
+            m.Groups.["ident"].Value, ctx,
             [0 .. keys.Count-1] |> Seq.map (fun i -> (keys.[i].Value, values.[i].Value )) |> Map.ofSeq
         )
     else  
@@ -303,7 +314,7 @@ let rec parseSpans (sec:Stack<string>) acc chars =
                             if tag.EndsWith("/") then
                                 match st with
                                 | Helper(l,_) -> yield Section(Helper(l, kvp), ident)
-                                | Block ->       yield Section(st, ident)
+                                | Block ->       yield Section(Block, ident)
                                 | _ ->           failwith ("unexpected " + st.ToString())
                             else    
                                 sec.Push ident 
@@ -340,13 +351,11 @@ let rec getTree acc stop = function
                                                                     else
                                                                         (SectionBlock(typ, name, body, Map.empty), rest)
                                                     if typ = Inline then
-                                                        cache.[name] <- body
+                                                        cache.[name] <- (DateTime.Now, body) // defines inline part, TODO local namespace
                                                         getTree (acc) stop tail2
                                                     else
                                                         getTree (s :: acc) stop tail2
     | head :: tail -> getTree (head :: acc) stop tail
-
-// let mutable templateDir = __SOURCE_DIRECTORY__ + """/tmpl/""" 
 
 let parse (doc:string) =
     let body,_,_ = doc |> List.ofSeq |> parseSpans (new Stack<string>()) [] |> Seq.toList |> getTree [] ""
@@ -382,15 +391,16 @@ let rec render (c:Context) scope (part:Part) =
     | Buffer text    -> if not (System.String.IsNullOrWhiteSpace(text)) then c.Write(text)
     | Partial(n, kv) -> let body = c.parseCached parse n
                         let c2 = { c with current = Some(kv :> obj) } 
-                        if not kv.IsEmpty then
-                            c.Log (">partial " + c2.current.Value.ToString())
+                        // if not kv.IsEmpty then c.Log (">partial " + c2.current.Value.ToString())
                         if (body <> []) then body |> Seq.iter(fun p -> render c2 scope p)
     | Reference(k,f) -> match c.resolveRef scope k with                     
                         | Some(value)  ->   if not (value :? bool && value.Equals(false)) then
                                                 c.WriteFiltered f value
                         | None -> ()
     | Section(st, n) -> match st with 
-                        | Block ->          if cache.ContainsKey n then cache.[n] |> Seq.iter(fun p -> render c scope p) // else ignore
+                        | Block ->          match cache.TryGetValue n with
+                                            | true, (_, part) -> part |> Seq.iter(fun p -> render c scope p) // else ignore
+                                            | _ -> ()
                         | Scope ->          failwith "scope must have a body"
                         | Helper(l, map) -> match l with
                                             | Custom(name) ->   let c2 = { c with scope = scope }                        
