@@ -1,33 +1,18 @@
 ﻿module Dust.Suave
 
 open System
+open System.Text
 open System.IO
 open Dust.Engine
 open Suave
 open Suave.Utils
-open Suave.Types
 open Suave.Http
-open Suave.Http.Successful
-open Suave.Http.RequestErrors
-open Suave.Http.Applicatives
 open Suave.Logging
 
-let file name =
-    if File.Exists name then
-        OK (File.ReadAllText(name))
-    else
-        printf "not found %s" name
-        NOT_FOUND name
-
-let fileData name =
-    if File.Exists name then
-        ok (File.ReadAllBytes(name))
-    else
-        printf "not found %s" name
-        NOT_FOUND name
-
+// global template directory
 let mutable templateDir = ""
 
+// parse template from global directory and cache
 let parseToCache name = async {
     let ctx = { Context.defaults with _templateDir = templateDir }
     try
@@ -36,21 +21,22 @@ let parseToCache name = async {
       e -> return [] // TODO error handling
 }
 
+// render Dust page asynchronously for Suave
 let page<'T> atmpl (model : 'T) ctx = async {
 
-    let slog msg = 
-        Log.info ctx.runtime.logger "Dust" TraceHeader.empty 
-                 (sprintf "%s %s" msg ctx.request.url.AbsolutePath)
+    let slog msg = Log.info ctx.runtime.logger "Dust" TraceHeader.empty 
+                            (sprintf "%s %s" msg ctx.request.url.AbsolutePath)
 
     let sb = System.Text.StringBuilder()
-    let dustctx = { Context.defaults with _templateDir = templateDir; _w = new StringWriter(sb); data = (box model); 
-                                      logger = slog }
-    let! doc = atmpl
+    let dustctx = { Context.defaults with 
+                        _templateDir = templateDir; 
+                        _w = new StringWriter(sb); 
+                        data = (box model); 
+                        logger = slog }
+    
+    let! doc = atmpl // get parsed template async and render
     doc |> List.iter(fun p -> render dustctx [] p)
 
-    let content = sb.ToString()
-#if DEBUG2
-    File.WriteAllText(__SOURCE_DIRECTORY__ + "/out.html", content)
-#endif
-    return! Response.response HTTP_200 (UTF8.bytes content) ctx
+    let resp = Response.response HTTP_200 (Encoding.UTF8.GetBytes (sb.ToString())) ctx
+    return! resp
 }

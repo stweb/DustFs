@@ -14,11 +14,8 @@ open Dust.Suave
 open Suave
 open Suave.Logging
 open Suave.Utils
-open Suave.Types
 open Suave.Http
-open Suave.Http.Successful
-open Suave.Http.RequestErrors
-open Suave.Http.Applicatives
+open Suave.Successful
 
 // ----------------------------------------------------------------------------
 // Domain model for the F# Times homepage
@@ -158,11 +155,15 @@ let timed (part : WebPart) : WebPart = fun ctx -> async {
 templateDir <- __SOURCE_DIRECTORY__ + """/tmpl/"""
 printfn "templates %s" templateDir
 
+open Suave.Operators
+open Suave.Filters
+open Suave.RequestErrors
+
 let app =
   let tdir = templateDir
   choose
-    [ path "/"          >>= OK "Hallo World!"
-      path "/bbc"       >>= index getNews |> timed
-      path "/spiegel"   >>= index getSpiegel |> timed
-      path "/style.css" >>= Writers.setMimeType "text/css" >>= Files.sendFile (tdir + "_style.css") true
+    [ path "/"          >=> OK "Hallo World!"
+      path "/bbc"       >=> index getNews |> timed
+      path "/spiegel"   >=> index getSpiegel |> timed
+      path "/style.css" >=> Writers.setMimeType "text/css" >=> Files.sendFile (tdir + "_style.css") true
       NOT_FOUND         "Found no handlers" ]
