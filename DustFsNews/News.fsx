@@ -38,7 +38,7 @@ type Home =
     Weather : seq<Weather> }
 
 // ----------------------------------------------------------------------------
-// Getting Weather information and formatting it
+// Getting Weather information and formatting it - requires API key now
 // ----------------------------------------------------------------------------
 #if weather
 type Forecast = JsonProvider<"http://api.openweathermap.org/data/2.5/forecast/daily?q=London,UK&mode=json&units=metric&cnt=10">
@@ -162,8 +162,7 @@ open Suave.RequestErrors
 let app =
   let tdir = templateDir
   choose
-    [ path "/"          >=> OK "Hallo World!"
-      path "/bbc"       >=> index getNews |> timed
+    [ path "/"          >=> index getNews |> timed
       path "/spiegel"   >=> index getSpiegel |> timed
       path "/style.css" >=> Writers.setMimeType "text/css" >=> Files.sendFile (tdir + "_style.css") true
       NOT_FOUND         "Found no handlers" ]

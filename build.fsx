@@ -14,9 +14,9 @@ open Fake
 
 open System
 open System.IO
+open System.Net
 open Suave
 open Suave.Web
-open Suave.Types
 open Microsoft.FSharp.Compiler.Interactive.Shell
 
 // Properties
@@ -79,7 +79,7 @@ let serverConfig =
   { defaultConfig with
       homeFolder = Some appDir
       logger = Logging.Loggers.saneDefaultsFor Logging.LogLevel.Debug
-      bindings = [ HttpBinding.mk' HTTP  "127.0.0.1" 8083] }
+      bindings = [ HttpBinding.mk HTTP IPAddress.Loopback 8083us] }
 
 let reloadAppServer () =
   reloadScript() |> Option.iter (fun app ->
