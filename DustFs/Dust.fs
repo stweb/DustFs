@@ -144,8 +144,12 @@ type Context =
 
         let fname = Path.Combine(this._templateDir, name )
         let writeTime = File.GetLastWriteTime(fname)
-        if not(File.Exists fname) then failwith ("file not found: " + fname)
-        let body = File.ReadAllText fname |> parse
+        let body =  
+            if File.Exists fname then 
+                File.ReadAllText fname |> parse
+            else
+                this.Log <| sprintf "file not found: " + fname      
+                []
 
         sw.Stop()
         this.Log(System.String.Format("parsed {0} {1:N3} [ms]", name, elapsedMs sw))
@@ -167,8 +171,13 @@ type Context =
     member this.Write (c:char)        = this._w.Write(c)
     // by default always apply the h filter, unless asked to unescape with |s
     member this.WriteFiltered (f:Filters) (v:obj) = 
-                                        let mutable o = v
-                                        if Seq.isEmpty f && v :? string then
+                                        let mutable o = 
+                                            match v with
+                                            | :? IEnumerable<obj> as ie ->  let arr = ie |> Seq.cast<obj> |> Seq.map( fun o -> Convert.ToString(o))
+                                                                            String.Join(",", arr) :> obj
+                                            | _ -> v
+
+                                        if Seq.isEmpty f && o :? string then
                                             o <- System.Net.WebUtility.HtmlEncode(o :?> string) :> obj 
                                         else for x in f do o <- x o                                        
                                         this._w.Write(o)
@@ -202,10 +211,9 @@ type Context =
         elif key = "." then 
             c.current
         else
-            let result = if key.Contains(".") then None
-                         else match (c.current) with
-                              | Some obj -> obj.TryFind key
-                              | None     -> None
+            let result = match (c.current) with
+                         | Some obj -> obj.TryFind key
+                         | None     -> None
             match result with 
             | Some _ -> result
             | None   -> let found = c.data.TryFind key
@@ -222,6 +230,11 @@ type Context =
 
 type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit        
 let helpers = new ConcurrentDictionary<string, Helper>()
+
+let nullHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) =
+    ()
+
+helpers.[""] <- nullHelper
 
 // --------------------------------------------------------------------------------------
 
@@ -322,7 +335,8 @@ let rec parseSpans (sec:Stack<string>) acc chars =
                                 sec.Push ident 
                                 yield SectionBlock(st, ident, [], Map.empty)
 
-                | '/' ->    if tag <> sec.Peek() then failwith (sprintf "expected %s got %s" (sec.Peek()) tag)
+                | '/' ->    if tag <> sec.Peek() then 
+                                failwith (sprintf "expected %s got %s" (sec.Peek()) tag)
                             sec.Pop() |> ignore
                             yield EndSection(tag)
 
@@ -334,7 +348,7 @@ let rec parseSpans (sec:Stack<string>) acc chars =
                                 let filters = parseFilters (s.Split('|'))
                                 yield Reference(m.Value, filters)
                             else 
-                                failwith ("bad reference " + s) 
+                                yield Buffer("{" + toString(inside)  + "}")
             yield! parseSpans sec [] chars
         | c :: chars    ->  yield! parseSpans sec (c :: acc) chars
         | []            ->  yield! emitLiteral()
@@ -363,13 +377,6 @@ let parse (doc:string) =
     let body,_,_ = doc |> List.ofSeq |> parseSpans (new Stack<string>()) [] |> Seq.toList |> getTree [] ""
     body 
 
-let helper name =
-    match helpers.TryGetValue name with
-    | true, ref -> ref
-    | _ ->  match helpers.TryGetValue "todo" with
-            | true, ref ->  printfn "missing helper: %s" name 
-                            ref
-            | _ ->  failwith ("undefined helper " + name)
 
 // render template parts with provided context & scope
 let rec render (c:Context) scope (part:Part) = 
@@ -385,13 +392,12 @@ let rec render (c:Context) scope (part:Part) =
                                     | _ ->  let s = o.ToString()
                                             let result = s.Equals("true") || not (System.String.IsNullOrEmpty(s))
                                             result
-
-    let renderIf incl = function
-                        | SectionBlock (_,n,l,bodies)  ->  if incl then renderList scope l
-                                                           else match bodies.TryFind "else" with
-                                                                | Some(body) -> renderList scope body
-                                                                | None -> c.Log ("SKIP " + n)
-                        | _ -> failwith "unexpected"
+    let helper name =
+        match helpers.TryGetValue name with
+        | true, ref -> ref
+        | _ ->  c.Log <| sprintf "missing helper: %s" name
+                helpers.[""] // the nullHelper                
+                
     match part with
     //| Comment _      -> c.Write("<!-- " + text + " -->")
     | Special tag    -> c.WriteSpecial(tag)
@@ -401,10 +407,11 @@ let rec render (c:Context) scope (part:Part) =
                         // if not kv.IsEmpty then c.Log (">partial " + c2.current.Value.ToString())
                         if (body <> []) then body |> Seq.iter(fun p -> render c2 scope p)
     | Reference(k,f) -> match c.resolveRef scope k with                     
-                        | Some(value)  ->   // todo array
-                                            if not (value :? bool && value.Equals(false)) then
-                                                c.WriteFiltered f value
                         | None -> ()
+                        | Some value    ->  match value with
+                                            | null -> ()
+                                            | :? bool as b -> if b then c.WriteFiltered f value
+                                            | _ ->  c.WriteFiltered f value
     | Section(st, n) -> match st with 
                         | Block ->          match cache.TryGetValue n with
                                             | true, (_, part) -> part |> Seq.iter(fun p -> render c scope p) // else ignore
@@ -416,6 +423,10 @@ let rec render (c:Context) scope (part:Part) =
                                             | _ -> failwith "logic should be a SectionBlock" 
                         | _ -> ()
     | SectionBlock (st,n,l,bodies) -> 
+        let renderIf cond = if cond then renderList (n :: scope) l 
+                            else match bodies.TryFind "else" with
+                                 | Some body -> renderList (n :: scope) body // TODO check if n should be added
+                                 | None -> ()                            
         match st with 
         | Helper(t, map) -> match t with
                             | Custom(name)  -> helper name c bodies map (fun () -> renderList scope l)                                                             
@@ -444,28 +455,24 @@ let rec render (c:Context) scope (part:Part) =
 #if DEBUG2                                                   
                                     printfn "%A: %A %A %A %s %s" comp (match ckey with | Some(x) -> x.ToString() | _ -> "<n/a>") t (match cval with | Some(x) -> x.ToString() | _ -> "<n/a>") map.["key"] map.["value"] 
 #endif
-                                    if comp then renderList scope l        
-                                    else match bodies.TryFind "else" with
-                                                | Some(body) -> renderList scope body // n:: ??
-                                                | None -> c.Log ("SKIP " + n)
-                                               
-        | Condition     ->  part |> renderIf (evalBool n)
-        | NotCondition  ->  part |> renderIf (not (evalBool n))
+                                    renderIf comp                                                
+        | Condition     ->  renderIf (evalBool n)
+        | NotCondition  ->  renderIf (not (evalBool n))
         | Scope         ->  match c.resolveRef scope n with                     
                             | Some(valu) -> match valu with
                                             | :? IEnumerable<obj> as ie 
                                                  -> let arr = ie |> Seq.cast<obj> |> Seq.toArray
                                                     let len = arr.Length
-                                                    if len < 1 then
-                                                        match bodies.TryFind "else" with
-                                                        | Some body -> renderList (n :: scope) body
-                                                        | None -> ()
-                                                    else 
-                                                        arr |> Array.iteri(fun i o -> let c2 = { c with current = Some(o); index = i; count = len }
-                                                                                      l |> List.iter(fun p -> render c2 (n :: scope) p) )
-                                            | _ -> renderList (n :: scope) l                                            
-                            | None ->       // TODO create new current from keyvalue map 
-                                            renderList (n :: scope) l   
+                                                    if len < 1 then renderIf false
+                                                    else arr |> Array.iteri(fun i o -> 
+                                                        let c2 = { c with current = Some(o); index = i; count = len }
+                                                        l |> List.iter(fun p -> render c2 (n :: scope) p) )
+                                            | :? bool as b -> renderIf b
+                                            | null -> renderIf false
+                                            | o ->      let c2 = { c with current = Some(o); index = 0; count = 1 }
+                                                        l |> List.iter(fun p -> render c2 (n :: scope) p) 
+                            | None -> renderIf false      // TODO create new current from keyvalue map 
+                                              
         | Block         -> // overrides base template
                            renderList (n :: scope) l 
                         

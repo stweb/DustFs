@@ -3,11 +3,12 @@
 open NUnit.Framework
 open FsUnit
 open Dust.Engine
+open System
 open System.IO
 open System.Collections.Generic
+open System.Dynamic
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
-open System.Dynamic
 
 // test DSL
 
@@ -24,12 +25,19 @@ let json s =
     | ex -> printfn "EXCEPTION %s in %s" ex.Message s
             ex.Message  :> obj;  
 
-let dust name source data =
-    let body = parse source
+let dustExec name body data =
     let sb = System.Text.StringBuilder()
     let ctx = { Context.defaults with _w = new StringWriter(sb); _templateDir = __SOURCE_DIRECTORY__ + """\null\""" ; data = data}
     body |> List.iter(fun p -> render ctx [] p)
     sb.ToString() 
+
+let dust name source data =
+    dustExec name (parse source) data    
+
+let dustReg name source data =
+    let body = parse source
+    cache.[name] <- (DateTime.Now, body)
+    dustExec name body data    
 
 let shouldEqual (x: 'a) (y: 'a) = 
     Assert.AreEqual(x, y, sprintf "Expected: %A\nActual: %A" x y)
@@ -37,8 +45,7 @@ let shouldEqual (x: 'a) (y: 'a) =
 let shouldBeSome (x: string) (y: obj option) = 
     Assert.AreEqual(x, y.Value :?> string, sprintf "Expected: %A\nActual: %A" x y)
 
-
-module T01_DustFs =       
+module R01_DustFs =       
 
     [<Test>]
     let ``regex should parse tag into name,ctx,kv`` () =
@@ -50,8 +57,15 @@ module T01_DustFs =
         kv.TryFindProp "label" |> shouldBeSome "action.order.now"
         kv.TryFindProp "test2" |> shouldBeSome "hallo"
 
+module R02_CoreTests =
 
-module T02_CoreTests =
+    // javascript-special characters in template names shouldn't break things
+    [<Test>]
+    let ``javascript-special characters in template names shouldn't break things`` () =
+      empty
+      |> dust  "confusing \" \n \' \u2028 \u2029 template name\\"
+               "Hello World!"
+      |> should equal "Hello World!"
 
     // === SUITE ===core tests
     // SKIPPED streaming render
@@ -62,38 +76,6 @@ module T02_CoreTests =
       |> dust  "hello_world"
                "Hello World!"
       |> should equal "Hello World!"
-
-    // javascript-special characters in template names shouldn't break things
-    [<Test>]
-    let ``javascript-special characters in template names shouldn't break things`` () =
-      empty
-      |> dust  "confusing \" \n \' \u2028 \u2029 template name\\"
-               "Hello World!"
-      |> should equal "Hello World!"
-
-    // should render the template name
-    [<Test>]
-    let ``should render the template name`` () =
-      json "{}"
-      |> dust  "global_template"
-               "{#helper foo=\"bar\" boo=\"boo\"} {/helper}"
-      |> should equal "global_template"
-
-    // should render the template name with paths
-    [<Test>]
-    let ``should render the template name with paths`` () =
-      json "{}"
-      |> dust  "apps/test/foo.tl&v=0.1"
-               "{#helper foo=\"bar\" boo=\"boo\" template=\"tl/apps/test\"} {/helper}"
-      |> should equal "apps/test/foo.tl&v=0.1"
-
-    // should render the helper with missing global context
-    [<Test>]
-    let ``should render the helper with missing global context`` () =
-      json "{}"
-      |> dust  "makeBase_missing_global"
-               "{#helper}{/helper}"
-      |> should equal ""
 
     // should test a basic reference
     [<Test>]
@@ -111,8 +93,68 @@ module T02_CoreTests =
                "{#names}{.}{~n}{/names}"
       |> should equal "Moe\nLarry\nCurly\n"
 
+
+    // should test base template
+    [<Test>]
+    let ``should test base and child template`` () =
+      empty
+      |> dustReg  "base_template"
+               "Start{~n}{+title}Base Title{/title}{~n}{+main}Base Content{/main}{~n}End"
+      |> should equal "Start\nBase Title\nBase Content\nEnd"
+
+
+      json "{\"xhr\":false}"
+      |> dust "child_template"
+               "{^xhr}{>base_template/}{:else}{+main/}{/xhr}{<title}Child Title{/title}{<main}Child Content{/main}"
+      |> should equal "Start\nChild Title\nChild Content\nEnd"
+
+    // should test comments
+    [<Test>]
+    let ``should test comments`` () =
+      empty
+      |> dust  "comments"
+               "{!\n  Multiline\n  {#foo}{bar}{/foo}\n!}\n{!before!}Hello{!after!}"
+      |> should equal "Hello"
+
+    // should test escaped characters
+    [<Test>]
+    let ``should test escaped characters`` () =
+      json "{\"safe\":\"<script>alert(\'Hello!\')</script>\",\"unsafe\":\"<script>alert(\'Goodbye!\')</script>\"}"
+      |> dust  "filter un-escape"
+               "{safe|s}{~n}{unsafe}"
+      |> should equal "<script>alert(\'Hello!\')</script>\n&lt;script&gt;alert(&#39;Goodbye!&#39;)&lt;/script&gt;"
+
+    // should render the helper with missing global context
+    [<Test>]
+    let ``should render the helper with missing global context`` () =
+      json "{}"
+      |> dust  "makeBase_missing_global"
+               "{#helper}{/helper}"
+      |> should equal ""
+
+module T02_CoreTests =
+
+    // should render the template name
+    [<Test>]
+    [<Ignore "requires JS helper">]
+    let ``should render the template name`` () =
+      json "{}"
+      |> dust  "global_template"
+               "{#helper foo=\"bar\" boo=\"boo\"} {/helper}"
+      |> should equal "global_template"
+
+    // should render the template name with paths
+    [<Test>]
+    [<Ignore "requires JS helper">]   
+    let ``should render the template name with paths`` () =
+      json "{}"
+      |> dust  "apps/test/foo.tl&v=0.1"
+               "{#helper foo=\"bar\" boo=\"boo\" template=\"tl/apps/test\"} {/helper}"
+      |> should equal "apps/test/foo.tl&v=0.1"
+
     // should test renaming a key
     [<Test>]
+    [<Ignore "implement renaming">]
     let ``should test renaming a key`` () =
       json "{\"root\":\"Subject\",\"person\":{\"name\":\"Larry\",\"age\":45}}"
       |> dust  "inline param from outer scope"
@@ -127,16 +169,9 @@ module T02_CoreTests =
                "{#person}{.root}: {name}, {age}{/person}"
       |> should equal ": Larry, 45"
 
-    // should test escaped characters
-    [<Test>]
-    let ``should test escaped characters`` () =
-      json "{\"safe\":\"<script>alert(\'Hello!\')</script>\",\"unsafe\":\"<script>alert(\'Goodbye!\')</script>\"}"
-      |> dust  "filter un-escape"
-               "{safe|s}{~n}{unsafe}"
-      |> should equal "<script>alert(\'Hello!\')</script>\n&lt;script&gt;alert(&#39;Goodbye!&#39;)&lt;/script&gt;"
-
     // should test escape_pragma
     [<Test>]
+    [<Ignore "implement{%esc}">]
     let ``should test escape_pragma`` () =
       json "{\"unsafe\":\"<script>alert(\'Goodbye!\')</script>\"}"
       |> dust  "escape pragma"
@@ -145,8 +180,8 @@ module T02_CoreTests =
 
     // . creating a block
     [<Test>]
-    [<Ignore("TODO")>]
-    let ``. creating a block`` () =
+    [<Ignore("TODO implement ad-hoc blocks")>]
+    let ``dot creating a block`` () =
       json "{\"name\":\"me\"}"
       |> dust  "use . for creating a block and set params"
                "{#. test=\"you\"}{name} {test}{/.}"
@@ -154,6 +189,7 @@ module T02_CoreTests =
 
     // should functions in context
     [<Test>]
+    [<Ignore "requires JS in context">]
     let ``should functions in context`` () =
       json "{}"
       |> dust  "functions in context"
@@ -162,6 +198,7 @@ module T02_CoreTests =
 
     // should test functions in context
     [<Test>]
+    [<Ignore "requires JS in context">]
     let ``should test functions in context`` () =
       json "{}"
       |> dust  "async functions in context"
@@ -170,39 +207,21 @@ module T02_CoreTests =
 
     // should test sync chunk write
     [<Test>]
+    [<Ignore "requires JS in context">]
     let ``should test sync chunk write`` () =
       json "{}"
       |> dust  "sync chunk write test"
                "Hello {type} World!"
       |> should equal "Hello Chunky World!"
 
-    // should test base template
-    [<Test>]
-    let ``should test base template`` () =
-      empty
-      |> dust  "base_template"
-               "Start{~n}{+title}Base Title{/title}{~n}{+main}Base Content{/main}{~n}End"
-      |> should equal "Start\nBase Title\nBase Content\nEnd"
-
-    // should test child template
-    [<Test>]
-    let ``should test child template`` () =
-      json "{\"xhr\":false}"
-      |> dust  "child_template"
-               "{^xhr}{>base_template/}{:else}{+main/}{/xhr}{<title}Child Title{/title}{<main}Child Content{/main}"
-      |> should equal "Start\nChild Title\nChild Content\nEnd"
-
     // should setup base template for next test. hi should not be part of base block name
     [<Test>]
-    let ``should setup base template for next test. hi should not be part of base block name`` () =
+    let ``should setup base template for next test; hi should not be part of base block name`` () =
       empty
-      |> dust  "issue322"
+      |> dustReg "issue322"
                "hi{+\"{name}\"/}"
       |> should equal "hi"
 
-    // should use base template and honor name passed in
-    [<Test>]
-    let ``should use base template and honor name passed in`` () =
       empty
       |> dust  "issue322 use base template picks up prefix chunk data"
                "{>issue322 name=\"abc\"/}{<abc}ABC{/abc}"
@@ -210,23 +229,17 @@ module T02_CoreTests =
 
     // should test recursion
     [<Test>]
+    //[<Ignore "TODO fix recursion">]
     let ``should test recursion`` () =
       json "{\"name\":\"1\",\"kids\":[{\"name\":\"1.1\",\"kids\":[{\"name\":\"1.1.1\"}]}]}"
-      |> dust  "recursion"
-               "{name}{~n}{#kids}{>recursion:./}{/kids}"
+      |> dustReg  "recursion" 
+               "{name}{~n}{#kids}{>recursion:./}{/kids}"        
       |> should equal "1\n1.1\n1.1.1\n"
-
-    // should test comments
-    [<Test>]
-    let ``should test comments`` () =
-      empty
-      |> dust  "comments"
-               "{!\n  Multiline\n  {#foo}{bar}{/foo}\n!}\n{!before!}Hello{!after!}"
-      |> should equal "Hello"
 
     // context.resolve() taps parameters from the context
     [<Test>]
-    let ``context.resolve() taps parameters from the context`` () =
+    [<Ignore "Requires JS Context">]
+    let ``context_resolve() taps parameters from the context`` () =
       json "{\"baz\":\"baz\",\"ref\":\"ref\"}"
       |> dust  "context.resolve"
                "{#foo bar=\"{baz} is baz \" literal=\"literal \" func=func chunkFunc=\"{chunkFunc}\" indirectChunkFunc=indirectChunkFunc ref=ref }Fail{/foo}"
@@ -234,14 +247,16 @@ module T02_CoreTests =
 
     // should test the context
     [<Test>]
+    [<Ignore "Requires JS Context">]
     let ``should test the context`` () =
       json "{\"projects\":[{\"name\":\"Mayhem\"},{\"name\":\"Flash\"},{\"name\":\"Thunder\"}]}"
       |> dust  "context"
                "{#list:projects}{name}{:else}No Projects!{/list}"
       |> should equal "<ul>\n<li>Mayhem</li>\n<li>Flash</li>\n<li>Thunder</li>\n</ul>"
 
-    // should allow pushing and popping a context
+    // should allow pushing and popping a context    
     [<Test>]
+    [<Ignore "Requires JS Context">]
     let ``should allow pushing and popping a context`` () =
       json "{}"
       |> dust  "context push / pop"
@@ -250,14 +265,14 @@ module T02_CoreTests =
 
     // should allow cloning a context
     [<Test>]
+    [<Ignore "Requires JS Context">]
     let ``should allow cloning a context`` () =
       json "{}"
       |> dust  "context clone"
                "{#helper}{greeting} {firstName} {lastName}{/helper}"
       |> should equal "Hello Dusty Dusterson"
 
-// ALL OK
-module T03_TruthyFalsy =
+module R03_TruthyFalsy =
 
     // === SUITE ===truth/falsy tests
 
@@ -357,7 +372,7 @@ module T03_TruthyFalsy =
                "{?scalar}true{:else}false{/scalar}"
       |> should equal "false"
 
-module T04_ScalarData =
+module R04_ScalarData =
 
     // === SUITE ===scalar data tests
     // should test for a scalar null in a # section
@@ -432,7 +447,7 @@ module T04_ScalarData =
                "{#foo}foo,{~s}{:else}not foo,{~s}{/foo}{#bar}bar!{:else}not bar!{/bar}"
       |> should equal "foo, not bar!"
 
-module T05_EmptyData =
+module R05_EmptyData =
 
     // === SUITE ===empty data tests
     // empty array is treated as empty in exists
@@ -593,7 +608,7 @@ module T06_ArrayIndexAccess =
 
     // test array reference $idx/$len on empty array case
     [<Test>]
-    let ``test array reference $idx/$len on empty array case`` () =
+    let ``test array reference $idx $len on empty array case`` () =
       json "{\"title\":\"Sir\",\"names\":[]}"
       |> dust  "array reference $idx/$len on empty array case"
                "{#names}Idx={$idx} Size=({$len}).{title} {.}{~n}{/names}"
@@ -601,7 +616,7 @@ module T06_ArrayIndexAccess =
 
     // test array reference $idx/$len on single element case
     [<Test>]
-    let ``test array reference $idx/$len on single element case`` () =
+    let ``test array reference $idx $len on single element case`` () =
       json "{\"name\":\"Just one name\"}"
       |> dust  "array reference $idx/$len on single element case (scalar case)"
                "{#name}Idx={$idx} Size={$len} {.}{/name}"
@@ -609,7 +624,7 @@ module T06_ArrayIndexAccess =
 
     // test array reference $idx/$len {#.} section case
     [<Test>]
-    let ``test array reference $idx/$len {#.} section case`` () =
+    let ``test array reference $idx $len section case`` () =
       json "{\"names\":[\"Moe\",\"Larry\",\"Curly\"]}"
       |> dust  "array reference $idx/$len {#.} section case"
                "{#names}{#.}{$idx}{.} {/.}{/names}"
@@ -617,7 +632,7 @@ module T06_ArrayIndexAccess =
 
     // test array reference $idx/$len not changed in nested object
     [<Test>]
-    let ``test array reference $idx/$len not changed in nested object`` () =
+    let ``test array reference $idx $len not changed in nested object`` () =
       json "{\"results\":[{\"info\":{\"name\":\"Steven\"}},{\"info\":{\"name\":\"Richard\"}}]}"
       |> dust  "array reference $idx/$len not changed in nested object"
                "{#results}{#info}{$idx}{name}-{$len} {/info}{/results}"
@@ -625,7 +640,7 @@ module T06_ArrayIndexAccess =
 
     // test array reference $idx/$len nested loops
     [<Test>]
-    let ``test array reference $idx/$len nested loops`` () =
+    let ``test array reference $idx $len nested loops`` () =
       json "{\"A\":[{\"B\":[{\"C\":[\"Ca1\",\"C2\"]},{\"C\":[\"Ca2\",\"Ca22\"]}]},{\"B\":[{\"C\":[\"Cb1\",\"C2\"]},{\"C\":[\"Cb2\",\"Ca2\"]}]}]}"
       |> dust  "array reference $idx/$len nested loops"
                "{#A}A loop:{$idx}-{$len},{#B}B loop:{$idx}-{$len}C[0]={.C[0]} {/B}A loop trailing: {$idx}-{$len}{/A}"
@@ -665,7 +680,7 @@ module T06_ArrayIndexAccess =
 
     // should test double nested array and . reference: issue #340
     [<Test>]
-    let ``should test double nested array and . reference: issue #340`` () =
+    let ``should test double nested array and dot reference: issue #340`` () =
       json "{\"test\":[[1,2,3]]}"
       |> dust  "using idx in double nested array"
                "{#test}{#.}{.}i:{$idx}l:{$len},{/.}{/test}"
@@ -687,7 +702,7 @@ module T06_ArrayIndexAccess =
                "{array}"
       |> should equal "You &amp; I, &amp; Moe"
 
-module T07_ObjectTests =
+module R07_ObjectTests =
 
     // === SUITE ===object tests
     // should test an object
@@ -705,6 +720,9 @@ module T07_ObjectTests =
       |> dust  "path"
                "{foo.bar}"
       |> should equal "Hello!"
+
+[<Ignore "Implement thenable/promises">]
+module T07_ObjectTestsWithThenable =
 
     // should reserve an async chunk for a thenable reference
     [<Test>]
@@ -850,6 +868,9 @@ module T07_ObjectTests =
                "{#promise}No magic{:error}{message}{/promise}"
       |> should equal "promise error"
 
+[<Ignore "Implement streams">]
+module T07_ObjectTestsWithStreams =
+
     // should reserve an async chunk for a stream reference
     [<Test>]
     let ``should reserve an async chunk for a stream reference`` () =
@@ -922,8 +943,7 @@ module T07_ObjectTests =
                "{#stream/}"
       |> should equal ""
 
-
-module T08_Conditional =
+module R06_Conditional =
 
     // === SUITE ===conditional tests
     // should test conditional tags
@@ -942,10 +962,11 @@ module T08_Conditional =
                "{#foo}full foo{:else}empty foo{/foo}"
       |> should equal "empty foo"
 
-
+module R07_NestedPaths =
     // === SUITE ===nested path tests
     // should test the leading dot behavior in local mode
     [<Test>]
+    [<Ignore "fix . reference section parsing">]
     let ``should test the leading dot behavior in local mode`` () =
       json "{\"name\":\"List of people\",\"age\":\"8 hours\",\"people\":[{\"name\":\"Alice\"},{\"name\":\"Bob\",\"age\":42}]}"
       |> dust  "Verify local mode leading dot path in local mode"
@@ -986,6 +1007,7 @@ module T08_Conditional =
 
     // should test explicit context blocks looking further up stack
     [<Test>]
+    [<Ignore "TODO Implement explicit context">]
     let ``should test explicit context blocks looking further up stack`` () =
       json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
       |> dust  "same as previous test but with explicit context"
@@ -994,6 +1016,7 @@ module T08_Conditional =
 
     // should test access global despite explicit context
     [<Test>]
+    [<Ignore "TODO Implement global">]
     let ``should test access global despite explicit context`` () =
       json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
       |> dust  "explicit context but gets value from global"
@@ -1010,8 +1033,10 @@ module T08_Conditional =
 
     // Should find glob.globChild which is in context.global
     [<Test>]
-    let ``Should find glob.globChild which is in context.global`` () =
+    [<Ignore "TODO Implement global">]
+    let ``Should find glob_globChild which is in context_global`` () =
       empty
+      // base: { glob: { globChild: "testGlobal"} },        
       |> dust  "check nested ref in global works in global mode"
                "{glob.globChild}"
       |> should equal "testGlobal"
@@ -1026,22 +1051,35 @@ module T08_Conditional =
 
     // Should find glob.globChild which is in context.global
     [<Test>]
-    let ``Should find glob.globChild which is in context.global 2`` () =
+    [<Ignore "TODO Implement global">]
+    let ``Should find glob_globChild which is in context_global 2`` () =
       json "{\"data\":{\"A\":{\"name\":\"Al\",\"B\":\"Ben\",\"C\":{\"namex\":\"Charlie\"}},\"C\":{\"namey\":\"Charlie Sr.\"}}}"
       |> dust  "check nested ref not found in global if partial match"
                "{#data}{#A}{C.name}{/A}{/data}"
       |> should equal ""
 
+    // should test resolve correct 'this' 
+    [<Test>]
+    let ``should test resolve correct 'this'`` () =
+      json "{\"person\":{\"firstName\":\"Peter\",\"lastName\":\"Jones\",\"fullName\":\"Peter Jones\"}}"
+      |> dust  "method invocation"
+               "Hello {person.fullName}"
+      |> should equal "Hello Peter Jones"
+
     // should test resolve correct 'this' when invoking method
+    [<Ignore "Requires JavaScript">]
     [<Test>]
     let ``should test resolve correct 'this' when invoking method`` () =
-      json "{\"person\":{\"firstName\":\"Peter\",\"lastName\":\"Jones\"}}"
+      json "{\"person\":{\"firstName\":\"Peter\",\"lastName\":\"Jones\", \"fullName\": function() {
+                return this.firstName + ' ' + this.lastName;
+            }}}"
       |> dust  "method invocation"
                "Hello {person.fullName}"
       |> should equal "Hello Peter Jones"
 
     // Should resolve path correctly
     [<Test>]
+    [<Ignore "implement array index references">]
     let ``Should resolve path correctly`` () =
       json "{\"nulls\":[1,null,null,2],\"names\":[{\"name\":\"Moe\"},{\"name\":\"Curly\"}]}"
       |> dust  "check null values in section iteration don\'t break path resolution"
@@ -1064,14 +1102,24 @@ module T08_Conditional =
                "{#list}{a.b}{/list}"
       |> should equal "BBB"
 
-[<Ignore("TODO")>]
+[<Ignore "TODO implement j filters">]
 module T09_Filter =
 
     // === SUITE ===filter tests
     // should test the filter tag
     [<Test>]
+    [<Ignore "requires JavaScript">]
     let ``should test the filter tag`` () =
       json "{\"bar\":\"bar\"}"
+//              context:  {
+//                    filter: function(chunk, context, bodies) {
+//                      return chunk.tap(function(data) {
+//                        return data.toUpperCase();
+//                      }).render(bodies.block, context).untap();
+//                    },
+//
+//                    bar: "bar"
+//                  },
       |> dust  "filter"
                "{#filter}foo {bar}{/filter}"
       |> should equal "FOO BAR"
@@ -1124,7 +1172,7 @@ module T09_Filter =
                "{#dust}{name|woo}{/dust}"
       |> should equal "DUST!!!!!"
 
-module T10_Partial =
+module R10_Partial =
 
     // === SUITE ===partial definitions
     // should test a basic replace in a template
@@ -1159,9 +1207,9 @@ module T10_Partial =
                "{#helper}{/helper}"
       |> should equal ""
 
-    // should test a template with missing helper
+    // should test partial
     [<Test>]
-    let ``should test a template with missing helper 2`` () =
+    let ``should test partial`` () =
       empty
       |> dust  "nested_partial_print_name"
                "{>partial_print_name/}"
@@ -1175,7 +1223,7 @@ module T10_Partial =
                "{>nested_partial_print_name/}"
       |> should equal ""
 
-[<Ignore("TODO")>]
+[<Ignore("TODO implement")>]
 module T11_PartialParams =
 
     // === SUITE ===partial/params tests
@@ -1261,7 +1309,7 @@ module T11_PartialParams =
 
     // should test partial with literal inline param and context. Fallback values for name or count are undefined
     [<Test>]
-    let ``should test partial with literal inline param and context. Fallback values for name or count are undefined`` () =
+    let ``should test partial with literal inline param and context; Fallback values for name or count are undefined`` () =
       json "{\"profile\":{\"n\":\"Mick\",\"count\":30}}"
       |> dust  "partial with literal inline param and context"
                "{>partial:profile name=\"Joe\" count=\"99\"/}"
@@ -1285,7 +1333,7 @@ module T11_PartialParams =
 
     // should preserve partials backwards compatibility with compilers pre-2.7
     [<Test>]
-    let ``should preserve partials backwards compatibility with compilers pre-2.7`` () =
+    let ``should preserve partials backwards compatibility with compilers pre 2_7`` () =
       json "{\"name\":\"Mick\",\"count\":30}"
       |> dust  "backcompat (< 2.7.0) compiler with no partial context"
                "{#oldPartial/}"
@@ -1371,7 +1419,7 @@ module T11_PartialParams =
                "{#loadPartialTl}{/loadPartialTl}\n{>partialTl:contextDoesNotExist/}"
       |> should equal " "
 
-[<Ignore("TODO")>]
+[<Ignore("TODO implement")>]
 module T12_InlineParams =
 
     // === SUITE ===inline params tests
@@ -1431,7 +1479,7 @@ module T12_InlineParams =
                "{#section a=\"{b}\"}{#a}Hello, {.}!{/a}{/section}"
       |> should equal "Hello, world!"
 
-[<Ignore("TODO")>]
+[<Ignore("TODO implement")>]
 module T13_InlinePartialBlock =
 
     // === SUITE ===inline partial/block tests
@@ -1467,7 +1515,7 @@ module T13_InlinePartialBlock =
                "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{obj.name[0]}\"/}"
       |> should equal "AAA"
 
-[<Ignore("TODO")>]
+[<Ignore("TODO requires JavaScript in context")>]
 module T14_Lambda =
 
     // === SUITE ===lambda tests
@@ -1511,7 +1559,7 @@ module T14_Lambda =
                "Hello {#foo}{bar}{/foo} World!"
       |> should equal "Hello Foo Bar World!"
 
-module T15_CoreGrammar =
+module R15_CoreGrammar =
     // === SUITE ===core-grammar tests
     // should ignore extra whitespaces between opening brace plus any of (#,?,@,^,+,%) and the tag identifier
     [<Test>]
@@ -1764,7 +1812,7 @@ module T16_SyntaxError =
                "{#hello/}"
       |> should equal "undefined"
 
-module T17_Misc =
+module R17_Misc =
     // === SUITE ===buffer test
     // given content should be parsed as buffer
     [<Test>]
@@ -1773,7 +1821,6 @@ module T17_Misc =
       |> dust  "buffer "
                "{&partial/}"
       |> should equal "{&partial/}"
-
 
     // === SUITE ===comment test
     // comments should be ignored
@@ -1785,7 +1832,7 @@ module T17_Misc =
       |> should equal "before after"
 
 
-module T18_Whitespace =
+module R18_Whitespace =
     // === SUITE ===whitespace test
     // whitespace on: whitespace-only template is preserved
     [<Test>]
@@ -1851,11 +1898,12 @@ module T18_Whitespace =
                "<html>\n<head>\n</head>\n<body>{+body/}<body>\n</html>\n{<body}\n    <h1>Title</h1>\n    <p>Content...</p>\n{/body}"
       |> should equal "<html>\n<head>\n</head>\n<body>\n    <h1>Title</h1>\n    <p>Content...</p>\n<body>\n</html>\n"
 
-[<Ignore("TODO")>]
+//[<Ignore("TODO")>]
 module T19_RawText =
     // === SUITE ===raw text test
     // raw text should keep all whitespace
     [<Test>]
+    [<Ignore "Implement {` .. `}">]
     let ``raw text should keep all whitespace`` () =
       empty
       |> dust  "simple raw text"
