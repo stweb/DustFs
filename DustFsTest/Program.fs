@@ -27,24 +27,31 @@ let json s =
 let dust name source data =
     let body = parse source
     let sb = System.Text.StringBuilder()
-    let ctx = { Context.defaults with _w = new StringWriter(sb); _templateDir = __SOURCE_DIRECTORY__ + """\null\""" }
+    let ctx = { Context.defaults with _w = new StringWriter(sb); _templateDir = __SOURCE_DIRECTORY__ + """\null\""" ; data = data}
     body |> List.iter(fun p -> render ctx [] p)
     sb.ToString() 
 
-module DustFs =       
+let shouldEqual (x: 'a) (y: 'a) = 
+    Assert.AreEqual(x, y, sprintf "Expected: %A\nActual: %A" x y)
+
+let shouldBeSome (x: string) (y: obj option) = 
+    Assert.AreEqual(x, y.Value :?> string, sprintf "Expected: %A\nActual: %A" x y)
+
+
+module T01_DustFs =       
 
     [<Test>]
-    let regex () =
+    let ``regex should parse tag into name,ctx,kv`` () =
         let name, ctx, kv = parseKeyValue """test type="primary" name="add_product" label="action.order.now" test2=hallo """
         name |> should equal "test"
         ctx  |> should equal None
-        kv   |> should contain 3
-        kv.TryFindProp "type"  |> should equal "primary"
-        kv.TryFindProp "name"  |> should equal "\"add_product\""
-        kv.TryFindProp "test2" |> should equal "hallo"
+        kv.TryFindProp "type"  |> shouldBeSome "primary"
+        kv.TryFindProp "name"  |> shouldBeSome "add_product"
+        kv.TryFindProp "label" |> shouldBeSome "action.order.now"
+        kv.TryFindProp "test2" |> shouldBeSome "hallo"
 
 
-module CoreTests =
+module T02_CoreTests =
 
     // === SUITE ===core tests
     // SKIPPED streaming render
@@ -138,6 +145,7 @@ module CoreTests =
 
     // . creating a block
     [<Test>]
+    [<Ignore("TODO")>]
     let ``. creating a block`` () =
       json "{\"name\":\"me\"}"
       |> dust  "use . for creating a block and set params"
@@ -248,8 +256,8 @@ module CoreTests =
                "{#helper}{greeting} {firstName} {lastName}{/helper}"
       |> should equal "Hello Dusty Dusterson"
 
-
-module TruthyFalsy =
+// ALL OK
+module T03_TruthyFalsy =
 
     // === SUITE ===truth/falsy tests
 
@@ -349,7 +357,7 @@ module TruthyFalsy =
                "{?scalar}true{:else}false{/scalar}"
       |> should equal "false"
 
-module ScalarData =
+module T04_ScalarData =
 
     // === SUITE ===scalar data tests
     // should test for a scalar null in a # section
@@ -424,7 +432,7 @@ module ScalarData =
                "{#foo}foo,{~s}{:else}not foo,{~s}{/foo}{#bar}bar!{:else}not bar!{/bar}"
       |> should equal "foo, not bar!"
 
-module EmptyData =
+module T05_EmptyData =
 
     // === SUITE ===empty data tests
     // empty array is treated as empty in exists
@@ -499,7 +507,8 @@ module EmptyData =
                "{#emptyParamHelper}{/emptyParamHelper}"
       |> should equal ""
 
-module ArrayIndexAccess =
+[<Ignore("TODO")>]
+module T06_ArrayIndexAccess =
 
     // === SUITE ===array/index-access tests
     // should test an array
@@ -678,7 +687,7 @@ module ArrayIndexAccess =
                "{array}"
       |> should equal "You &amp; I, &amp; Moe"
 
-module ObjectTests =
+module T07_ObjectTests =
 
     // === SUITE ===object tests
     // should test an object
@@ -914,7 +923,7 @@ module ObjectTests =
       |> should equal ""
 
 
-module Conditional =
+module T08_Conditional =
 
     // === SUITE ===conditional tests
     // should test conditional tags
@@ -1055,7 +1064,8 @@ module Conditional =
                "{#list}{a.b}{/list}"
       |> should equal "BBB"
 
-module Filter =
+[<Ignore("TODO")>]
+module T09_Filter =
 
     // === SUITE ===filter tests
     // should test the filter tag
@@ -1114,7 +1124,7 @@ module Filter =
                "{#dust}{name|woo}{/dust}"
       |> should equal "DUST!!!!!"
 
-module Partial =
+module T10_Partial =
 
     // === SUITE ===partial definitions
     // should test a basic replace in a template
@@ -1165,8 +1175,8 @@ module Partial =
                "{>nested_partial_print_name/}"
       |> should equal ""
 
-
-module PartialParams =
+[<Ignore("TODO")>]
+module T11_PartialParams =
 
     // === SUITE ===partial/params tests
     // should test partials
@@ -1361,8 +1371,8 @@ module PartialParams =
                "{#loadPartialTl}{/loadPartialTl}\n{>partialTl:contextDoesNotExist/}"
       |> should equal " "
 
-
-module InlineParams =
+[<Ignore("TODO")>]
+module T12_InlineParams =
 
     // === SUITE ===inline params tests
     // should test inner params
@@ -1421,7 +1431,8 @@ module InlineParams =
                "{#section a=\"{b}\"}{#a}Hello, {.}!{/a}{/section}"
       |> should equal "Hello, world!"
 
-module InlinePartialBlock =
+[<Ignore("TODO")>]
+module T13_InlinePartialBlock =
 
     // === SUITE ===inline partial/block tests
     // should test blocks with dynamic keys
@@ -1456,7 +1467,8 @@ module InlinePartialBlock =
                "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{obj.name[0]}\"/}"
       |> should equal "AAA"
 
-module Lambda =
+[<Ignore("TODO")>]
+module T14_Lambda =
 
     // === SUITE ===lambda tests
     // should test that a non-chunk return value is used for truthiness
@@ -1499,7 +1511,7 @@ module Lambda =
                "Hello {#foo}{bar}{/foo} World!"
       |> should equal "Hello Foo Bar World!"
 
-module CoreGrammar =
+module T15_CoreGrammar =
     // === SUITE ===core-grammar tests
     // should ignore extra whitespaces between opening brace plus any of (#,?,@,^,+,%) and the tag identifier
     [<Test>]
@@ -1645,7 +1657,8 @@ module CoreGrammar =
                "{^xhr-n}tag not found!{:else}tag found!{/xhr-n}"
       |> should equal "tag not found!"
 
-module SyntaxError =
+[<Ignore("TODO")>]
+module T16_SyntaxError =
     // === SUITE ===syntax error tests
     // should test that the error message shows line and column.
     [<Test>]
@@ -1751,7 +1764,7 @@ module SyntaxError =
                "{#hello/}"
       |> should equal "undefined"
 
-module Misc =
+module T17_Misc =
     // === SUITE ===buffer test
     // given content should be parsed as buffer
     [<Test>]
@@ -1772,7 +1785,7 @@ module Misc =
       |> should equal "before after"
 
 
-module Whitespace =
+module T18_Whitespace =
     // === SUITE ===whitespace test
     // whitespace on: whitespace-only template is preserved
     [<Test>]
@@ -1838,7 +1851,8 @@ module Whitespace =
                "<html>\n<head>\n</head>\n<body>{+body/}<body>\n</html>\n{<body}\n    <h1>Title</h1>\n    <p>Content...</p>\n{/body}"
       |> should equal "<html>\n<head>\n</head>\n<body>\n    <h1>Title</h1>\n    <p>Content...</p>\n<body>\n</html>\n"
 
-module RawText =
+[<Ignore("TODO")>]
+module T19_RawText =
     // === SUITE ===raw text test
     // raw text should keep all whitespace
     [<Test>]
@@ -1864,7 +1878,8 @@ module RawText =
                "<div data-fancy-json={`\"{rawJsonKey: \'value\'}\"`}>\n</div>"
       |> should equal "<div data-fancy-json=\"{rawJsonKey: \'value\'}\"></div>"
 
-module Helper =
+[<Ignore("TODO")>]
+module T20_Helper =
     // === SUITE ===helper tests
     // helper can return a primitive
     [<Test>]
@@ -1954,7 +1969,8 @@ module Helper =
                "{#returnLegacy value=\"You & I\" /}"
       |> should equal "You &amp; I"
 
-module Debugger =
+[<Ignore("TODO")>]
+module T21_Debugger =
     // === SUITE ===debugger tests
     // Should crash the application if a helper is not found
     [<Test>]

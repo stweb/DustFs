@@ -128,14 +128,15 @@ type System.Object with    // TODO if key.StartsWith(".") then let cur = true ke
 type Context = 
     {   _w:TextWriter; // private - access via this.Write
         _templateDir:string;
-        data:obj;  // Map<string,JToken>; 
-        index:int; // TODO
+        data:obj;  
+        index:int; // in #array 
+        count:int; // of #array
         current:Option<obj>;
         scope:string list;
         logger: string -> unit
     }
 
-    static member defaults = { _templateDir = ""; _w = null; data = null; index = 0; current = None; scope = []; logger = fun s -> () }    
+    static member defaults = { _templateDir = ""; _w = null; data = null; index = 0; count = 0; current = None; scope = []; logger = fun s -> () }    
 
     member this.loadAndParse parse name = async {
         let sw = System.Diagnostics.Stopwatch()
@@ -203,12 +204,14 @@ type Context =
         else
             let result = if key.Contains(".") then None
                          else match (c.current) with
-                                | Some(obj) ->  obj.TryFind key
-                                | None      ->  None
+                              | Some obj -> obj.TryFind key
+                              | None     -> None
             match result with 
-            | None ->   let result = c.data.TryFind key
-                        match result with                     
-                        | None ->   match scope with
+            | Some _ -> result
+            | None   -> let found = c.data.TryFind key
+                        match found with                     
+                        | Some _ -> found
+                        | None   -> match scope with
                                     | []        ->  c.Unresolved scope key 
                                     | head::tail->  let key2 = head + "." + key
                                                     let result2 = c.data.TryFind key2 
@@ -216,8 +219,6 @@ type Context =
                                                     | None ->   if tail = [] then c.Unresolved scope key 
                                                                 else result2 // failwith "never?"
                                                     | _ -> result2
-                        | _ -> result
-            | _ -> result
 
 type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit        
 let helpers = new ConcurrentDictionary<string, Helper>()
@@ -256,10 +257,11 @@ let parseKeyValue input =
     let m = rexKvp.Match(input)
     if m.Success then
         let keys = m.Groups.["key"].Captures
-        let ctx = optional m.Groups.["ctx"].Value // Some context
+        let ctx = m.Groups.["ctx"] // Some context
         let values = m.Groups.["value"].Captures
         ( 
-            m.Groups.["ident"].Value, ctx,
+            m.Groups.["ident"].Value, 
+            (if ctx.Length > 0 then Some(ctx.Value) else None),
             [0 .. keys.Count-1] |> Seq.map (fun i -> (keys.[i].Value, values.[i].Value )) |> Map.ofSeq
         )
     else  
@@ -374,10 +376,15 @@ let rec render (c:Context) scope (part:Part) =
     let renderList newscope parts = parts |> List.iter(fun p -> render c newscope p)
 
     let evalBool cond = match c.resolveRef scope cond with
-                        | Some(jv) ->   let s = jv.ToString()
-                                        let result = s.Equals("true") || not (System.String.IsNullOrEmpty(s))
-                                        result
-                        | None -> false // failwith ("undefined condition: " + cond)   
+                        | None ->   false // failwith ("undefined condition: " + cond)   
+                        | Some o -> match o with
+                                    | null -> false
+                                    | :? bool as b -> b
+                                    | :? IEnumerable<obj> as ie ->  let en = ie.GetEnumerator()
+                                                                    en.MoveNext()
+                                    | _ ->  let s = o.ToString()
+                                            let result = s.Equals("true") || not (System.String.IsNullOrEmpty(s))
+                                            result
 
     let renderIf incl = function
                         | SectionBlock (_,n,l,bodies)  ->  if incl then renderList scope l
@@ -394,7 +401,8 @@ let rec render (c:Context) scope (part:Part) =
                         // if not kv.IsEmpty then c.Log (">partial " + c2.current.Value.ToString())
                         if (body <> []) then body |> Seq.iter(fun p -> render c2 scope p)
     | Reference(k,f) -> match c.resolveRef scope k with                     
-                        | Some(value)  ->   if not (value :? bool && value.Equals(false)) then
+                        | Some(value)  ->   // todo array
+                                            if not (value :? bool && value.Equals(false)) then
                                                 c.WriteFiltered f value
                         | None -> ()
     | Section(st, n) -> match st with 
@@ -438,17 +446,23 @@ let rec render (c:Context) scope (part:Part) =
 #endif
                                     if comp then renderList scope l        
                                     else match bodies.TryFind "else" with
-                                                | Some(body) -> renderList scope body
+                                                | Some(body) -> renderList scope body // n:: ??
                                                 | None -> c.Log ("SKIP " + n)
                                                
         | Condition     ->  part |> renderIf (evalBool n)
         | NotCondition  ->  part |> renderIf (not (evalBool n))
         | Scope         ->  match c.resolveRef scope n with                     
-                            | Some(valu) -> 
-                                            match valu with
-                                            | :? IEnumerable<obj> as ie -> for el in ie do
-                                                                            let c2 = { c with current = Some(el) }
-                                                                            l |> List.iter(fun p -> render c2 (n :: scope) p)
+                            | Some(valu) -> match valu with
+                                            | :? IEnumerable<obj> as ie 
+                                                 -> let arr = ie |> Seq.cast<obj> |> Seq.toArray
+                                                    let len = arr.Length
+                                                    if len < 1 then
+                                                        match bodies.TryFind "else" with
+                                                        | Some body -> renderList (n :: scope) body
+                                                        | None -> ()
+                                                    else 
+                                                        arr |> Array.iteri(fun i o -> let c2 = { c with current = Some(o); index = i; count = len }
+                                                                                      l |> List.iter(fun p -> render c2 (n :: scope) p) )
                                             | _ -> renderList (n :: scope) l                                            
                             | None ->       // TODO create new current from keyvalue map 
                                             renderList (n :: scope) l   
