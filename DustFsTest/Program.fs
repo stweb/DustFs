@@ -45,6 +45,9 @@ let shouldEqual (x: 'a) (y: 'a) =
 let shouldBeSome (x: string) (y: obj option) = 
     Assert.AreEqual(x, y.Value :?> string, sprintf "Expected: %A\nActual: %A" x y)
 
+let shouldBeSomeS (x: string) (y: string option) = 
+    Assert.AreEqual(x, y.Value, sprintf "Expected: %A\nActual: %A" x y)
+
 module R01_DustFs =       
 
     [<Test>]
@@ -57,6 +60,12 @@ module R01_DustFs =
         kv.TryFindProp "label" |> shouldBeSome "action.order.now"
         kv.TryFindProp "test2" |> shouldBeSome "hallo"
 
+    [<Test>] // {>recursion:./}{
+    let ``regex should parse tag with context`` () =
+        let name, ctx, kv = parseKeyValue """recursion:."""
+        name |> should equal "recursion"
+        ctx  |> shouldBeSomeS ":." // TODO remove colon...
+        
 module R02_CoreTests =
 
     // javascript-special characters in template names shouldn't break things

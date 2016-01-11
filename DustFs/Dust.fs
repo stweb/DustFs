@@ -17,15 +17,15 @@ let _keyPatternN = "(?<key>" + _keyPattern + ")"
 
 // identifier is defined as matching a path or key
 // identifier "identifier" = p:path / k:key
+// TODO currently only "." path supported
 let _identPattern = "^\s*(?<ident>(\.|" + _keyPattern + ")" + "(\." + _keyPattern + ")*)" 
 
 // context is defined as matching a colon followed by an identifier
 // context = n:(":" n:identifier)?
-let _ctxPattern = "^:" + _identPattern; // TODO
 
 let _kvPattern = "(?<kvp>(" + _keyPatternN + "=(?<value>\".*?\"|\d+|[\.\w]+)" + ")\s*)*" 
 let _keyValPattern = _identPattern +  
-                     "\s*(?<ctx>" + _ctxPattern + ")??" +     
+                     "\s*(?<ctx>:(\.))?" +  // TODO   
                      "\s*(?<all>" + _kvPattern + ")/{0,1}"
 
 // reference is defined as matching a opening brace followed by an identifier plus one or more filters and a closing brace
@@ -34,7 +34,7 @@ let _keyValPattern = _identPattern +
 
 let rexRef = new Regex(_identPattern)
 let rexKvp = new Regex(_keyValPattern)
-let rexCtx = new Regex(_ctxPattern)
+
 let rexStr = new Regex("\{[^}]*\}")
 let rexStr2 = new Regex("\[(.*?)\]")
 
