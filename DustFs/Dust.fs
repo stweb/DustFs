@@ -374,7 +374,9 @@ let rec getTree acc stop = function
                                                         getTree (acc) stop tail2
                                                     else
                                                         getTree (s :: acc) stop tail2
-    | head :: tail -> getTree (head :: acc) stop tail
+    | head :: tail ->   match head, acc with
+                        | Buffer(b), Buffer(a)::atail -> getTree (Buffer(a+b) :: atail) stop tail // combine successive buffers
+                        | _ -> getTree (head :: acc) stop tail
 
 let parse (doc:string) =
     let body,_,_ = doc |> List.ofSeq |> parseSpans (new Stack<string>()) [] |> Seq.toList |> getTree [] ""
