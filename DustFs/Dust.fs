@@ -258,6 +258,7 @@ let (|DustTag|_|) = function
     | '{' :: chars -> match chars with
                       | ' ' :: _ | '\n' :: _ | '\r' :: _ | '\t' :: _ -> None // TODO may be inaccurate
                       | '!' :: rest -> parseDustTag [ '!'; '}' ]  [chars.Head] rest
+                      | '`' :: rest -> parseDustTag [ '`'; '}' ]  [chars.Head] rest
                       | _   :: rest -> parseDustTag [ '}' ]  [chars.Head] rest
                       | [] -> None
     | _ -> None
@@ -317,6 +318,8 @@ let rec parseSpans (sec:Stack<string>) acc chars =
 
                 match inside.Head with 
                 | '!' ->    yield Comment(inside |> toString)
+                | '`' ->    let raw = tag.TrimEnd('`')
+                            yield Buffer(raw)
                 | ':' ->    yield Bodies(tag)
                 | '~' ->    yield Special(tag) // k:key
                     // sec_tag_start is defined as matching an opening brace followed by one of #?^<+@% plus identifier plus context plus param
