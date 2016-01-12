@@ -103,7 +103,7 @@ module R02_CoreTests =
       |> should equal "Moe\nLarry\nCurly\n"
 
 
-    // should test base template
+    // should test base template and overriding blocks "title" and "main"
     [<Test>]
     let ``should test base and child template`` () =
       empty
@@ -142,7 +142,6 @@ module R02_CoreTests =
       |> should equal ""
 
 module T02_CoreTests =
-
     // should render the template name
     [<Test>]
     [<Ignore "requires JS helper">]
@@ -1573,6 +1572,12 @@ module R15_CoreGrammar =
     // should ignore extra whitespaces between opening brace plus any of (#,?,@,^,+,%) and the tag identifier
     [<Test>]
     let ``should ignore extra whitespaces between opening brace plus any of (#,?,at,^,+,%) and the tag identifier`` () =
+
+      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
+                                match param.TryFind "boo" with
+                                | Some v -> c.Write v
+                                | None -> failwith "missing key"
+                            )
       json "{}"
       |> dust  "ignore extra whitespaces between opening brace plus any of (#,?,@,^,+,%) and the tag identifier"
                "{# helper foo=\"bar\" boo=\"boo\" } {/helper}"

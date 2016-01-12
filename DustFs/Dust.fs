@@ -63,7 +63,7 @@ and Part =  // ld t:[#?^<+@%] n:identifier c:context p:params
     | Comment of string // "{! !}"  
     | Section of SectionType * string // self-closed element
     | SectionBlock of SectionType * string * Body  * BodyDict // block element
-    | Partial of string * KeyValue // "{> (key/inline) context /}
+    | Partial of string * string option * KeyValue // "{> (key/inline) context /}
     | Special of string // "{~ key}
     | Reference of string * Filters// {key[|filter1|filterN]}
     | Buffer of string
@@ -259,6 +259,8 @@ let (|DustTag|_|) = function
                       | ' ' :: _ | '\n' :: _ | '\r' :: _ | '\t' :: _ -> None // TODO may be inaccurate
                       | '!' :: rest -> parseDustTag [ '!'; '}' ]  [chars.Head] rest
                       | '`' :: rest -> parseDustTag [ '`'; '}' ]  [chars.Head] rest
+                      | '#' :: rest -> let r = rest |> List.skipWhile(fun c -> Char.IsWhiteSpace(c))
+                                       parseDustTag [ '}' ]  [chars.Head] r
                       | _   :: rest -> parseDustTag [ '}' ]  [chars.Head] rest
                       | [] -> None
     | _ -> None
@@ -344,7 +346,7 @@ let rec parseSpans (sec:Stack<string>) acc chars =
                             yield EndSection(tag)
 
                 | '>' ->    let ident, ctx, kvp = parseKeyValue tag
-                            yield Partial(ident, kvp)
+                            Partial(ident, ctx, kvp)
                 | _ ->      let s = toString inside
                             let m = rexRef.Match(s)
                             if m.Success then 
@@ -407,10 +409,18 @@ let rec render (c:Context) scope (part:Part) =
     //| Comment _      -> c.Write("<!-- " + text + " -->")
     | Special tag    -> c.WriteSpecial(tag)
     | Buffer text    -> if not (System.String.IsNullOrWhiteSpace(text)) then c.Write(text)
-    | Partial(n, kv) -> let body = c.parseCached parse n
-                        let c2 = { c with current = Some(kv :> obj) } 
+    | Partial(n,x,m) -> let body = match cache.TryGetValue n with
+                                   | true, (_, part) -> part 
+                                   | _ -> c.parseCached parse n
+                        let c2 = { c with current = match x with
+                                                    | Some i -> c.Get (i.TrimStart ':') 
+                                                    | None -> Some(m :> obj)
+                                 } 
                         // if not kv.IsEmpty then c.Log (">partial " + c2.current.Value.ToString())
-                        if (body <> []) then body |> Seq.iter(fun p -> render c2 scope p)
+                        let s2 = match x with
+                                 | Some i -> (i.TrimStart ':') :: scope 
+                                 | None -> scope
+                        body |> Seq.iter(fun p -> render c2 s2 p)
     | Reference(k,f) -> match c.resolveRef scope k with                     
                         | None -> ()
                         | Some value    ->  match value with
@@ -418,7 +428,7 @@ let rec render (c:Context) scope (part:Part) =
                                             | :? bool as b -> if b then c.WriteFiltered f value
                                             | _ ->  c.WriteFiltered f value
     | Section(st, n) -> match st with 
-                        | Block ->          match cache.TryGetValue n with
+                        | Block ->          match cache.TryGetValue n with 
                                             | true, (_, part) -> part |> Seq.iter(fun p -> render c scope p) // else ignore
                                             | _ -> ()
                         | Scope ->          failwith "scope must have a body"
@@ -478,8 +488,9 @@ let rec render (c:Context) scope (part:Part) =
                                                         l |> List.iter(fun p -> render c2 (n :: scope) p) 
                             | None -> renderIf false      // TODO create new current from keyvalue map 
                                               
-        | Block         -> // overrides base template
-                           renderList (n :: scope) l 
+        | Block         -> match cache.TryGetValue n with 
+                           | true, (_,b) -> b |> Seq.iter(fun p -> render c scope p) // override
+                           | _           -> renderList (n :: scope) l // default
                         
         // Deprecated | Escaped       -> renderList (n :: scope) l  
         | _ -> failwith <| sprintf "unexpected %A" st
