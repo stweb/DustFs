@@ -52,6 +52,7 @@
   <ItemGroup>
     <Compile Include="AssemblyInfo.fs" />
     <Compile Include="Program.fs" />
+    <Compile Include="DustTest.fs" />
     <None Include="paket.references" />
     <Content Include="App.config" />
   </ItemGroup>
