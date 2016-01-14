@@ -5,6 +5,7 @@ open System.Collections.Concurrent
 open System.Text.RegularExpressions
 open System.IO
 open System
+open System.Diagnostics
 
 // key is defined as a character matching a to z, upper or lower case, followed by 0 or more alphanumeric characters
 // key "key" = h:[a-zA-Z_$] t:[0-9a-zA-Z_$-]*
@@ -135,6 +136,8 @@ type Context =
         scope:string list;
         logger: string -> unit
     }
+    override x.ToString() =
+        sprintf "%s %A %d/%d" (String.Join("/", x.scope)) x.current x.index x.count //x.item
 
     static member defaults = { _templateDir = ""; _w = null; data = null; index = 0; count = 0; current = None; scope = []; logger = fun s -> () }    
 
@@ -247,24 +250,21 @@ let (|StartsWith|_|) prefix list =
         | _ -> None
     loop (prefix, list)
 
-let (|AsCharList|) (str : string) = str |> List.ofSeq
-
-let rec parseDustTag closing acc = function 
-    | StartsWith closing (rest) -> Some(List.rev acc, rest)
-    | c :: chars -> parseDustTag closing (c :: acc) chars
+let rec parseUntil closing acc = function 
+    | StartsWith closing rest -> Some(List.rev acc, rest)
+    | c :: chars              -> parseUntil closing (c :: acc) chars
     | _ -> None
 
 let (|DustTag|_|) = function
     | '{' :: chars -> match chars with
                       | ' ' :: _ | '\n' :: _ | '\r' :: _ | '\t' :: _ -> None // TODO may be inaccurate
-                      | '!' :: rest -> parseDustTag [ '!'; '}' ]  [chars.Head] rest
-                      | '`' :: rest -> parseDustTag [ '`'; '}' ]  [chars.Head] rest
+                      | '!' :: rest -> parseUntil [ '!'; '}' ]  [chars.Head] rest
+                      | '`' :: rest -> parseUntil [ '`'; '}' ]  [chars.Head] rest
                       | '#' :: rest -> let r = rest |> List.skipWhile(fun c -> Char.IsWhiteSpace(c))
-                                       parseDustTag [ '}' ]  [chars.Head] r
-                      | _   :: rest -> parseDustTag [ '}' ]  [chars.Head] rest
+                                       parseUntil [ '}' ]  [chars.Head] r
+                      | _   :: rest -> parseUntil [ '}' ]  [chars.Head] rest
                       | [] -> None
     | _ -> None
-
 
 // --------------------------------------------------------------------------------------
 
@@ -316,12 +316,11 @@ let rec parseSpans (sec:Stack<string>) acc chars =
             yield! emitLiteral ()
             if not inside.IsEmpty then
                 let tag = (inside.Tail |> toString) // n:identifier c:context p:params TODO exact parsing               
-                // printfn "parse %A" sec
 
                 match inside.Head with 
                 | '!' ->    yield Comment(inside |> toString)
-                | '`' ->    let raw = tag.TrimEnd('`')
-                            yield Buffer(raw)
+                | '`' ->    //let raw = tag.TrimEnd('`')
+                            yield Buffer(tag)
                 | ':' ->    yield Bodies(tag)
                 | '~' ->    yield Special(tag) // k:key
                     // sec_tag_start is defined as matching an opening brace followed by one of #?^<+@% plus identifier plus context plus param
@@ -345,8 +344,7 @@ let rec parseSpans (sec:Stack<string>) acc chars =
                             sec.Pop() |> ignore
                             yield EndSection(tag)
 
-                | '>' ->    let ident, ctx, kvp = parseKeyValue tag
-                            Partial(ident, ctx, kvp)
+                | '>' ->    yield Partial(parseKeyValue tag)
                 | _ ->      let s = toString inside
                             let m = rexRef.Match(s)
                             if m.Success then 
