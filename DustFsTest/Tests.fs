@@ -5,6 +5,8 @@ open Dust.Test
 open NUnit.Framework
 open FsUnit
 
+#if !TODO
+
 module R01_DustFs =       
 
     [<Test>]
@@ -98,144 +100,6 @@ module R02_CoreTests =
                "{#helper}{/helper}"
       |> should equal ""
 
-module T02_CoreTests =
-    // should render the template name
-    [<Test>]
-    [<Ignore "requires JS helper">]
-    let ``should render the template name`` () =
-      json "{}"
-      |> dust  "global_template"
-               "{#helper foo=\"bar\" boo=\"boo\"} {/helper}"
-      |> should equal "global_template"
-
-    // should render the template name with paths
-    [<Test>]
-    [<Ignore "requires JS helper">]   
-    let ``should render the template name with paths`` () =
-      json "{}"
-      |> dust  "apps/test/foo.tl&v=0.1"
-               "{#helper foo=\"bar\" boo=\"boo\" template=\"tl/apps/test\"} {/helper}"
-      |> should equal "apps/test/foo.tl&v=0.1"
-
-    // should test renaming a key
-    [<Test>]
-    [<Ignore "implement renaming">]
-    let ``should test renaming a key`` () =
-      json "{\"root\":\"Subject\",\"person\":{\"name\":\"Larry\",\"age\":45}}"
-      |> dust  "inline param from outer scope"
-               "{#person foo=root}{foo}: {name}, {age}{/person}"
-      |> should equal "Subject: Larry, 45"
-
-    // should test force a key
-    [<Test>]
-    let ``should test force a key`` () =
-      json "{\"root\":\"Subject\",\"person\":{\"name\":\"Larry\",\"age\":45}}"
-      |> dust  "force local"
-               "{#person}{.root}: {name}, {age}{/person}"
-      |> should equal ": Larry, 45"
-
-    // should test escape_pragma
-    [<Test>]
-    [<Ignore "implement{%esc}">]
-    let ``should test escape_pragma`` () =
-      json "{\"unsafe\":\"<script>alert(\'Goodbye!\')</script>\"}"
-      |> dust  "escape pragma"
-               "{%esc:s}\n  {unsafe}{~n}\n  {%esc:h}\n    {unsafe}\n  {/esc}\n{/esc}"
-      |> should equal "<script>alert(\'Goodbye!\')</script>\n&lt;script&gt;alert(&#39;Goodbye!&#39;)&lt;/script&gt;"
-
-    // . creating a block
-    [<Test>]
-    [<Ignore("TODO implement ad-hoc blocks")>]
-    let ``dot creating a block`` () =
-      json "{\"name\":\"me\"}"
-      |> dust  "use . for creating a block and set params"
-               "{#. test=\"you\"}{name} {test}{/.}"
-      |> should equal "me you"
-
-    // should functions in context
-    [<Test>]
-    [<Ignore "requires JS in context">]
-    let ``should functions in context`` () =
-      json "{}"
-      |> dust  "functions in context"
-               "Hello {type} World!"
-      |> should equal "Hello Sync World!"
-
-    // should test functions in context
-    [<Test>]
-    [<Ignore "requires JS in context">]
-    let ``should test functions in context`` () =
-      json "{}"
-      |> dust  "async functions in context"
-               "Hello {type} World!"
-      |> should equal "Hello Async World!"
-
-    // should test sync chunk write
-    [<Test>]
-    [<Ignore "requires JS in context">]
-    let ``should test sync chunk write`` () =
-      json "{}"
-      |> dust  "sync chunk write test"
-               "Hello {type} World!"
-      |> should equal "Hello Chunky World!"
-
-    // should setup base template for next test. hi should not be part of base block name
-    [<Test>]
-    let ``should setup base template for next test; hi should not be part of base block name`` () =
-      empty
-      |> dustReg "issue322"
-               "hi{+\"{name}\"/}"
-      |> should equal "hi"
-
-      empty
-      |> dust  "issue322 use base template picks up prefix chunk data"
-               "{>issue322 name=\"abc\"/}{<abc}ABC{/abc}"
-      |> should equal "hiABC"
-
-    // should test recursion
-    [<Test>]
-    //[<Ignore "TODO fix recursion">]
-    let ``should test recursion`` () =
-      json "{\"name\":\"1\",\"kids\":[{\"name\":\"1.1\",\"kids\":[{\"name\":\"1.1.1\"}]}]}"
-      |> dustReg  "recursion" 
-               "{name}{~n}{#kids}{>recursion:./}{/kids}"        
-      |> should equal "1\n1.1\n1.1.1\n"
-
-    // context.resolve() taps parameters from the context
-    [<Test>]
-    [<Ignore "Requires JS Context">]
-    let ``context_resolve() taps parameters from the context`` () =
-      json "{\"baz\":\"baz\",\"ref\":\"ref\"}"
-      |> dust  "context.resolve"
-               "{#foo bar=\"{baz} is baz \" literal=\"literal \" func=func chunkFunc=\"{chunkFunc}\" indirectChunkFunc=indirectChunkFunc ref=ref }Fail{/foo}"
-      |> should equal "baz is baz literal func chunk indirect ref"
-
-    // should test the context
-    [<Test>]
-    [<Ignore "Requires JS Context">]
-    let ``should test the context`` () =
-      json "{\"projects\":[{\"name\":\"Mayhem\"},{\"name\":\"Flash\"},{\"name\":\"Thunder\"}]}"
-      |> dust  "context"
-               "{#list:projects}{name}{:else}No Projects!{/list}"
-      |> should equal "<ul>\n<li>Mayhem</li>\n<li>Flash</li>\n<li>Thunder</li>\n</ul>"
-
-    // should allow pushing and popping a context    
-    [<Test>]
-    [<Ignore "Requires JS Context">]
-    let ``should allow pushing and popping a context`` () =
-      json "{}"
-      |> dust  "context push / pop"
-               "{#helper}{greeting} {firstName} {lastName}{.}{/helper}"
-      |> should equal "Hello Dusty Dusterson!"
-
-    // should allow cloning a context
-    [<Test>]
-    [<Ignore "Requires JS Context">]
-    let ``should allow cloning a context`` () =
-      json "{}"
-      |> dust  "context clone"
-               "{#helper}{greeting} {firstName} {lastName}{/helper}"
-      |> should equal "Hello Dusty Dusterson"
 
 module R03_TruthyFalsy =
 
@@ -487,185 +351,24 @@ module R05_EmptyData =
                "{#emptyParamHelper}{/emptyParamHelper}"
       |> should equal ""
 
-[<Ignore("TODO")>]
-module T06_ArrayIndexAccess =
+module R06_Conditional =
 
-    // === SUITE ===array/index-access tests
-    // should test an array
+    // === SUITE ===conditional tests
+    // should test conditional tags
     [<Test>]
-    let ``should test an array`` () =
-      json "{\"title\":\"Sir\",\"names\":[{\"name\":\"Moe\"},{\"name\":\"Larry\"},{\"name\":\"Curly\"}]}"
-      |> dust  "array"
-               "{#names}{title} {name}{~n}{/names}"
-      |> should equal "Sir Moe\nSir Larry\nSir Curly\n"
+    let ``should test conditional tags`` () =
+      json "{\"tags\":[],\"likes\":[\"moe\",\"larry\",\"curly\",\"shemp\"]}"
+      |> dust  "conditional"
+               "{?tags}<ul>{~n}{#tags}{~s} <li>{.}</li>{~n}{/tags}</ul>{:else}No Tags!{/tags}{~n}{^likes}No Likes!{:else}<ul>{~n}{#likes}{~s} <li>{.}</li>{~n}{/likes}</ul>{/likes}"
+      |> should equal "No Tags!\n<ul>\n  <li>moe</li>\n  <li>larry</li>\n  <li>curly</li>\n  <li>shemp</li>\n</ul>"
 
-    // should return a specific array element by index when element value is a primitive
+    // should test else block when array empty
     [<Test>]
-    let ``should return a specific array element by index when element value is a primitive`` () =
-      json "{\"do\":{\"re\":[\"hello!\",\"bye!\"]}}"
-      |> dust  "accessing array element by index when element value is a primitive"
-               "{do.re[0]}"
-      |> should equal "hello!"
-
-    // should return a specific array element by index when element value is a object
-    [<Test>]
-    let ``should return a specific array element by index when element value is a object`` () =
-      json "{\"do\":{\"re\":[{\"mi\":\"hello!\"},\"bye!\"]}}"
-      |> dust  "accessing array by index when element value is a object"
-               "{do.re[0].mi}"
-      |> should equal "hello!"
-
-    // should return a specific array element by index when element is a nested object
-    [<Test>]
-    let ``should return a specific array element by index when element is a nested object`` () =
-      json "{\"do\":{\"re\":[{\"mi\":[\"one\",{\"fa\":\"hello!\"}]},\"bye!\"]}}"
-      |> dust  "accessing array by index when element is a nested object"
-               "{do.re[0].mi[1].fa}"
-      |> should equal "hello!"
-
-    // should return a specific array element by index when element is list of primitives
-    [<Test>]
-    let ``should return a specific array element by index when element is list of primitives`` () =
-      json "{\"do\":[\"lala\",\"lele\"]}"
-      |> dust  "accessing array by index when element is list of primitives"
-               "{do[0]}"
-      |> should equal "lala"
-
-    // should return a specific array element using the current context
-    [<Test>]
-    let ``should return a specific array element using the current context`` () =
-      json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"}]]}"
-      |> dust  "accessing array inside a loop using the current context"
-               "{#list3}{.[0].biz}{/list3}"
-      |> should equal "123345"
-
-    // array: reference $idx in iteration on objects
-    [<Test>]
-    let ``array: reference $idx in iteration on objects`` () =
-      json "{\"title\":\"Sir\",\"names\":[{\"name\":\"Moe\"},{\"name\":\"Larry\"},{\"name\":\"Curly\"}]}"
-      |> dust  "array: reference $idx in iteration on objects"
-               "{#names}({$idx}).{title} {name}{~n}{/names}"
-      |> should equal "(0).Sir Moe\n(1).Sir Larry\n(2).Sir Curly\n"
-
-    // test array: reference $len in iteration on objects
-    [<Test>]
-    let ``test array: reference $len in iteration on objects`` () =
-      json "{\"title\":\"Sir\",\"names\":[{\"name\":\"Moe\"},{\"name\":\"Larry\"},{\"name\":\"Curly\"}]}"
-      |> dust  "array: reference $len in iteration on objects"
-               "{#names}Size=({$len}).{title} {name}{~n}{/names}"
-      |> should equal "Size=(3).Sir Moe\nSize=(3).Sir Larry\nSize=(3).Sir Curly\n"
-
-    // test array reference $idx in iteration on simple types
-    [<Test>]
-    let ``test array reference $idx in iteration on simple types`` () =
-      json "{\"title\":\"Sir\",\"names\":[\"Moe\",\"Larry\",\"Curly\"]}"
-      |> dust  "array reference $idx in iteration on simple type"
-               "{#names}({$idx}).{title} {.}{~n}{/names}"
-      |> should equal "(0).Sir Moe\n(1).Sir Larry\n(2).Sir Curly\n"
-
-    // test array reference $len in iteration on simple types
-    [<Test>]
-    let ``test array reference $len in iteration on simple types`` () =
-      json "{\"title\":\"Sir\",\"names\":[\"Moe\",\"Larry\",\"Curly\"]}"
-      |> dust  "array reference $len in iteration on simple type"
-               "{#names}Size=({$len}).{title} {.}{~n}{/names}"
-      |> should equal "Size=(3).Sir Moe\nSize=(3).Sir Larry\nSize=(3).Sir Curly\n"
-
-    // test array reference $idx/$len on empty array case
-    [<Test>]
-    let ``test array reference $idx $len on empty array case`` () =
-      json "{\"title\":\"Sir\",\"names\":[]}"
-      |> dust  "array reference $idx/$len on empty array case"
-               "{#names}Idx={$idx} Size=({$len}).{title} {.}{~n}{/names}"
-      |> should equal ""
-
-    // test array reference $idx/$len on single element case
-    [<Test>]
-    let ``test array reference $idx $len on single element case`` () =
-      json "{\"name\":\"Just one name\"}"
-      |> dust  "array reference $idx/$len on single element case (scalar case)"
-               "{#name}Idx={$idx} Size={$len} {.}{/name}"
-      |> should equal "Idx= Size= Just one name"
-
-    // test array reference $idx/$len {#.} section case
-    [<Test>]
-    let ``test array reference $idx $len section case`` () =
-      json "{\"names\":[\"Moe\",\"Larry\",\"Curly\"]}"
-      |> dust  "array reference $idx/$len {#.} section case"
-               "{#names}{#.}{$idx}{.} {/.}{/names}"
-      |> should equal "0Moe 1Larry 2Curly "
-
-    // test array reference $idx/$len not changed in nested object
-    [<Test>]
-    let ``test array reference $idx $len not changed in nested object`` () =
-      json "{\"results\":[{\"info\":{\"name\":\"Steven\"}},{\"info\":{\"name\":\"Richard\"}}]}"
-      |> dust  "array reference $idx/$len not changed in nested object"
-               "{#results}{#info}{$idx}{name}-{$len} {/info}{/results}"
-      |> should equal "0Steven-2 1Richard-2 "
-
-    // test array reference $idx/$len nested loops
-    [<Test>]
-    let ``test array reference $idx $len nested loops`` () =
-      json "{\"A\":[{\"B\":[{\"C\":[\"Ca1\",\"C2\"]},{\"C\":[\"Ca2\",\"Ca22\"]}]},{\"B\":[{\"C\":[\"Cb1\",\"C2\"]},{\"C\":[\"Cb2\",\"Ca2\"]}]}]}"
-      |> dust  "array reference $idx/$len nested loops"
-               "{#A}A loop:{$idx}-{$len},{#B}B loop:{$idx}-{$len}C[0]={.C[0]} {/B}A loop trailing: {$idx}-{$len}{/A}"
-      |> should equal "A loop:0-2,B loop:0-2C[0]=Ca1 B loop:1-2C[0]=Ca2 A loop trailing: 0-2A loop:1-2,B loop:0-2C[0]=Cb1 B loop:1-2C[0]=Cb2 A loop trailing: 1-2"
-
-    // should test the array reference access with idx
-    [<Test>]
-    let ``should test the array reference access with idx`` () =
-      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
-      |> dust  "using idx in array reference Accessing"
-               "{#list4} {name} {number[$idx]} {$idx}{/list4}"
-      |> should equal " Dog 1 0 Cat 5 1"
-
-    // should test the array reference access with len
-    [<Test>]
-    let ``should test the array reference access with len`` () =
-      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
-      |> dust  "using len in array reference Accessing"
-               "{#list4} {name} {number[$len]}{/list4}"
-      |> should equal " Dog 3 Cat 6"
-
-    // should test the array reference access with idx and current context
-    [<Test>]
-    let ``should test the array reference access with idx and current context`` () =
-      json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"},{\"biz\":\"456\"}]]}"
-      |> dust  "using idx in array reference Accessing"
-               "{#list3}{.[$idx].biz}{/list3}"
-      |> should equal "123456"
-
-    // should test the array reference access with len and current context
-    [<Test>]
-    let ``should test the array reference access with len and current context`` () =
-      json "{\"list3\":[[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}],[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}]]}"
-      |> dust  "using len in array reference Accessing"
-               "{#list3}{.[$len].idx}{/list3}"
-      |> should equal "22"
-
-    // should test double nested array and . reference: issue #340
-    [<Test>]
-    let ``should test double nested array and dot reference: issue #340`` () =
-      json "{\"test\":[[1,2,3]]}"
-      |> dust  "using idx in double nested array"
-               "{#test}{#.}{.}i:{$idx}l:{$len},{/.}{/test}"
-      |> should equal "1i:0l:3,2i:1l:3,3i:2l:3,"
-
-    // should test using a multilevel reference as a key in array access
-    [<Test>]
-    let ``should test using a multilevel reference as a key in array access`` () =
-      json "{\"loop\":{\"array\":{\"thing\":{\"sub\":1,\"sap\":2},\"thing2\":\"bar\"}},\"key\":{\"foo\":\"thing\"}}"
-      |> dust  "using a nested key as a reference for array index access"
-               "{#loop.array[key.foo].sub}{.}{/loop.array[key.foo].sub}"
-      |> should equal "1"
-
-    // should HTML-encode stringified arrays referenced directly
-    [<Test>]
-    let ``should HTML-encode stringified arrays referenced directly`` () =
-      json "{\"array\":[\"You & I\",\" & Moe\"]}"
-      |> dust  "Outputting an array calls toString and HTML-encodes"
-               "{array}"
-      |> should equal "You &amp; I, &amp; Moe"
+    let ``should test else block when array empty`` () =
+      json "{\"foo\":[]}"
+      |> dust  "empty else block"
+               "{#foo}full foo{:else}empty foo{/foo}"
+      |> should equal "empty foo"
 
 module R07_ObjectTests =
 
@@ -685,3 +388,250 @@ module R07_ObjectTests =
       |> dust  "path"
                "{foo.bar}"
       |> should equal "Hello!"
+
+    // should test nested usage of dotted path resolution
+    [<Test>]
+    let ``should test nested usage of dotted path resolution`` () =
+      json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\"]}}}}"
+      |> dust  "nested dotted path resolution"
+               "{#data.A.list}{#data.A.B.Blist}{.}Aname{data.A.name}{/data.A.B.Blist}{/data.A.list}"
+      |> should equal "BB1AnameAlBB1AnameAl"
+
+
+    // should test resolve correct 'this' 
+    [<Test>]
+    let ``should test resolve correct 'this'`` () =
+      json "{\"person\":{\"firstName\":\"Peter\",\"lastName\":\"Jones\",\"fullName\":\"Peter Jones\"}}"
+      |> dust  "method invocation"
+               "Hello {person.fullName}"
+      |> should equal "Hello Peter Jones"
+
+
+    // should test usage of dotted path resolution up context
+    [<Test>]
+    let ``should test usage of dotted path resolution up context`` () =
+      json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}}}}"
+      |> dust  "dotted path resolution up context"
+               "{#data.A.list}Aname{data.A.name}{/data.A.list}"
+      |> should equal "AnameAlAnameAl"
+
+    // should test usage of dotted path resolution up context
+    [<Test>]
+    let ``should test usage of dotted path resolution up context 2`` () =
+      json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}}}}"
+      |> dust  "dotted path resolution up context 2"
+               "{#data.A.B.Blist}Aname{data.A.name}{/data.A.B.Blist}"
+      |> should equal "AnameAlAnameAl"
+
+    // should test usage of dotted path resolution up context
+    [<Test>]
+    let ``should test usage of dotted path resolution up context 3`` () =
+      json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
+      |> dust  "dotted path resolution without explicit context"
+               "{#data.A}Aname{name}{data.C.name}{/data.A}"
+      |> should equal "AnameAlcname"
+
+    // should test usage of dotted path resolution up context
+    [<Test>]
+    let ``should test usage of dotted path resolution up context 4`` () =
+      json "{\"data\":{\"A\":{\"name\":\"Al\",\"B\":\"Ben\",\"C\":{\"namex\":\"Charlie\"}},\"C\":{\"name\":\"Charlie Sr.\"}}}"
+      |> dust  "dotted path resolution up context with partial match in current context"
+               "{#data}{#A}{C.name}{/A}{/data}"
+      |> should equal ""
+
+    // should work when value at end of path is falsey
+    [<Test>]
+    let ``should work when value at end of path is falsey`` () =
+      json "{\"foo\":{\"bar\":0}}"
+      |> dust  "Standard dotted path with falsey value. Issue 317"
+               "{foo.bar}"
+      |> should equal "0"
+
+
+module R07_NestedPaths =
+    // === SUITE ===nested path tests
+    // should test the leading dot behavior in local mode
+    // Should resolve path correctly
+    [<Test>]
+    let ``Should resolve path correctly 2`` () =
+      json "{\"list\":[\"\",2,\"\"],\"a\":{\"b\":\"B\"}}"
+      |> dust  "check falsey value in section iteration don\'t break path resolution"
+               "{#list}{a.b}{/list}"
+      |> should equal "BBB"
+
+    // Should resolve path correctly
+    [<Test>]
+    let ``Should resolve path correctly 3`` () =
+      json "{\"list\":[true,2,true],\"a\":{\"b\":\"B\"}}"
+      |> dust  "check true value in section iteration are also OK"
+               "{#list}{a.b}{/list}"
+      |> should equal "BBB"
+
+module R10_Partial =
+
+    // === SUITE ===partial definitions
+    // should test a basic replace in a template
+    [<Test>]
+    let ``should test a basic replace in a template`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust  "partial"
+               "Hello {name}! You have {count} new messages."
+      |> should equal "Hello Mick! You have 30 new messages."
+
+    // should test a block with defaults
+    [<Test>]
+    let ``should test a block with defaults`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust  "partial_with_blocks"
+               "{+header}default header {/header}Hello {name}! You have {count} new messages."
+      |> should equal "default header Hello Mick! You have 30 new messages."
+
+    // should test a blocks with no defaults
+    [<Test>]
+    let ``should test a blocks with no defaults`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust  "partial_with_blocks_and_no_defaults"
+               "{+header/}Hello {name}! You have {count} new messages."
+      |> should equal "Hello Mick! You have 30 new messages."
+
+    // should test a template with missing helper
+    [<Test>]
+    let ``should test a template with missing helper`` () =
+      empty
+      |> dust  "partial_print_name"
+               "{#helper}{/helper}"
+      |> should equal ""
+
+    // should test partial
+    [<Test>]
+    let ``should test partial`` () =
+      empty
+      |> dust  "nested_partial_print_name"
+               "{>partial_print_name/}"
+      |> should equal ""
+
+    // should test nested partial
+    [<Test>]
+    let ``should test nested partial`` () =
+      empty
+      |> dust  "nested_nested_partial_print_name"
+               "{>nested_partial_print_name/}"
+      |> should equal ""
+
+module R15_CoreGrammar =
+    // === SUITE ===core-grammar tests
+    // should ignore extra whitespaces between opening brace plus any of (#,?,@,^,+,%) and the tag identifier
+    // should ignore carriage return or tab in inline param values
+    [<Test>]
+    let ``should ignore carriage return or tab in inline param values`` () =
+      empty
+      |> dust  "ignore carriage return or tab in inline param values"
+               "{#helper name=\"Dialog\" config=\"{\n\'name\' : \'index\' }\n \"} {/helper}"
+      |> should equal ""
+
+    // should test base template with dash in the reference
+    [<Test>]
+    let ``should test base template with dash in the reference`` () =
+      empty
+      |> dust  "base_template with dash in the reference"
+               "Start{~n}{+title-t}Template Title{/title-t}{~n}{+main-t}Template Content{/main-t}{~n}End"
+      |> should equal "Start\nTemplate Title\nTemplate Content\nEnd"
+
+    // should test child template with dash
+    [<Test>]
+    let ``should test child template with dash`` () =
+      json "{\"xhr\":false}"
+      |> dust  "child_template with dash in the reference"
+               "{^xhr-n}tag not found!{:else}tag found!{/xhr-n}"
+      |> should equal "tag not found!"
+
+    // should test dash in # sections
+    [<Test>]
+    let ``should test dash in # sections`` () =
+      json "{\"first-names\":[{\"name\":\"Moe\"},{\"name\":\"Larry\"},{\"name\":\"Curly\"}]}"
+      |> dust  "support dash in # sections"
+               "{#first-names}{name}{/first-names}"
+      |> should equal "MoeLarryCurly"
+
+    // should test for dash in a referece for exists section
+    [<Test>]
+    let ``should test for dash in a referece for exists section`` () =
+      json "{\"tags-a\":\"tag\"}"
+      |> dust  "support dash in a referece for exists section"
+               "{?tags-a}tag found!{:else}No Tags!{/tags-a}"
+      |> should equal "tag found!"
+
+    // should test using dash in key/reference
+    [<Test>]
+    let ``should test using dash in key/reference`` () =
+      json "{\"first-name\":\"Mick\",\"last-name\":\"Jagger\",\"count\":30}"
+      |> dust  "support dash in key/reference"
+               "Hello {first-name}, {last-name}! You have {count} new messages."
+      |> should equal "Hello Mick, Jagger! You have 30 new messages."
+
+
+module R18_Whitespace =
+    // === SUITE ===whitespace test
+    // whitespace off: whitespace-only template is removed
+    [<Test>]
+    let ``whitespace off: whitespace-only template is removed`` () =
+      empty
+      |> dust  "whitespace off: whitespace-only template"
+               "\n     "
+      |> should equal ""
+
+    // whitespace off: whitespace-only block is removed
+    [<Test>]
+    let ``whitespace off: whitespace-only block is removed`` () =
+      empty
+      |> dust  "whitespace off: whitespace-only block"
+               "{<foo}\n{/foo}{+foo/}"
+      |> should equal ""
+
+    // whitespace on: multiline text block should maintain indent
+    [<Test>]
+    let ``whitespace on: multiline text block should maintain indent`` () =
+      empty
+      |> dust  "whitespace on: multiline text block"
+               "<p>\n    foo bar baz\n    foo bar baz\n</p>"
+      |> should equal "<p>\n    foo bar baz\n    foo bar baz\n</p>"
+
+    // whitespace on: partials should preserve indentation
+    [<Test>]
+    let ``whitespace on: partials should preserve indentation`` () =
+      empty
+      |> dust  "whitespace on: partial indentation"
+               "<html>\n<head>\n</head>\n<body>{+body/}<body>\n</html>\n{<body}\n    <h1>Title</h1>\n    <p>Content...</p>\n{/body}"
+      |> should equal "<html>\n<head>\n</head>\n<body>\n    <h1>Title</h1>\n    <p>Content...</p>\n<body>\n</html>\n"
+
+    // raw text should keep all whitespace
+    [<Test>]
+    let ``raw text should keep all whitespace`` () =
+      let out = empty
+                |> dust "simple raw text"
+                        "{`<pre>\nA: \"hello\"\n              B: \'hello\'?\nA: a walrus (:{=\n              B: Lols!\n               __ ___                              \n            .\'. -- . \'.                            \n           /U)  __   (O|                           \n          /.\'  ()()   \'.._                        \n        .\',/;,_.--._.;;) . \'--..__                 \n       /  ,///|.__.|.\\   \'.  \'.\'\'---..___       \n      /\'._ \'\' ||  ||  \'\' _\'  :      \'   . \'.     \n     /        ||  ||        \'.,    )   )   :      \n    :\'-.__ _  ||  ||   _ __.\' __ .\'  \'   \'   ,)   \n    (          \'  |\'        ( __= ___..-._ ( (.\\  \n   (\'      .___ ___.      /\'.___=          ..  \n    \\-..____________..-\'\'                        \n</pre>`}"
+
+      let exp = "<pre>\nA: \"hello\"\n              B: \'hello\'?\nA: a walrus (:{=\n              B: Lols!\n               __ ___                              \n            .\'. -- . \'.                            \n           /U)  __   (O|                           \n          /.\'  ()()   \'.._                        \n        .\',/;,_.--._.;;) . \'--..__                 \n       /  ,///|.__.|.\\   \'.  \'.\'\'---..___       \n      /\'._ \'\' ||  ||  \'\' _\'  :      \'   . \'.     \n     /        ||  ||        \'.,    )   )   :      \n    :\'-.__ _  ||  ||   _ __.\' __ .\'  \'   \'   ,)   \n    (          \'  |\'        ( __= ___..-._ ( (.\\  \n   (\'      .___ ___.      /\'.___=          ..  \n    \\-..____________..-\'\'                        \n</pre>"
+      out |> should equal exp
+
+module R17_Misc =
+    // === SUITE ===buffer test
+    // given content should be parsed as buffer
+    [<Test>]
+    let ``given content should be parsed as buffer`` () =
+      empty
+      |> dust  "buffer "
+               "{&partial/}"
+      |> should equal "{&partial/}"
+
+    // === SUITE ===comment test
+    // comments should be ignored
+    [<Test>]
+    let ``comments should be ignored`` () =
+      empty
+      |> dust  "comment"
+               "before {!  this is a comment { and } and all sorts of stuff including\nnewlines and tabs     are valid and is simply ignored !}after"
+      |> should equal "before after"
+
+
+#endif

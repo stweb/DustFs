@@ -16,7 +16,7 @@
     <DebugSymbols>true</DebugSymbols>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug</OutputPath>
-    <DefineConstants>DEBUG</DefineConstants>
+    <DefineConstants>DEBUG;TODO</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <Externalconsole>true</Externalconsole>
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -50,11 +50,12 @@
   </Choose>
   <Import Project="$(FSharpTargetsPath)" />
   <ItemGroup>
-    <Compile Include="AssemblyInfo.fs" />
-    <Compile Include="Program.fs" />
-    <Compile Include="DustTest.fs" />
     <None Include="paket.references" />
     <Content Include="App.config" />
+    <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="DustTest.fs" />
+    <Compile Include="Tests.fs" />
+    <Compile Include="Todo.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
