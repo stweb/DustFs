@@ -308,7 +308,7 @@ let parseFilters (strarr:seq<string>) =
     }
 
 // tokenizes a stream of chars
-let rec parseSpans (sec:Stack<string>) acc chars = 
+let rec parseSpans acc chars = 
     seq { 
         let emitLiteral() = seq { if acc <> [] then yield acc |> List.rev |> toString |> Buffer }
         match chars with
@@ -336,14 +336,9 @@ let rec parseSpans (sec:Stack<string>) acc chars =
                                 | Block ->       yield Section(Block, ident)
                                 | _ ->           failwith ("unexpected " + st.ToString())
                             else    
-                                sec.Push ident 
                                 yield SectionBlock(st, ident, [], Map.empty)
 
-                | '/' ->    if tag <> sec.Peek() then 
-                                failwith (sprintf "expected %s got %s" (sec.Peek()) tag)
-                            sec.Pop() |> ignore
-                            yield EndSection(tag)
-
+                | '/' ->    yield EndSection(tag)
                 | '>' ->    yield Partial(parseKeyValue tag)
                 | _ ->      let s = toString inside
                             let m = rexRef.Match(s)
@@ -352,8 +347,8 @@ let rec parseSpans (sec:Stack<string>) acc chars =
                                 yield Reference(m.Value, filters)
                             else 
                                 yield Buffer("{" + toString(inside)  + "}")
-            yield! parseSpans sec [] chars
-        | c :: chars    ->  yield! parseSpans sec (c :: acc) chars
+            yield! parseSpans [] chars
+        | c :: chars    ->  yield! parseSpans (c :: acc) chars
         | []            ->  yield! emitLiteral()
     }
 
@@ -379,7 +374,7 @@ let rec getTree acc stop = function
                         | _ -> getTree (head :: acc) stop tail
 
 let parse (doc:string) =
-    let body,_,_ = doc |> List.ofSeq |> parseSpans (new Stack<string>()) [] |> Seq.toList |> getTree [] ""
+    let body,_,_ = doc |> List.ofSeq |> parseSpans [] |> Seq.toList |> getTree [] ""
     body 
 
 
