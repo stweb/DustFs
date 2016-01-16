@@ -1,9 +1,5 @@
 #if INTERACTIVE
-#r "System.Xml.Linq"
-
-#r "../packages/FSharp.Data/lib/net40/FSharp.Data.dll"
-#r "../packages/Suave/lib/net40/Suave.dll"
-#r "../build/DustFs.dll"
+#load "scripts/load-references-debug.fsx"
 #endif
 
 open System
