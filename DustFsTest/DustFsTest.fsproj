@@ -16,7 +16,7 @@
     <DebugSymbols>true</DebugSymbols>
     <Optimize>false</Optimize>
     <OutputPath>bin\Debug</OutputPath>
-    <DefineConstants>DEBUG;TODO</DefineConstants>
+    <DefineConstants>DEBUG</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <Externalconsole>true</Externalconsole>
     <PlatformTarget>AnyCPU</PlatformTarget>

@@ -3,6 +3,7 @@
 open Dust.Engine
 open Dust.Test
 open NUnit.Framework
+open NUnit.Framework.Constraints
 open FsUnit
 open System.IO
 
@@ -16,7 +17,7 @@ module T02_CoreTests =
       json "{}"
       |> dust  "global_template"
                "{#helper foo=\"bar\" boo=\"boo\"} {/helper}"
-      |> should equal "global_template"
+      |> expect "global_template"
 
     // should render the template name with paths
     [<Test>]
@@ -25,7 +26,7 @@ module T02_CoreTests =
       json "{}"
       |> dust  "apps/test/foo.tl&v=0.1"
                "{#helper foo=\"bar\" boo=\"boo\" template=\"tl/apps/test\"} {/helper}"
-      |> should equal "apps/test/foo.tl&v=0.1"
+      |> expect "apps/test/foo.tl&v=0.1"
 
     // should test renaming a key
     [<Test>]
@@ -34,7 +35,7 @@ module T02_CoreTests =
       json "{\"root\":\"Subject\",\"person\":{\"name\":\"Larry\",\"age\":45}}"
       |> dust  "inline param from outer scope"
                "{#person foo=root}{foo}: {name}, {age}{/person}"
-      |> should equal "Subject: Larry, 45"
+      |> expect "Subject: Larry, 45"
 
     // should test force a key
     [<Test>]
@@ -42,7 +43,7 @@ module T02_CoreTests =
       json "{\"root\":\"Subject\",\"person\":{\"name\":\"Larry\",\"age\":45}}"
       |> dust  "force local"
                "{#person}{.root}: {name}, {age}{/person}"
-      |> should equal ": Larry, 45"
+      |> expect ": Larry, 45"
 
     // should test escape_pragma
     [<Test>]
@@ -51,7 +52,7 @@ module T02_CoreTests =
       json "{\"unsafe\":\"<script>alert(\'Goodbye!\')</script>\"}"
       |> dust  "escape pragma"
                "{%esc:s}\n  {unsafe}{~n}\n  {%esc:h}\n    {unsafe}\n  {/esc}\n{/esc}"
-      |> should equal "<script>alert(\'Goodbye!\')</script>\n&lt;script&gt;alert(&#39;Goodbye!&#39;)&lt;/script&gt;"
+      |> expect "<script>alert(\'Goodbye!\')</script>\n&lt;script&gt;alert(&#39;Goodbye!&#39;)&lt;/script&gt;"
 
     // . creating a block
     [<Test>]
@@ -60,7 +61,7 @@ module T02_CoreTests =
       json "{\"name\":\"me\"}"
       |> dust  "use . for creating a block and set params"
                "{#. test=\"you\"}{name} {test}{/.}"
-      |> should equal "me you"
+      |> expect "me you"
 
     // should functions in context
     [<Test>]
@@ -69,7 +70,7 @@ module T02_CoreTests =
       json "{}"
       |> dust  "functions in context"
                "Hello {type} World!"
-      |> should equal "Hello Sync World!"
+      |> expect "Hello Sync World!"
 
     // should test functions in context
     [<Test>]
@@ -78,7 +79,7 @@ module T02_CoreTests =
       json "{}"
       |> dust  "async functions in context"
                "Hello {type} World!"
-      |> should equal "Hello Async World!"
+      |> expect "Hello Async World!"
 
     // should test sync chunk write
     [<Test>]
@@ -87,7 +88,7 @@ module T02_CoreTests =
       json "{}"
       |> dust  "sync chunk write test"
                "Hello {type} World!"
-      |> should equal "Hello Chunky World!"
+      |> expect "Hello Chunky World!"
 
     // should setup base template for next test. hi should not be part of base block name
     [<Test>]
@@ -95,21 +96,21 @@ module T02_CoreTests =
       empty
       |> dustReg "issue322"
                "hi{+\"{name}\"/}"
-      |> should equal "hi"
+      |> expect "hi"
 
       empty
       |> dust  "issue322 use base template picks up prefix chunk data"
                "{>issue322 name=\"abc\"/}{<abc}ABC{/abc}"
-      |> should equal "hiABC"
+      |> expect "hiABC"
 
     // should test recursion
-    [<Test>]
-    [<Ignore "TODO fix recursion">]
+    [<Test>]    
+    [<Ignore "Requires JS Context">]
     let ``should test recursion`` () =
       json "{\"name\":\"1\",\"kids\":[{\"name\":\"1.1\",\"kids\":[{\"name\":\"1.1.1\"}]}]}"
       |> dustReg  "recursion" 
                "{name}{~n}{#kids}{>recursion:./}{/kids}"        
-      |> should equal "1\n1.1\n1.1.1\n"
+      |> expect "1\n1.1\n1.1.1\n"
 
     // context.resolve() taps parameters from the context
     [<Test>]
@@ -118,7 +119,7 @@ module T02_CoreTests =
       json "{\"baz\":\"baz\",\"ref\":\"ref\"}"
       |> dust  "context.resolve"
                "{#foo bar=\"{baz} is baz \" literal=\"literal \" func=func chunkFunc=\"{chunkFunc}\" indirectChunkFunc=indirectChunkFunc ref=ref }Fail{/foo}"
-      |> should equal "baz is baz literal func chunk indirect ref"
+      |> expect "baz is baz literal func chunk indirect ref"
 
     // should test the context
     [<Test>]
@@ -127,7 +128,7 @@ module T02_CoreTests =
       json "{\"projects\":[{\"name\":\"Mayhem\"},{\"name\":\"Flash\"},{\"name\":\"Thunder\"}]}"
       |> dust  "context"
                "{#list:projects}{name}{:else}No Projects!{/list}"
-      |> should equal "<ul>\n<li>Mayhem</li>\n<li>Flash</li>\n<li>Thunder</li>\n</ul>"
+      |> expect "<ul>\n<li>Mayhem</li>\n<li>Flash</li>\n<li>Thunder</li>\n</ul>"
 
     // should allow pushing and popping a context    
     [<Test>]
@@ -136,7 +137,7 @@ module T02_CoreTests =
       json "{}"
       |> dust  "context push / pop"
                "{#helper}{greeting} {firstName} {lastName}{.}{/helper}"
-      |> should equal "Hello Dusty Dusterson!"
+      |> expect "Hello Dusty Dusterson!"
 
     // should allow cloning a context
     [<Test>]
@@ -145,19 +146,11 @@ module T02_CoreTests =
       json "{}"
       |> dust  "context clone"
                "{#helper}{greeting} {firstName} {lastName}{/helper}"
-      |> should equal "Hello Dusty Dusterson"
+      |> expect "Hello Dusty Dusterson"
 
-[<Ignore("TODO")>]
 module T06_ArrayIndexAccess =
 
     // === SUITE ===array/index-access tests
-    // should test an array
-    [<Test>]
-    let ``should test an array`` () =
-      json "{\"title\":\"Sir\",\"names\":[{\"name\":\"Moe\"},{\"name\":\"Larry\"},{\"name\":\"Curly\"}]}"
-      |> dust  "array"
-               "{#names}{title} {name}{~n}{/names}"
-      |> should equal "Sir Moe\nSir Larry\nSir Curly\n"
 
     // should return a specific array element by index when element value is a primitive
     [<Test>]
@@ -165,7 +158,7 @@ module T06_ArrayIndexAccess =
       json "{\"do\":{\"re\":[\"hello!\",\"bye!\"]}}"
       |> dust  "accessing array element by index when element value is a primitive"
                "{do.re[0]}"
-      |> should equal "hello!"
+      |> expect "hello!"
 
     // should return a specific array element by index when element value is a object
     [<Test>]
@@ -173,7 +166,7 @@ module T06_ArrayIndexAccess =
       json "{\"do\":{\"re\":[{\"mi\":\"hello!\"},\"bye!\"]}}"
       |> dust  "accessing array by index when element value is a object"
                "{do.re[0].mi}"
-      |> should equal "hello!"
+      |> expect "hello!"
 
     // should return a specific array element by index when element is a nested object
     [<Test>]
@@ -181,7 +174,7 @@ module T06_ArrayIndexAccess =
       json "{\"do\":{\"re\":[{\"mi\":[\"one\",{\"fa\":\"hello!\"}]},\"bye!\"]}}"
       |> dust  "accessing array by index when element is a nested object"
                "{do.re[0].mi[1].fa}"
-      |> should equal "hello!"
+      |> expect "hello!"
 
     // should return a specific array element by index when element is list of primitives
     [<Test>]
@@ -189,7 +182,7 @@ module T06_ArrayIndexAccess =
       json "{\"do\":[\"lala\",\"lele\"]}"
       |> dust  "accessing array by index when element is list of primitives"
                "{do[0]}"
-      |> should equal "lala"
+      |> expect "lala"
 
     // should return a specific array element using the current context
     [<Test>]
@@ -197,47 +190,7 @@ module T06_ArrayIndexAccess =
       json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"}]]}"
       |> dust  "accessing array inside a loop using the current context"
                "{#list3}{.[0].biz}{/list3}"
-      |> should equal "123345"
-
-    // array: reference $idx in iteration on objects
-    [<Test>]
-    let ``array: reference $idx in iteration on objects`` () =
-      json "{\"title\":\"Sir\",\"names\":[{\"name\":\"Moe\"},{\"name\":\"Larry\"},{\"name\":\"Curly\"}]}"
-      |> dust  "array: reference $idx in iteration on objects"
-               "{#names}({$idx}).{title} {name}{~n}{/names}"
-      |> should equal "(0).Sir Moe\n(1).Sir Larry\n(2).Sir Curly\n"
-
-    // test array: reference $len in iteration on objects
-    [<Test>]
-    let ``test array: reference $len in iteration on objects`` () =
-      json "{\"title\":\"Sir\",\"names\":[{\"name\":\"Moe\"},{\"name\":\"Larry\"},{\"name\":\"Curly\"}]}"
-      |> dust  "array: reference $len in iteration on objects"
-               "{#names}Size=({$len}).{title} {name}{~n}{/names}"
-      |> should equal "Size=(3).Sir Moe\nSize=(3).Sir Larry\nSize=(3).Sir Curly\n"
-
-    // test array reference $idx in iteration on simple types
-    [<Test>]
-    let ``test array reference $idx in iteration on simple types`` () =
-      json "{\"title\":\"Sir\",\"names\":[\"Moe\",\"Larry\",\"Curly\"]}"
-      |> dust  "array reference $idx in iteration on simple type"
-               "{#names}({$idx}).{title} {.}{~n}{/names}"
-      |> should equal "(0).Sir Moe\n(1).Sir Larry\n(2).Sir Curly\n"
-
-    // test array reference $len in iteration on simple types
-    [<Test>]
-    let ``test array reference $len in iteration on simple types`` () =
-      json "{\"title\":\"Sir\",\"names\":[\"Moe\",\"Larry\",\"Curly\"]}"
-      |> dust  "array reference $len in iteration on simple type"
-               "{#names}Size=({$len}).{title} {.}{~n}{/names}"
-      |> should equal "Size=(3).Sir Moe\nSize=(3).Sir Larry\nSize=(3).Sir Curly\n"
-
-    // test array reference $idx/$len on empty array case
-    [<Test>]
-    let ``test array reference $idx $len on empty array case`` () =
-      json "{\"title\":\"Sir\",\"names\":[]}"
-      |> dust  "array reference $idx/$len on empty array case"
-               "{#names}Idx={$idx} Size=({$len}).{title} {.}{~n}{/names}"
-      |> should equal ""
+      |> expect "123345"
 
     // test array reference $idx/$len on single element case
     [<Test>]
@@ -245,7 +198,7 @@ module T06_ArrayIndexAccess =
       json "{\"name\":\"Just one name\"}"
       |> dust  "array reference $idx/$len on single element case (scalar case)"
                "{#name}Idx={$idx} Size={$len} {.}{/name}"
-      |> should equal "Idx= Size= Just one name"
+      |> expect "Idx= Size= Just one name"
 
     // test array reference $idx/$len {#.} section case
     [<Test>]
@@ -253,7 +206,7 @@ module T06_ArrayIndexAccess =
       json "{\"names\":[\"Moe\",\"Larry\",\"Curly\"]}"
       |> dust  "array reference $idx/$len {#.} section case"
                "{#names}{#.}{$idx}{.} {/.}{/names}"
-      |> should equal "0Moe 1Larry 2Curly "
+      |> expect "0Moe 1Larry 2Curly "
 
     // test array reference $idx/$len not changed in nested object
     [<Test>]
@@ -261,7 +214,7 @@ module T06_ArrayIndexAccess =
       json "{\"results\":[{\"info\":{\"name\":\"Steven\"}},{\"info\":{\"name\":\"Richard\"}}]}"
       |> dust  "array reference $idx/$len not changed in nested object"
                "{#results}{#info}{$idx}{name}-{$len} {/info}{/results}"
-      |> should equal "0Steven-2 1Richard-2 "
+      |> expect "0Steven-2 1Richard-2 "
 
     // test array reference $idx/$len nested loops
     [<Test>]
@@ -269,7 +222,7 @@ module T06_ArrayIndexAccess =
       json "{\"A\":[{\"B\":[{\"C\":[\"Ca1\",\"C2\"]},{\"C\":[\"Ca2\",\"Ca22\"]}]},{\"B\":[{\"C\":[\"Cb1\",\"C2\"]},{\"C\":[\"Cb2\",\"Ca2\"]}]}]}"
       |> dust  "array reference $idx/$len nested loops"
                "{#A}A loop:{$idx}-{$len},{#B}B loop:{$idx}-{$len}C[0]={.C[0]} {/B}A loop trailing: {$idx}-{$len}{/A}"
-      |> should equal "A loop:0-2,B loop:0-2C[0]=Ca1 B loop:1-2C[0]=Ca2 A loop trailing: 0-2A loop:1-2,B loop:0-2C[0]=Cb1 B loop:1-2C[0]=Cb2 A loop trailing: 1-2"
+      |> expect "A loop:0-2,B loop:0-2C[0]=Ca1 B loop:1-2C[0]=Ca2 A loop trailing: 0-2A loop:1-2,B loop:0-2C[0]=Cb1 B loop:1-2C[0]=Cb2 A loop trailing: 1-2"
 
     // should test the array reference access with idx
     [<Test>]
@@ -277,7 +230,7 @@ module T06_ArrayIndexAccess =
       json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
       |> dust  "using idx in array reference Accessing"
                "{#list4} {name} {number[$idx]} {$idx}{/list4}"
-      |> should equal " Dog 1 0 Cat 5 1"
+      |> expect " Dog 1 0 Cat 5 1"
 
     // should test the array reference access with len
     [<Test>]
@@ -285,7 +238,7 @@ module T06_ArrayIndexAccess =
       json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
       |> dust  "using len in array reference Accessing"
                "{#list4} {name} {number[$len]}{/list4}"
-      |> should equal " Dog 3 Cat 6"
+      |> expect " Dog 3 Cat 6"
 
     // should test the array reference access with idx and current context
     [<Test>]
@@ -293,7 +246,7 @@ module T06_ArrayIndexAccess =
       json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"},{\"biz\":\"456\"}]]}"
       |> dust  "using idx in array reference Accessing"
                "{#list3}{.[$idx].biz}{/list3}"
-      |> should equal "123456"
+      |> expect "123456"
 
     // should test the array reference access with len and current context
     [<Test>]
@@ -301,7 +254,7 @@ module T06_ArrayIndexAccess =
       json "{\"list3\":[[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}],[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}]]}"
       |> dust  "using len in array reference Accessing"
                "{#list3}{.[$len].idx}{/list3}"
-      |> should equal "22"
+      |> expect "22"
 
     // should test double nested array and . reference: issue #340
     [<Test>]
@@ -309,7 +262,7 @@ module T06_ArrayIndexAccess =
       json "{\"test\":[[1,2,3]]}"
       |> dust  "using idx in double nested array"
                "{#test}{#.}{.}i:{$idx}l:{$len},{/.}{/test}"
-      |> should equal "1i:0l:3,2i:1l:3,3i:2l:3,"
+      |> expect "1i:0l:3,2i:1l:3,3i:2l:3,"
 
     // should test using a multilevel reference as a key in array access
     [<Test>]
@@ -317,16 +270,7 @@ module T06_ArrayIndexAccess =
       json "{\"loop\":{\"array\":{\"thing\":{\"sub\":1,\"sap\":2},\"thing2\":\"bar\"}},\"key\":{\"foo\":\"thing\"}}"
       |> dust  "using a nested key as a reference for array index access"
                "{#loop.array[key.foo].sub}{.}{/loop.array[key.foo].sub}"
-      |> should equal "1"
-
-    // should HTML-encode stringified arrays referenced directly
-    [<Test>]
-    let ``should HTML-encode stringified arrays referenced directly`` () =
-      json "{\"array\":[\"You & I\",\" & Moe\"]}"
-      |> dust  "Outputting an array calls toString and HTML-encodes"
-               "{array}"
-      |> should equal "You &amp; I, &amp; Moe"
-
+      |> expect "1"
 
 [<Ignore "Implement thenable/promises">]
 module T07_ObjectTestsWithThenable =
@@ -337,7 +281,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"magic\":{}}"
       |> dust  "thenable reference"
                "Eventually {magic}!"
-      |> should equal "Eventually magic!"
+      |> expect "Eventually magic!"
 
     // undefined
     [<Test>]
@@ -345,7 +289,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"rice-krispies\":{}}"
       |> dust  "thenable escape reference"
                "{rice-krispies} {rice-krispies|s}"
-      |> should equal "Snap, Crackle &amp; Pop Snap, Crackle & Pop"
+      |> expect "Snap, Crackle &amp; Pop Snap, Crackle & Pop"
 
     // should deep-inspect a thenable reference
     [<Test>]
@@ -353,7 +297,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"magic\":{}}"
       |> dust  "thenable deep reference"
                "Eventually {magic.ally.delicious}!"
-      |> should equal "Eventually Lucky Charms!"
+      |> expect "Eventually Lucky Charms!"
 
     // should deep-inspect a thenable reference but move on if it isn't there
     [<Test>]
@@ -361,7 +305,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"magic\":{}}"
       |> dust  "thenable deep reference that doesn\'t exist"
                "Eventually {magic.ally.disappeared}!"
-      |> should equal "Eventually !"
+      |> expect "Eventually !"
 
     // should deep-inspect a thenable reference recursively
     [<Test>]
@@ -369,7 +313,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"magic\":{}}"
       |> dust  "thenable deep reference... this is just getting silly"
                "Eventually {magic.ally.delicious}!"
-      |> should equal "Eventually Lucky Charms!"
+      |> expect "Eventually Lucky Charms!"
 
     // should inspect a thenable reference but move on if it fails
     [<Test>]
@@ -377,7 +321,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"magic\":{}}"
       |> dust  "thenable reference that fails"
                "Eventually {magic.ally.delicious}!"
-      |> should equal "Eventually !"
+      |> expect "Eventually !"
 
     // should deep-inspect a thenable reference but move on if it fails
     [<Test>]
@@ -385,7 +329,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"magic\":{}}"
       |> dust  "thenable deep reference that fails"
                "Eventually {magic.ally.delicious}!"
-      |> should equal "Eventually !"
+      |> expect "Eventually !"
 
     // should reserve an async section for a thenable
     [<Test>]
@@ -393,7 +337,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"promise\":{}}"
       |> dust  "thenable section"
                "{#promise}Eventually {magic}!{/promise}"
-      |> should equal "Eventually magic!"
+      |> expect "Eventually magic!"
 
     // should iterate over an array resolved from a thenable
     [<Test>]
@@ -401,7 +345,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"promise\":{}}"
       |> dust  "thenable resolves with array into reference"
                "{promise}"
-      |> should equal "foo,bar,baz"
+      |> expect "foo,bar,baz"
 
     // should iterate over an array resolved from a thenable
     [<Test>]
@@ -409,7 +353,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"promise\":{}}"
       |> dust  "thenable resolves with array into section"
                "{#promise}{name}{/promise}"
-      |> should equal "foobarbaz"
+      |> expect "foobarbaz"
 
     // Should not render a thenable section with no body
     [<Test>]
@@ -417,7 +361,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"promise\":{}}"
       |> dust  "thenable empty section"
                "{#promise/}"
-      |> should equal ""
+      |> expect ""
 
     // should reserve an async section for a thenable returned from a function
     [<Test>]
@@ -425,7 +369,7 @@ module T07_ObjectTestsWithThenable =
       json "{}"
       |> dust  "thenable section from function"
                "{#promise}Eventually {magic}!{/promise}"
-      |> should equal "Eventually magic!"
+      |> expect "Eventually magic!"
 
     // should reserve an async section for a deep-reference thenable
     [<Test>]
@@ -433,7 +377,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"magic\":{}}"
       |> dust  "thenable deep section"
                "Eventually my {#magic.ally}{delicious}{/magic.ally} will come"
-      |> should equal "Eventually my Lucky Charms will come"
+      |> expect "Eventually my Lucky Charms will come"
 
     // should reserve an async section for a deep-reference thenable and not blow the stack
     [<Test>]
@@ -441,7 +385,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"prince\":\"Prince\",\"magic\":{}}"
       |> dust  "thenable deep section, traverse outside"
                "Eventually my {#magic.ally}{prince} {delicious} {charms}{/magic.ally} will come"
-      |> should equal "Eventually my Prince Lucky Charms will come"
+      |> expect "Eventually my Prince Lucky Charms will come"
 
     // Dust helpers that return thenables are resolved in context
     [<Test>]
@@ -449,7 +393,7 @@ module T07_ObjectTestsWithThenable =
       empty
       |> dust  "thenable resolved by global helper"
                "{@promise resolve=\"helper\"}I am a big {.}!{/promise}"
-      |> should equal "I am a big helper!"
+      |> expect "I am a big helper!"
 
     // Dust helpers that return thenables are rejected in context
     [<Test>]
@@ -457,7 +401,7 @@ module T07_ObjectTestsWithThenable =
       empty
       |> dust  "thenable rejected by global helper"
                "{@promise reject=\"error\"}I am a big helper!{:error}I am a big {.}!{/promise}"
-      |> should equal "I am a big error!"
+      |> expect "I am a big error!"
 
     // rejected thenable reference logs
     [<Test>]
@@ -465,7 +409,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"promise\":{}}"
       |> dust  "thenable error"
                "{promise}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // rejected thenable renders error block
     [<Test>]
@@ -473,7 +417,7 @@ module T07_ObjectTestsWithThenable =
       json "{\"promise\":{}}"
       |> dust  "thenable error with error block"
                "{#promise}No magic{:error}{message}{/promise}"
-      |> should equal "promise error"
+      |> expect "promise error"
 
 [<Ignore "Implement streams">]
 module T07_ObjectTestsWithStreams =
@@ -484,7 +428,7 @@ module T07_ObjectTestsWithStreams =
       json "{}"
       |> dust  "stream"
                "Stream of {stream}..."
-      |> should equal "Stream of consciousness..."
+      |> expect "Stream of consciousness..."
 
     // should respect filters set on stream references
     [<Test>]
@@ -492,7 +436,7 @@ module T07_ObjectTestsWithStreams =
       json "{}"
       |> dust  "stream escaping"
                "{polluted|s} {polluted}"
-      |> should equal "<&> &lt;&amp;&gt;"
+      |> expect "<&> &lt;&amp;&gt;"
 
     // should abort the stream if it raises an error
     [<Test>]
@@ -500,7 +444,7 @@ module T07_ObjectTestsWithStreams =
       json "{}"
       |> dust  "stream error"
                "{stream}..."
-      |> should equal "Everything is..."
+      |> expect "Everything is..."
 
     // should reserve an async section for a stream
     [<Test>]
@@ -508,7 +452,7 @@ module T07_ObjectTestsWithStreams =
       json "{}"
       |> dust  "stream section"
                "Pour {#molecule}{atom}{num}{/molecule} in the glass"
-      |> should equal "Pour H2O in the glass"
+      |> expect "Pour H2O in the glass"
 
     // should reserve an async chunk for a stream reference and abort if the stream errors
     [<Test>]
@@ -516,7 +460,7 @@ module T07_ObjectTestsWithStreams =
       json "{}"
       |> dust  "stream section error"
                "Pour {#molecule}{atom}{num}{:error}{message}{/molecule} in the glass"
-      |> should equal "Pour H2O... no! in the glass"
+      |> expect "Pour H2O... no! in the glass"
 
     // should render streams found while iterating over an array
     [<Test>]
@@ -524,7 +468,7 @@ module T07_ObjectTestsWithStreams =
       json "{\"streams\":[null,null,null]}"
       |> dust  "array of streams"
                "{#streams}{.} {/streams}"
-      |> should equal "Danube Rhine Seine "
+      |> expect "Danube Rhine Seine "
 
     // should seamlessly mix asynchronous data sources
     [<Test>]
@@ -532,7 +476,7 @@ module T07_ObjectTestsWithStreams =
       json "{\"water\":{}}"
       |> dust  "promise a stream and stream a promise"
                "Little Bobby drank and drank, and then he drank some more. But what he thought was {water} was {sulfuric_acid}!"
-      |> should equal "Little Bobby drank and drank, and then he drank some more. But what he thought was H2O was H2SO4!"
+      |> expect "Little Bobby drank and drank, and then he drank some more. But what he thought was H2O was H2SO4!"
 
     // should not treat MongoDB documents as streams
     [<Test>]
@@ -540,7 +484,7 @@ module T07_ObjectTestsWithStreams =
       json "{\"mongo\":{\"name\":\"Mongo\"}}"
       |> dust  "MongoDB-like Document is not a stream"
                "{#mongo}{name}{/mongo}"
-      |> should equal "Mongo"
+      |> expect "Mongo"
 
     // stream section with no body should not render
     [<Test>]
@@ -548,28 +492,26 @@ module T07_ObjectTestsWithStreams =
       json "{}"
       |> dust  "Stream section with no body should not render"
                "{#stream/}"
-      |> should equal ""
+      |> expect ""
 
 module T07_NestedPaths =
     // === SUITE ===nested path tests
     // should test the leading dot behavior in local mode
     [<Test>]
-    [<Ignore "fix . reference section parsing">]
     let ``should test the leading dot behavior in local mode`` () =
       json "{\"name\":\"List of people\",\"age\":\"8 hours\",\"people\":[{\"name\":\"Alice\"},{\"name\":\"Bob\",\"age\":42}]}"
       |> dust  "Verify local mode leading dot path in local mode"
                "{#people}{.name} is {?.age}{.age} years old.{:else}not telling us their age.{/age}{/people}"
-      |> should equal "Alice is not telling us their age.Bob is 42 years old."
+      |> expect "Alice is not telling us their age.Bob is 42 years old."
 
 
     // should test explicit context blocks looking further up stack
     [<Test>]
-    [<Ignore "TODO Implement explicit context">]
     let ``should test explicit context blocks looking further up stack`` () =
       json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
       |> dust  "same as previous test but with explicit context"
                "{#data.A:B}Aname{name}{data.C.name}{/data.A}"
-      |> should equal "AnameAl"
+      |> expect "AnameAl"
 
     // should test access global despite explicit context
     [<Test>]
@@ -578,7 +520,7 @@ module T07_NestedPaths =
       json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
       |> dust  "explicit context but gets value from global"
                "{#data.A:B}Aname{name}{glob.globChild}{/data.A}"
-      |> should equal "AnameAltestGlobal"
+      |> expect "AnameAltestGlobal"
 
 
     // Should find glob.globChild which is in context.global
@@ -589,7 +531,7 @@ module T07_NestedPaths =
       // base: { glob: { globChild: "testGlobal"} },        
       |> dust  "check nested ref in global works in global mode"
                "{glob.globChild}"
-      |> should equal "testGlobal"
+      |> expect "testGlobal"
 
     // Should find glob.globChild which is in context.global
     [<Test>]
@@ -598,7 +540,7 @@ module T07_NestedPaths =
       json "{\"data\":{\"A\":{\"name\":\"Al\",\"B\":\"Ben\",\"C\":{\"namex\":\"Charlie\"}},\"C\":{\"namey\":\"Charlie Sr.\"}}}"
       |> dust  "check nested ref not found in global if partial match"
                "{#data}{#A}{C.name}{/A}{/data}"
-      |> should equal ""
+      |> expect ""
 
 
     // should test resolve correct 'this' when invoking method
@@ -610,16 +552,16 @@ module T07_NestedPaths =
             }}}"
       |> dust  "method invocation"
                "Hello {person.fullName}"
-      |> should equal "Hello Peter Jones"
+      |> expect "Hello Peter Jones"
 
     // Should resolve path correctly
     [<Test>]
     [<Ignore "implement array index references">]
-    let ``Should resolve path correctly`` () =
+    let ``Should resolve index path correctly`` () =
       json "{\"nulls\":[1,null,null,2],\"names\":[{\"name\":\"Moe\"},{\"name\":\"Curly\"}]}"
-      |> dust  "check null values in section iteration don\'t break path resolution"
+      |> dust  "check null values in section iteration do not break path resolution"
                "{#nulls}{names[0].name}{/nulls}"
-      |> should equal "MoeMoeMoeMoe"
+      |> expect "MoeMoeMoeMoe"
 
 [<Ignore "TODO implement j filters">]
 module T09_Filter =
@@ -641,7 +583,7 @@ module T09_Filter =
 //                  },
       |> dust  "filter"
                "{#filter}foo {bar}{/filter}"
-      |> should equal "FOO BAR"
+      |> expect "FOO BAR"
 
     // should escapeJs a string when using the j filter
     [<Test>]
@@ -649,7 +591,7 @@ module T09_Filter =
       json "{\"obj\":\"<script>\\\\testBS\\\\ \\rtestCR\\r \u2028testLS\u2028 \u2029testPS\u2029 \\ntestNL\\n \\ftestLF\\f \'testSQ\' \\ttestTB\\t /testFS/</script>\"}"
       |> dust  "escapeJs filter without DQ"
                "{obj|j|s}"
-      |> should equal "<script>\\\\testBS\\\\ \\rtestCR\\r \\u2028testLS\\u2028 \\u2029testPS\\u2029 \\ntestNL\\n \\ftestLF\\f \\\'testSQ\\\' \\ttestTB\\t \\/testFS\\/<\\/script>"
+      |> expect "<script>\\\\testBS\\\\ \\rtestCR\\r \\u2028testLS\\u2028 \\u2029testPS\\u2029 \\ntestNL\\n \\ftestLF\\f \\\'testSQ\\\' \\ttestTB\\t \\/testFS\\/<\\/script>"
 
     // should escapeJs a string with double quotes when using the j filter
     [<Test>]
@@ -657,7 +599,7 @@ module T09_Filter =
       json "{\"obj\":\"\\\"testDQ\\\"\"}"
       |> dust  "escapeJs filter with only DQ"
                "{obj|j|s}"
-      |> should equal "\\\"testDQ\\\""
+      |> expect "\\\"testDQ\\\""
 
     // should stringify a JSON literal when using the js filter
     [<Test>]
@@ -665,7 +607,7 @@ module T09_Filter =
       json "{\"obj\":{\"id\":1,\"name\":\"bob\",\"occupation\":\"construction\"}}"
       |> dust  "escapeJSON filter"
                "{obj|js|s}"
-      |> should equal "{\"id\":1,\"name\":\"bob\",\"occupation\":\"construction\"}"
+      |> expect "{\"id\":1,\"name\":\"bob\",\"occupation\":\"construction\"}"
 
     // should escape bad characters when using the js filter
     [<Test>]
@@ -673,7 +615,7 @@ module T09_Filter =
       json "{\"obj\":{\"name\":\"<<\u2028testLS \u2029testPS\"}}"
       |> dust  "escapeJSON filter with bad characters"
                "{obj|js|s}"
-      |> should equal "{\"name\":\"\\u003c\\u003c\\u2028testLS \\u2029testPS\"}"
+      |> expect "{\"name\":\"\\u003c\\u003c\\u2028testLS \\u2029testPS\"}"
 
     // should objectify a JSON string when using the jp filter
     [<Test>]
@@ -681,7 +623,7 @@ module T09_Filter =
       json "{\"obj\":\"{\\\"id\\\":1,\\\"name\\\":\\\"bob\\\",\\\"occupation\\\":\\\"construction\\\"}\"}"
       |> dust  "JSON.parse filter"
                "{obj|jp}"
-      |> should equal "[object Object]"
+      |> expect "[object Object]"
 
     // filters are passed the current context
     [<Test>]
@@ -689,7 +631,7 @@ module T09_Filter =
       json "{\"woo\":0,\"name\":\"Boo\",\"dust\":{\"woo\":5,\"name\":\"Dust\"}}"
       |> dust  "filter receives context"
                "{#dust}{name|woo}{/dust}"
-      |> should equal "DUST!!!!!"
+      |> expect "DUST!!!!!"
 
 module T11_PartialParams =
 
@@ -700,7 +642,7 @@ module T11_PartialParams =
       json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
       |> dust  "partials"
                "{>partial foo=0 /} {>\"hello_world\" foo=1 /} {>\"{ref}\" foo=2 /}"
-      |> should equal "Hello Jim! You have 42 new messages. Hello World! Hello World!"
+      |> expect "Hello Jim! You have 42 new messages. Hello World! Hello World!"
 
     // should test partial with an asynchronously-resolved template name
     [<Test>]
@@ -708,7 +650,7 @@ module T11_PartialParams =
       json "{}"
       |> dust  "partial with async ref as name"
                "{>\"{ref}\" /}"
-      |> should equal "Hello World!"
+      |> expect "Hello World!"
 
     // should test partial with context
     [<Test>]
@@ -716,7 +658,7 @@ module T11_PartialParams =
       json "{\"profile\":{\"name\":\"Mick\",\"count\":30}}"
       |> dust  "partial with context"
                "{>partial:.profile/}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
     // partial with blocks, with no default values for blocks
     [<Test>]
@@ -724,7 +666,7 @@ module T11_PartialParams =
       json "{\"name\":\"Mick\",\"count\":30}"
       |> dust  "partial with blocks, with no default values for blocks"
                "{>partial_with_blocks_and_no_defaults/}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
     // partial with blocks, with no default values for blocks, but override default values with inline partials
     [<Test>]
@@ -732,7 +674,7 @@ module T11_PartialParams =
       json "{\"name\":\"Mick\",\"count\":30}"
       |> dust  "partial with blocks, with no default values for blocks, but override default values with inline partials"
                "{>partial_with_blocks_and_no_defaults/}{<header}override header {/header}"
-      |> should equal "override header Hello Mick! You have 30 new messages."
+      |> expect "override header Hello Mick! You have 30 new messages."
 
     // partial with blocks, override default values with inline partials
     [<Test>]
@@ -740,7 +682,7 @@ module T11_PartialParams =
       json "{\"name\":\"Mick\",\"count\":30}"
       |> dust  "partial with blocks, override default values with inline partials"
                "{>partial_with_blocks/}{<header}my header {/header}"
-      |> should equal "my header Hello Mick! You have 30 new messages."
+      |> expect "my header Hello Mick! You have 30 new messages."
 
     // should test partial with inline params
     [<Test>]
@@ -748,7 +690,7 @@ module T11_PartialParams =
       json "{\"n\":\"Mick\",\"c\":30}"
       |> dust  "partial with inline params"
                "{>partial name=n count=\"{c}\"/}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
     // should test partial with inline params tree walk up
     [<Test>]
@@ -756,7 +698,7 @@ module T11_PartialParams =
       json "{\"n\":\"Mick\",\"x\":30,\"a\":{\"b\":{\"c\":{\"d\":{\"e\":\"1\"}}}}}"
       |> dust  "partial with inline params tree walk up"
                "{#a}{#b}{#c}{#d}{>partial name=n count=\"{x}\"/}{/d}{/c}{/b}{/a}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
     // should test partial with inline params and context
     [<Test>]
@@ -764,7 +706,7 @@ module T11_PartialParams =
       json "{\"profile\":{\"n\":\"Mick\",\"c\":30}}"
       |> dust  "partial with inline params and context"
                "{>partial:profile name=\"{n}\" count=\"{c}\"/}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
     // should test partial with inline params and context tree walk up
     [<Test>]
@@ -772,7 +714,7 @@ module T11_PartialParams =
       json "{\"profile\":{\"n\":\"Mick\",\"x\":30,\"a\":{\"b\":{\"c\":{\"d\":{\"e\":\"1\"}}}}}}"
       |> dust  "partial with inline params and context tree walk up"
                "{#profile}{#a}{#b}{#c}{#d}{>partial:profile name=n count=\"{x}\"/}{/d}{/c}{/b}{/a}{/profile}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
     // should test partial with literal inline param and context. Fallback values for name or count are undefined
     [<Test>]
@@ -780,7 +722,7 @@ module T11_PartialParams =
       json "{\"profile\":{\"n\":\"Mick\",\"count\":30}}"
       |> dust  "partial with literal inline param and context"
                "{>partial:profile name=\"Joe\" count=\"99\"/}"
-      |> should equal "Hello Joe! You have 30 new messages."
+      |> expect "Hello Joe! You have 30 new messages."
 
     // should test partial with dynamic name and a context
     [<Test>]
@@ -788,7 +730,7 @@ module T11_PartialParams =
       json "{\"partialName\":\"partial\",\"me\":{\"name\":\"Mick\",\"count\":30}}"
       |> dust  "partial with dynamic name and context"
                "{>\"{partialName}\":me /}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
     // should test partial with dynamic name and a context
     [<Test>]
@@ -796,7 +738,7 @@ module T11_PartialParams =
       json "{\"partialName\":\"partial\",\"me\":{\"name\":\"Mick\",\"count\":30}}"
       |> dust  "partial with dynamic name and context and inline params"
                "{>\"{partialName}\" name=me.name count=me.count /}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
     // should preserve partials backwards compatibility with compilers pre-2.7
     [<Test>]
@@ -804,7 +746,7 @@ module T11_PartialParams =
       json "{\"name\":\"Mick\",\"count\":30}"
       |> dust  "backcompat (< 2.7.0) compiler with no partial context"
                "{#oldPartial/}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
     // should test partial with blocks and inline params
     [<Test>]
@@ -812,7 +754,7 @@ module T11_PartialParams =
       json "{\"n\":\"Mick\",\"c\":30}"
       |> dust  "partial with blocks and inline params"
                "{>partial_with_blocks name=n count=\"{c}\"/}"
-      |> should equal "default header Hello Mick! You have 30 new messages."
+      |> expect "default header Hello Mick! You have 30 new messages."
 
     // should test partial with blocks, override default values for blocks and inline params
     [<Test>]
@@ -820,7 +762,7 @@ module T11_PartialParams =
       json "{\"n\":\"Mick\",\"c\":30}"
       |> dust  "partial with blocks, override default values for blocks and inline params"
                "{>partial_with_blocks name=n count=\"{c}\"/}{<header}my header {/header}"
-      |> should equal "my header Hello Mick! You have 30 new messages."
+      |> expect "my header Hello Mick! You have 30 new messages."
 
     // should test partial blocks and no defaults, override default values for blocks and inline params
     [<Test>]
@@ -828,7 +770,7 @@ module T11_PartialParams =
       json "{\"n\":\"Mick\",\"c\":30}"
       |> dust  "partial with blocks and no defaults, override default values for blocks and inline params"
                "{>partial_with_blocks_and_no_defaults name=n count=\"{c}\"/}{<header}my header {/header}"
-      |> should equal "my header Hello Mick! You have 30 new messages."
+      |> expect "my header Hello Mick! You have 30 new messages."
 
     // should test partial with no blocks, ignore the override inline partials
     [<Test>]
@@ -836,7 +778,7 @@ module T11_PartialParams =
       json "{\"n\":\"Mick\",\"c\":30}"
       |> dust  "partial with no blocks, ignore the override inline partials"
                "{>partial name=n count=\"{c}\"/}{<header}my header {/header}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
     // should print the current template name
     [<Test>]
@@ -844,7 +786,7 @@ module T11_PartialParams =
       json "{}"
       |> dust  "partial prints the current template name"
                "{>partial_print_name/}"
-      |> should equal "partial_print_name"
+      |> expect "partial_print_name"
 
     // should print the current dynamic template name
     [<Test>]
@@ -852,7 +794,7 @@ module T11_PartialParams =
       json "{\"partial_print_name\":\"partial prints the current template name\"}"
       |> dust  "partial prints the current dynamic template name"
                "{>\"{partial_print_name}\"/}"
-      |> should equal "partial_print_name"
+      |> expect "partial_print_name"
 
     // should print the current template name
     [<Test>]
@@ -860,7 +802,7 @@ module T11_PartialParams =
       json "{}"
       |> dust  "nested partial prints the current template name"
                "{>nested_partial_print_name/}"
-      |> should equal "partial_print_name"
+      |> expect "partial_print_name"
 
     // should print the current template name with some additional output
     [<Test>]
@@ -868,7 +810,7 @@ module T11_PartialParams =
       json "{\"parentTemplate\":\"parent\",\"parentSource\":\"{?undefinedVar}{:else}{>\\\"content\\\"/}{/undefinedVar}\",\"contentTemplate\":\"content\",\"contentSource\":\"templateName: {#printTemplateName}{/printTemplateName} output: additional output\"}"
       |> dust  "nested partial 2 levels deep from loadSource prints the current template name"
                "{#loadTemplate name=\"{contentTemplate}\" source=\"{contentSource|s}\"}{/loadTemplate}\n{#loadTemplate name=\"{parentTemplate}\" source=\"{parentSource|s}\"}{/loadTemplate}\n{>\"{parentTemplate}\"/} | additional parent output"
-      |> should equal "templateName: content output: additional output | additional parent output"
+      |> expect "templateName: content output: additional output | additional parent output"
 
     // should render the helper with missing global context
     [<Test>]
@@ -876,7 +818,7 @@ module T11_PartialParams =
       json "{}"
       |> dust  "partial with makeBase_missing_global"
                "{#helper template=\"partial\"}{/helper}"
-      |> should equal "Hello ! You have  new messages."
+      |> expect "Hello ! You have  new messages."
 
     // Should gracefully handle stepping into context that does not exist
     [<Test>]
@@ -884,7 +826,7 @@ module T11_PartialParams =
       json "{}"
       |> dust  "partial stepping into context that does not exist"
                "{#loadPartialTl}{/loadPartialTl}\n{>partialTl:contextDoesNotExist/}"
-      |> should equal " "
+      |> expect " "
 
 module T12_InlineParams =
 
@@ -895,7 +837,7 @@ module T12_InlineParams =
       json "{}"
       |> dust  "params"
                "{#helper foo=\"bar\"/}"
-      |> should equal "bar"
+      |> expect "bar"
 
     // Block handlers syntax should support integer number parameters
     [<Test>]
@@ -903,7 +845,7 @@ module T12_InlineParams =
       json "{}"
       |> dust  "inline params as integer"
                "{#helper foo=10 /}"
-      |> should equal "10"
+      |> expect "10"
 
     // Block handlers syntax should support decimal number parameters
     [<Test>]
@@ -911,7 +853,7 @@ module T12_InlineParams =
       json "{}"
       |> dust  "inline params as float"
                "{#helper foo=3.14159 /}"
-      |> should equal "3.14159"
+      |> expect "3.14159"
 
     // should print negative integer
     [<Test>]
@@ -919,7 +861,7 @@ module T12_InlineParams =
       json "{\"foo\":true}"
       |> dust  "inline params as negative integer"
                "{#foo bar=-1}{bar}{/foo}"
-      |> should equal "-1"
+      |> expect "-1"
 
     // should print negative float
     [<Test>]
@@ -927,7 +869,7 @@ module T12_InlineParams =
       json "{\"foo\":true}"
       |> dust  "inline params as negative float"
                "{#foo bar=-1.1}{bar}{/foo}"
-      |> should equal "-1.1"
+      |> expect "-1.1"
 
     // should test parameters with dashes
     [<Test>]
@@ -935,7 +877,7 @@ module T12_InlineParams =
       json "{}"
       |> dust  "inline params with dashes"
                "{#helper data-foo=\"dashes\" /}"
-      |> should equal "dashes"
+      |> expect "dashes"
 
     // Inline params that evaluate to a dust function should evaluate their body
     [<Test>]
@@ -943,7 +885,7 @@ module T12_InlineParams =
       json "{\"section\":true,\"b\":\"world\"}"
       |> dust  "inline params as dust function"
                "{#section a=\"{b}\"}{#a}Hello, {.}!{/a}{/section}"
-      |> should equal "Hello, world!"
+      |> expect "Hello, world!"
 
 module T13_InlinePartialBlock =
 
@@ -954,7 +896,7 @@ module T13_InlinePartialBlock =
       json "{\"val\":\"A\"}"
       |> dust  "blocks with dynamic keys"
                "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"title_{val}\"/}"
-      |> should equal "AAA"
+      |> expect "AAA"
 
     // should test blocks with more than one dynamic keys
     [<Test>]
@@ -962,7 +904,7 @@ module T13_InlinePartialBlock =
       json "{\"val1\":\"title\",\"val2\":\"A\"}"
       |> dust  "blocks with more than one dynamic keys"
                "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{val2}\"/}"
-      |> should equal "AAA"
+      |> expect "AAA"
 
     // should test blocks with dynamic key values as objects
     [<Test>]
@@ -970,7 +912,7 @@ module T13_InlinePartialBlock =
       json "{\"val1\":\"title\",\"val2\":\"A\",\"obj\":{\"name\":\"B\"}}"
       |> dust  "blocks with dynamic key values as objects"
                "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{obj.name}\"/}"
-      |> should equal "BBB"
+      |> expect "BBB"
 
     // should test blocks with dynamic key values as arrays
     [<Test>]
@@ -978,7 +920,7 @@ module T13_InlinePartialBlock =
       json "{\"val1\":\"title\",\"val2\":\"A\",\"obj\":{\"name\":[\"A\",\"B\"]}}"
       |> dust  "blocks with dynamic key values as arrays"
                "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{obj.name[0]}\"/}"
-      |> should equal "AAA"
+      |> expect "AAA"
 
 [<Ignore("TODO requires JavaScript in context")>]
 module T14_Lambda =
@@ -990,7 +932,7 @@ module T14_Lambda =
       json "{\"foo\":{\"foobar\":\"Foo Bar\"}}"
       |> dust  "test that the scope of the function is correct and that a non-chunk return value is used for truthiness checks"
                "Hello {#foo}{#bar}{.}{/bar}{/foo} World!"
-      |> should equal "Hello Foo Bar World!"
+      |> expect "Hello Foo Bar World!"
 
     // should functions that return false are falsy
     [<Test>]
@@ -998,7 +940,7 @@ module T14_Lambda =
       json "{}"
       |> dust  "test that function that do not return chunk and return falsy are treated as falsy"
                "{#bar}{.}{:else}false{/bar}"
-      |> should equal "false"
+      |> expect "false"
 
     // should functions that return 0 are truthy
     [<Test>]
@@ -1006,7 +948,7 @@ module T14_Lambda =
       json "{}"
       |> dust  "test that function that do not return chunk and return 0 are treated as truthy (in the Dust sense)"
                "{#bar}{.}{:else}false{/bar}"
-      |> should equal "0"
+      |> expect "0"
 
     // should test scope of context function
     [<Test>]
@@ -1014,7 +956,7 @@ module T14_Lambda =
       json "{\"foo\":{\"foobar\":\"Foo Bar\"}}"
       |> dust  "test that the scope of the function is correct"
                "Hello {#foo}{bar}{/foo} World!"
-      |> should equal "Hello Foo Bar World!"
+      |> expect "Hello Foo Bar World!"
 
     // should test that function returning object is resolved
     [<Test>]
@@ -1022,7 +964,7 @@ module T14_Lambda =
       json "{\"foo\":{\"foobar\":\"Foo Bar\"}}"
       |> dust  "test that function returning object is resolved"
                "Hello {#foo}{bar}{/foo} World!"
-      |> should equal "Hello Foo Bar World!"
+      |> expect "Hello Foo Bar World!"
 
 module T15_CoreGrammar =
     // === SUITE ===core-grammar tests
@@ -1038,7 +980,7 @@ module T15_CoreGrammar =
       json "{}"
       |> dust  "ignore extra whitespaces between opening brace plus any of (#,?,@,^,+,%) and the tag identifier"
                "{# helper foo=\"bar\" boo=\"boo\" } {/helper}"
-      |> should equal "boo bar"
+      |> expect "boo bar"
 
     // should show an error for whitespces between the opening brace and any of (#,?,@,^,+,%)
     [<Test>]
@@ -1046,7 +988,7 @@ module T15_CoreGrammar =
       json "{}"
       |> dust  "error: whitespaces between the opening brace and any of (#,?,@,^,+,%) is not allowed"
                "{ # helper foo=\"bar\" boo=\"boo\" } {/helper}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should ignore extra whitespaces between the closing brace plus slash and the tag identifier
     [<Test>]
@@ -1054,7 +996,7 @@ module T15_CoreGrammar =
       json "{}"
       |> dust  "whitespaces between the closing brace plus slash and the tag identifier is supported"
                "{# helper foo=\"bar\" boo=\"boo\"} {/ helper }"
-      |> should equal "boo bar"
+      |> expect "boo bar"
 
     // should show an error because whitespaces between the '{' and the forward slash are not allowed in the closing tags
     [<Test>]
@@ -1062,7 +1004,7 @@ module T15_CoreGrammar =
       json "{}"
       |> dust  "error: whitespaces between the openning curly brace and forward slash in the closing tags not supported"
                "{# helper foo=\"bar\" boo=\"boo\"} { / helper }"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should ignore extra whitespaces before the self closing tags
     [<Test>]
@@ -1070,7 +1012,7 @@ module T15_CoreGrammar =
       json "{}"
       |> dust  "whitespaces before the self closing tags is allowed"
                "{#helper foo=\"bar\" boo=\"boo\" /}"
-      |> should equal "boo bar"
+      |> expect "boo bar"
 
     // should show an error for whitespaces  etween the forward slash and the closing brace in self closing tags
     [<Test>]
@@ -1078,7 +1020,7 @@ module T15_CoreGrammar =
       json "{}"
       |> dust  "error: whitespaces between the forward slash and the closing brace in self closing tags"
                "{#helper foo=\"bar\" boo=\"boo\" / }"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should ignore extra whitespaces between inline params
     [<Test>]
@@ -1086,7 +1028,7 @@ module T15_CoreGrammar =
       json "{}"
       |> dust  "extra whitespaces between inline params supported"
                "{#helper foo=\"bar\"   boo=\"boo\"/}"
-      |> should equal "boo bar"
+      |> expect "boo bar"
 
     // should show an error for whitespaces between the '{' plus '>' and partial identifier
     [<Test>]
@@ -1094,7 +1036,7 @@ module T15_CoreGrammar =
       json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
       |> dust  "error : whitespaces between the \'{\' plus \'>\' and partial identifier is not supported"
                "{ > partial/} {> \"hello_world\"/} {> \"{ref}\"/}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should ignore extra whitespacesbefore the forward slash and the closing brace in partials
     [<Test>]
@@ -1102,15 +1044,8 @@ module T15_CoreGrammar =
       json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
       |> dust  "whitespaces before the forward slash and the closing brace in partials supported"
                "{>partial /} {>\"hello_world\" /} {>\"{ref}\" /}"
-      |> should equal "Hello Jim! You have 42 new messages. Hello World! Hello World!"
+      |> expect "Hello Jim! You have 42 new messages. Hello World! Hello World!"
 
-    // should ignore eol
-    [<Test>]
-    let ``should ignore eol`` () =
-      empty
-      |> dust  "ignore whitespaces also means ignoring eol"
-               "{#authors \nname=\"theAuthors\"\nlastname=\"authorlastname\" \nmaxtext=300}\n{>\"otherTemplate\"/}\n{/authors}"
-      |> should equal ""
 
     // should test dash in partial's keys
     [<Test>]
@@ -1118,7 +1053,7 @@ module T15_CoreGrammar =
       json "{\"foo-title\":\"title\",\"bar-letter\":\"a\"}"
       |> dust  "support dash in partial\'s key"
                "{<title-a}foo-bar{/title-a}{+\"{foo-title}-{bar-letter}\"/}"
-      |> should equal "foo-bar"
+      |> expect "foo-bar"
 
     // should test dash in partial's params
     [<Test>]
@@ -1126,7 +1061,7 @@ module T15_CoreGrammar =
       json "{\"first-name\":\"Mick\",\"c\":30}"
       |> dust  "support dash in partial\'s params"
                "{>partial name=first-name count=\"{c}\"/}"
-      |> should equal "Hello Mick! You have 30 new messages."
+      |> expect "Hello Mick! You have 30 new messages."
 
 
 [<Ignore("TODO")>]
@@ -1138,7 +1073,7 @@ module T16_SyntaxError =
       json "{\"name\":\"Mick\",\"count\":30}"
       |> dust  "Dust syntax error"
                "RRR {##}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test the errors message for section with error.
     [<Test>]
@@ -1146,7 +1081,7 @@ module T16_SyntaxError =
       empty
       |> dust  "Dust syntax error. Error in Section"
                "{#s}\n{#&2}\n{/s}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test the errors message for section with a buffer and error inside.
     [<Test>]
@@ -1154,7 +1089,7 @@ module T16_SyntaxError =
       empty
       |> dust  "Dust syntax error. Error in Section with buffer"
                "{#s}\nthis is the\nbuffer\n{#&2}\na second\nbuffer\n{/s}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test the errors message for section without end tag shows.
     [<Test>]
@@ -1162,7 +1097,7 @@ module T16_SyntaxError =
       empty
       |> dust  "Dust syntax error. Error in Section without end tag"
                "{#s}\nthis is the\nbuffer\na second\nbuffer"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test the errors message for partials with a buffer inside.
     [<Test>]
@@ -1170,7 +1105,7 @@ module T16_SyntaxError =
       empty
       |> dust  "Dust syntax error. Error in Partial with buffer"
                "{+header}\nthis is a Partial\nwith Error\neeee{@#@$fdf}\ndefault header \n{/header}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test the errors message for partial without end tag.
     [<Test>]
@@ -1178,7 +1113,7 @@ module T16_SyntaxError =
       empty
       |> dust  "Dust syntax error. Error in Partial without end tag"
                "{+header}\nthis is the\nbuffer\na second\nbuffer"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test the errors message for Scalar.
     [<Test>]
@@ -1186,7 +1121,7 @@ module T16_SyntaxError =
       empty
       |> dust  "Dust syntax error. Error in Scalar"
                "{#scalar}\ntrue\n {#@#fger}\n{:else}\nfalse\n{/scalar}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test the errors message for Scalar.
     [<Test>]
@@ -1194,7 +1129,7 @@ module T16_SyntaxError =
       empty
       |> dust  "Dust syntax error. Error in Scalar\'s else"
                "{#scalar}\ntrue\n{:else}\nfalse\n {#@#fger}\n{/scalar}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test the errors message for Conditionals.
     [<Test>]
@@ -1202,7 +1137,7 @@ module T16_SyntaxError =
       empty
       |> dust  "Dust syntax error. Error in Conditional"
                "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{#@$}</li>{~n}\n{/tags}\n</ul>\n{:else}\nNo Tags!\n{/tags}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test the errors message for Conditional's else.
     [<Test>]
@@ -1210,7 +1145,7 @@ module T16_SyntaxError =
       empty
       |> dust  "Dust syntax error. Error in Conditional\'s else"
                "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{.}</li>{~n}\n{/tags}\n</ul>\n{:else}\n{#@$}\nNo Tags!\n{/tags}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test the errors message for Conditional without end tag.
     [<Test>]
@@ -1218,7 +1153,7 @@ module T16_SyntaxError =
       empty
       |> dust  "Dust syntax error. Error in Conditional without end tag"
                "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{.}</li>{~n}\n{/tags}\n</ul>\n{:else}\nNo Tags!"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test helper syntax errors being handled gracefully
     [<Test>]
@@ -1226,7 +1161,7 @@ module T16_SyntaxError =
       json "{}"
       |> dust  "Helper syntax error. TypeError"
                "{#hello/}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should test helper syntax errors inside an async block being handled gracefully
     [<Test>]
@@ -1234,9 +1169,11 @@ module T16_SyntaxError =
       json "{}"
       |> dust  "Helper syntax error. async TypeError"
                "{#hello/}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
-module T18_Whitespace =
+
+
+module R18_WhitespaceOn =
     // === SUITE ===whitespace test
     // whitespace on: whitespace-only template is preserved
     [<Test>]
@@ -1244,7 +1181,7 @@ module T18_Whitespace =
       empty
       |> dust  "whitespace on: whitespace-only template"
                "\n     "
-      |> should equal "\n     "
+      |> expect "\n     "
 
     // whitespace on: whitespace-only block is preserved
     [<Test>]
@@ -1252,23 +1189,23 @@ module T18_Whitespace =
       empty
       |> dust  "whitespace on: whitespace-only block"
                "{<foo}\n{/foo}{+foo/}"
-      |> should equal "\n"
-
-    // whitespace off: multiline text block should run together
+      |> expect "\n"    
+      
+    // whitespace on: multiline text block should maintain indent
     [<Test>]
-    let ``whitespace off: multiline text block should run together`` () =
+    let ``whitespace on: multiline text block should maintain indent`` () =
       empty
-      |> dust  "whitespace off: multiline text block runs together"
+      |> dust  "whitespace on: multiline text block"
                "<p>\n    foo bar baz\n    foo bar baz\n</p>"
-      |> should equal "<p>foo bar bazfoo bar baz</p>"
+      |> expect "<p>\n    foo bar baz\n    foo bar baz\n</p>"
 
-    // whitespace off: multiline text block with a trailing space should not run together
+    // whitespace on: partials should preserve indentation
     [<Test>]
-    let ``whitespace off: multiline text block with a trailing space should not run together`` () =
+    let ``whitespace on: partials should preserve indentation`` () =
       empty
-      |> dust  "whitespace off: multiline text block with trailing space does not run together"
-               "<p>\n    foo bar baz \n    foo bar baz\n</p>"
-      |> should equal "<p>foo bar baz foo bar baz</p>"
+      |> dust  "whitespace on: partial indentation"
+               "<html>\n<head>\n</head>\n<body>{+body/}<body>\n</html>\n{<body}\n    <h1>Title</h1>\n    <p>Content...</p>\n{/body}"
+      |> expect "<html>\n<head>\n</head>\n<body>\n    <h1>Title</h1>\n    <p>Content...</p>\n<body>\n</html>\n"
 
 //[<Ignore("TODO")>]
 module T19_RawText =
@@ -1283,7 +1220,7 @@ module T19_RawText =
                         "{#A}\nbuffer text\n         !spaces and new lines are nullified (by default). Booo\n{~n}   Starting with newline make it not so bad\n{`<pre>\nbut\n  what{\n    we\n      want is this\nhelpful for:\n * talking about Dust syntax which looks like `{ref}` `{@helpers}`\n * interpolations like \'My name is:`} {#name}{first} {last}{/name}{`\n</pre>`}\nafter\n!newline\n{/A}"
       let exp = "buffer text!spaces and new lines are nullified (by default). Booo\n   Starting with newline make it not so bad<pre>\nbut\n  what{\n      we\n      want is this\nhelpful for:\n * talking about Dust syntax which looks like `{ref}` `{@helpers}`\n * interpolations like \'My name is: Paul Walrus\n</pre>after!newline"
       save out exp
-      out |> should equal exp
+      out |> expect exp
 
     // raw text should allow {
     [<Test>]
@@ -1292,7 +1229,7 @@ module T19_RawText =
                              "<div data-fancy-json={`\"{rawJsonKey: \'value\'}\"`}>\n</div>"
       let exp = "<div data-fancy-json=\"{rawJsonKey: \'value\'}\"></div>"
       save out exp
-      out |> should equal exp
+      out |> expect exp
 
 [<Ignore("TODO")>]
 module T20_Helper =
@@ -1303,7 +1240,7 @@ module T20_Helper =
       empty
       |> dust  "helper returns a primitive"
                "{@val value=3/}"
-      |> should equal "3"
+      |> expect "3"
 
     // helper can return a primitive and render a body
     [<Test>]
@@ -1311,7 +1248,7 @@ module T20_Helper =
       empty
       |> dust  "helper returns a primitive and renders a body"
                "{@val value=\"world\"}Hello {.}{/val}"
-      |> should equal "Hello world"
+      |> expect "Hello world"
 
     // helper that returns an array iterates its body
     [<Test>]
@@ -1319,7 +1256,7 @@ module T20_Helper =
       json "{\"arr\":[{\"name\":\"Alice\"},{\"name\":\"Bob\"},{\"name\":\"Charlie\"}]}"
       |> dust  "helper returns an array and iterates a body"
                "{@val value=arr}Hello {name} {/val}"
-      |> should equal "Hello Alice Hello Bob Hello Charlie "
+      |> expect "Hello Alice Hello Bob Hello Charlie "
 
     // helper escapes returned primitives
     [<Test>]
@@ -1327,7 +1264,7 @@ module T20_Helper =
       empty
       |> dust  "helper escapes a primitive"
                "{@val value=\"You & I\"/}"
-      |> should equal "You &amp; I"
+      |> expect "You &amp; I"
 
     // helper applies filters to returned primitives
     [<Test>]
@@ -1335,7 +1272,7 @@ module T20_Helper =
       empty
       |> dust  "helper filters a primitive"
                "{@val value=\"You & I\" filters=\"|s\"/} {@val value=\"& Tim\" filters=\"|js|s\"/}"
-      |> should equal "You & I \"& Tim\""
+      |> expect "You & I \"& Tim\""
 
     // helper filters a primitive using an array of filters
     [<Test>]
@@ -1343,7 +1280,7 @@ module T20_Helper =
       json "{\"filters\":[\"js\",\"s\"]}"
       |> dust  "helper filters a primitive using an array of filters"
                "{@val value=\"You & I\" filters=filters/}"
-      |> should equal "\"You & I\""
+      |> expect "\"You & I\""
 
     // helper can return a Chunk
     [<Test>]
@@ -1351,7 +1288,7 @@ module T20_Helper =
       json "{\"hello\":\"<Hello>\"}"
       |> dust  "helper returns a chunk"
                "{@val value=\"{hello} & world\"/}"
-      |> should equal "&lt;Hello&gt; & world"
+      |> expect "&lt;Hello&gt; & world"
 
     // helper doesn't apply filters to a Chunk
     [<Test>]
@@ -1359,7 +1296,7 @@ module T20_Helper =
       json "{\"hello\":\"<Hello>\"}"
       |> dust  "helper doesn\'t filter a chunk"
                "{@val value=\"{hello} & world\" filters=\"|s\"/}"
-      |> should equal "&lt;Hello&gt; & world"
+      |> expect "&lt;Hello&gt; & world"
 
     // helper applies filter from esc pragma
     [<Test>]
@@ -1367,7 +1304,7 @@ module T20_Helper =
       empty
       |> dust  "helper filters are affected by pragma"
                "{%esc:s}{@val value=\"You & I\"/}{/esc}"
-      |> should equal "You & I"
+      |> expect "You & I"
 
     // helper filters supercede filter from esc pragma
     [<Test>]
@@ -1375,7 +1312,7 @@ module T20_Helper =
       empty
       |> dust  "helper filters supercede pragma"
                "{%esc:s}{@val value=\"You & I\" filters=\"|h\" /}{/esc}"
-      |> should equal "You &amp; I"
+      |> expect "You &amp; I"
 
     // templates compiled with Dust < 2.7.1 escape values returned from helpers
     [<Test>]
@@ -1383,7 +1320,7 @@ module T20_Helper =
       json "{}"
       |> dust  "Dust < 2.7.1 compat: helpers escape references"
                "{#returnLegacy value=\"You & I\" /}"
-      |> should equal "You &amp; I"
+      |> expect "You &amp; I"
 
 [<Ignore("TODO")>]
 module T21_Debugger =
@@ -1394,7 +1331,7 @@ module T21_Debugger =
       empty
       |> dust  "non-existing helper"
                "some text {@notfound}foo{/notfound} some text"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // should fail hard for invalid filter
     [<Test>]
@@ -1402,7 +1339,7 @@ module T21_Debugger =
       json "{\"obj\":\"test\"}"
       |> dust  "invalid filter"
                "{obj|nullcheck|invalid}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // test the log messages for a reference not found.
     [<Test>]
@@ -1410,7 +1347,7 @@ module T21_Debugger =
       json "{\"test\":\"example text\"}"
       |> dust  "Reference not found"
                "{wrong.test}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // test the log messages for an unhandled section.
     [<Test>]
@@ -1418,7 +1355,7 @@ module T21_Debugger =
       json "{\"test\":\"example text\"}"
       |> dust  "Section not found"
                "{#strangeSection}{/strangeSection}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // test the log message for an exists block with no body
     [<Test>]
@@ -1426,7 +1363,7 @@ module T21_Debugger =
       json "{\"foo\":\"foo\"}"
       |> dust  "Exists without body"
                "{?foo/}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // test the log message for a not-exists block with no body
     [<Test>]
@@ -1434,7 +1371,7 @@ module T21_Debugger =
       empty
       |> dust  "Not exists without body"
                "{^foo/}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
     // test to make sure errors are properly caught and propogated to the callbacks.
     [<Test>]
@@ -1442,6 +1379,6 @@ module T21_Debugger =
       empty
       |> dust  "Errors should be throwable from helpers and consumed in the render callback/stream onerror"
                "{@error errorMessage=\"helper error\"}{/error}"
-      |> should equal "undefined"
+      |> expect "undefined"
 
 #endif

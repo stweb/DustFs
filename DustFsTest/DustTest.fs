@@ -29,7 +29,7 @@ let dustExec name body data =
     let sb = System.Text.StringBuilder()
     let ctx = { Context.defaults with _w = new StringWriter(sb); _templateDir = __SOURCE_DIRECTORY__ + """\null\""" ; data = data; current = Some(data)}
     body |> List.iter(fun p -> render ctx [] p)
-    sb.ToString() 
+    sb.ToString() //.Replace("\r\n", "\n")
 
 let dust name source data =
     dustExec name (parse source) data    
@@ -49,8 +49,12 @@ let shouldBeSomeS (x: string) (y: string option) =
     Assert.AreEqual(x, y.Value, sprintf "Expected: %A\nActual: %A" x y)
 
 let save out exp =
-#if DEBUG2
+#if DEBUG
     File.WriteAllText(@"d:\out.txt", out)
     File.WriteAllText(@"d:\exp.txt", exp)
 #endif
     ()
+
+let expect a b =
+    if not (a=b) then save a b
+    shouldEqual a b
