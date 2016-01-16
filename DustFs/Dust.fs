@@ -70,6 +70,7 @@ and Part =  // ld t:[#?^<+@%] n:identifier c:context p:params
     | Buffer of string
     | EndSection of string 
     | Bodies of string
+    | Eol
 and BodyDict = Map<string, Body> 
 
 let filters = new ConcurrentDictionary<string, Filter>()
@@ -348,6 +349,9 @@ let rec parseSpans acc chars =
                             else 
                                 yield Buffer("{" + toString(inside)  + "}")
             yield! parseSpans [] chars
+        | '\n' :: chars ->  yield! emitLiteral ()
+                            yield Eol // TODO other EOLs 
+                            yield! parseSpans [] chars
         | c :: chars    ->  yield! parseSpans (c :: acc) chars
         | []            ->  yield! emitLiteral()
     }
@@ -369,8 +373,10 @@ let rec getTree acc stop = function
                                                         getTree (acc) stop tail2
                                                     else
                                                         getTree (s :: acc) stop tail2
-    | head :: tail ->   match head, acc with
-                        | Buffer(b), Buffer(a)::atail -> getTree (Buffer(a+b) :: atail) stop tail // combine successive buffers
+    | head :: tail ->   match head, acc with // performs whitespace elimination
+                        | Eol,       Buffer(a)::t -> getTree (Buffer(a+"\n") :: t) stop tail 
+                        | Buffer(b), Eol      ::t -> getTree (Buffer(b.TrimStart([|' '; '\t'|])) :: t) stop tail
+                        | Buffer(b), Buffer(a)::t -> getTree (Buffer(a.TrimEnd([|'\t'; '\n'; '\r'|])+b.TrimStart([|' '; '\t'|])) :: t) stop tail 
                         | _ -> getTree (head :: acc) stop tail
 
 let parse (doc:string) =
@@ -401,7 +407,7 @@ let rec render (c:Context) scope (part:Part) =
     match part with
     //| Comment _      -> c.Write("<!-- " + text + " -->")
     | Special tag    -> c.WriteSpecial(tag)
-    | Buffer text    -> if not (System.String.IsNullOrWhiteSpace(text)) then c.Write(text)
+    | Buffer text    -> c.Write(text)
     | Partial(n,x,m) -> let body = match cache.TryGetValue n with
                                    | true, (_, part) -> part 
                                    | _ -> c.parseCached parse n
