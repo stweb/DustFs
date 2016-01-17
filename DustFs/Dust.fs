@@ -98,6 +98,36 @@ let optional o = if o = null then None else Some(o)
 let elapsedMs (sw:System.Diagnostics.Stopwatch) =
     double sw.ElapsedTicks * 1000.0 / double System.Diagnostics.Stopwatch.Frequency
 
+let toString chars = System.String(chars |> Array.ofList)
+
+let (|Rex|_|) pattern input =
+    let m = Regex.Match(input,pattern) 
+    if m.Success then Some (m.Value, input.Substring(m.Length)) else None  
+
+let (|StartChar|_|) ch (input:string) = 
+    if (input.Length > 1) && (input.[0] = ch) then Some (input.Substring 1) else None
+
+let (|StartsWith|_|) prefix list = 
+    let rec loop = function 
+        | [], rest -> Some(rest)
+        | p :: prefix, r :: rest when p = r -> loop (prefix, rest)
+        | _ -> None
+    loop (prefix, list)
+
+let rec parseUntil closing acc = function 
+    | StartsWith closing rest -> Some(List.rev acc, rest)
+    | c :: chars              -> parseUntil closing (c :: acc) chars
+    | _ -> None
+
+let (|Quoted|_|) = function
+    | '\"' :: chars -> parseUntil [ '\"' ] [] chars
+    | _ -> None
+
+let (|QuotedStr|_|) (s:string) = 
+    match s |> List.ofSeq with
+    | Quoted (q,r) -> Some(toString q, toString r)
+    | _ -> None
+
 // extension method to use objects like a Map, works with ExpandoObjects
 type System.Object with    // TODO if key.StartsWith(".") then let cur = true key = key.substr(1)
 
@@ -131,16 +161,17 @@ type Context =
     {   _w:TextWriter; // private - access via this.Write
         _templateDir:string;
         data:obj;  
-        index:int; // in #array 
-        count:int; // of #array
+        index:(int * int) option; // in #array 
         current:Option<obj>;
         scope:string list;
         logger: string -> unit
     }
     override x.ToString() =
-        sprintf "%s %A %d/%d" (String.Join("/", x.scope)) x.current x.index x.count //x.item
+        match x.index with
+        | Some(ix,len) -> sprintf "%s %A %d/%d" (String.Join("/", x.scope)) x.current ix len
+        | None         -> sprintf "%s %A"       (String.Join("/", x.scope)) x.current 
 
-    static member defaults = { _templateDir = ""; _w = null; data = null; index = 0; count = 0; current = None; scope = []; logger = fun s -> () }    
+    static member defaults = { _templateDir = ""; _w = null; data = null; index = None; current = None; scope = []; logger = fun s -> () }    
 
     member this.loadAndParse parse name = async {
         let sw = System.Diagnostics.Stopwatch()
@@ -208,13 +239,14 @@ type Context =
                                         this.Log (sprintf "   ? %s in %A" key scope)
 #endif  
                                         None
-                                           
-    member c.resolveRef scope (key:string) : Option<obj> =
-        if key.StartsWith("\"") then             
-            Some(key.Substring(1, key.Length-2) :> obj) // assumes proper double quoted
-        elif key = "." then 
-            c.current
-        else
+
+    member c.resolveRef scope (key:string) : Option<obj> =      
+        match key with
+        | StartChar '\"' _  -> Some(key.Substring(1, key.Length-2) :> obj) // assumes proper double quoted
+        | "."               -> c.current
+        | "$idx"            -> if c.index.IsSome then Some(box <| fst c.index.Value) else None
+        | "$len"            -> if c.index.IsSome then Some(box <| snd c.index.Value) else None
+        | _ ->                                           
             let result = match (c.current) with
                          | Some obj -> obj.TryFind key
                          | None     -> None
@@ -242,20 +274,6 @@ helpers.[""] <- nullHelper
 
 // --------------------------------------------------------------------------------------
 
-let toString chars = System.String(chars |> Array.ofList)
-
-let (|StartsWith|_|) prefix list = 
-    let rec loop = function 
-        | [], rest -> Some(rest)
-        | p :: prefix, r :: rest when p = r -> loop (prefix, rest)
-        | _ -> None
-    loop (prefix, list)
-
-let rec parseUntil closing acc = function 
-    | StartsWith closing rest -> Some(List.rev acc, rest)
-    | c :: chars              -> parseUntil closing (c :: acc) chars
-    | _ -> None
-
 let (|DustTag|_|) = function
     | '{' :: chars -> match chars with
                       | ' ' :: _ | '\n' :: _ | '\r' :: _ | '\t' :: _ -> None // TODO may be inaccurate
@@ -270,7 +288,7 @@ let (|DustTag|_|) = function
 // --------------------------------------------------------------------------------------
 
 // parse into map of key,value
-let parseKeyValue input =
+let parseInside input =
     let m = rexKvp.Match(input)
     if m.Success then
         let keys = m.Groups.["key"].Captures
@@ -328,7 +346,7 @@ let rec parseSpans acc chars =
                     // followed by 0 or more white spaces
                     // sec_tag_start = ld t:[#?^<+@%] ws* n:identifier c:context p:params
                 | '#' | '?' | '^' | '<' | '+' | '@' | '%'  ->             
-                            let ident, ctx, kvp = parseKeyValue tag
+                            let ident, ctx, kvp = parseInside tag
                             let st = parseSection ident kvp inside.Head 
                         
                             if tag.EndsWith("/") then
@@ -340,7 +358,7 @@ let rec parseSpans acc chars =
                                 yield SectionBlock(st, ident, [], Map.empty)
 
                 | '/' ->    yield EndSection(tag)
-                | '>' ->    yield Partial(parseKeyValue tag)
+                | '>' ->    yield Partial(parseInside tag)
                 | _ ->      let s = toString inside
                             let m = rexRef.Match(s)
                             if m.Success then 
@@ -479,11 +497,11 @@ let rec render (c:Context) scope (part:Part) =
                                                     let len = arr.Length
                                                     if len < 1 then renderIf false
                                                     else arr |> Array.iteri(fun i o -> 
-                                                        let c2 = { c with current = Some(o); index = i; count = len }
+                                                        let c2 = { c with current = Some(o); index = Some(i,len) }
                                                         l |> List.iter(fun p -> render c2 (n :: scope) p) )
                                             | :? bool as b -> renderIf b
                                             | null -> renderIf false
-                                            | o ->      let c2 = { c with current = Some(o); index = 0; count = 1 }
+                                            | o ->      let c2 = { c with current = Some(o); index = None }
                                                         l |> List.iter(fun p -> render c2 (n :: scope) p) 
                             | None -> renderIf false      // TODO create new current from keyvalue map 
                                               
