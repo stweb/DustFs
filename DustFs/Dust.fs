@@ -501,7 +501,7 @@ let rec render (c:Context) scope (part:Part) =
                                                         l |> List.iter(fun p -> render c2 (n :: scope) p) )
                                             | :? bool as b -> renderIf b
                                             | null -> renderIf false
-                                            | o ->      let c2 = { c with current = Some(o); index = None }
+                                            | o ->      let c2 = { c with current = Some(o) }
                                                         l |> List.iter(fun p -> render c2 (n :: scope) p) 
                             | None -> renderIf false      // TODO create new current from keyvalue map 
                                               

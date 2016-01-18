@@ -192,30 +192,6 @@ module T06_ArrayIndexAccess =
                "{#list3}{.[0].biz}{/list3}"
       |> expect "123345"
 
-    // test array reference $idx/$len on single element case
-    [<Test>]
-    let ``test array reference $idx $len on single element case`` () =
-      json "{\"name\":\"Just one name\"}"
-      |> dust  "array reference $idx/$len on single element case (scalar case)"
-               "{#name}Idx={$idx} Size={$len} {.}{/name}"
-      |> expect "Idx= Size= Just one name"
-
-    // test array reference $idx/$len {#.} section case
-    [<Test>]
-    let ``test array reference $idx $len section case`` () =
-      json "{\"names\":[\"Moe\",\"Larry\",\"Curly\"]}"
-      |> dust  "array reference $idx/$len {#.} section case"
-               "{#names}{#.}{$idx}{.} {/.}{/names}"
-      |> expect "0Moe 1Larry 2Curly "
-
-    // test array reference $idx/$len not changed in nested object
-    [<Test>]
-    let ``test array reference $idx $len not changed in nested object`` () =
-      json "{\"results\":[{\"info\":{\"name\":\"Steven\"}},{\"info\":{\"name\":\"Richard\"}}]}"
-      |> dust  "array reference $idx/$len not changed in nested object"
-               "{#results}{#info}{$idx}{name}-{$len} {/info}{/results}"
-      |> expect "0Steven-2 1Richard-2 "
-
     // test array reference $idx/$len nested loops
     [<Test>]
     let ``test array reference $idx $len nested loops`` () =
@@ -255,14 +231,6 @@ module T06_ArrayIndexAccess =
       |> dust  "using len in array reference Accessing"
                "{#list3}{.[$len].idx}{/list3}"
       |> expect "22"
-
-    // should test double nested array and . reference: issue #340
-    [<Test>]
-    let ``should test double nested array and dot reference: issue #340`` () =
-      json "{\"test\":[[1,2,3]]}"
-      |> dust  "using idx in double nested array"
-               "{#test}{#.}{.}i:{$idx}l:{$len},{/.}{/test}"
-      |> expect "1i:0l:3,2i:1l:3,3i:2l:3,"
 
     // should test using a multilevel reference as a key in array access
     [<Test>]
@@ -503,7 +471,6 @@ module T07_NestedPaths =
       |> dust  "Verify local mode leading dot path in local mode"
                "{#people}{.name} is {?.age}{.age} years old.{:else}not telling us their age.{/age}{/people}"
       |> expect "Alice is not telling us their age.Bob is 42 years old."
-
 
     // should test explicit context blocks looking further up stack
     [<Test>]
@@ -1222,14 +1189,6 @@ module T19_RawText =
       save out exp
       out |> expect exp
 
-    // raw text should allow {
-    [<Test>]
-    let ``raw text should allow {`` () =
-      let out = empty|> dust "using raw to allow {"
-                             "<div data-fancy-json={`\"{rawJsonKey: \'value\'}\"`}>\n</div>"
-      let exp = "<div data-fancy-json=\"{rawJsonKey: \'value\'}\"></div>"
-      save out exp
-      out |> expect exp
 
 [<Ignore("TODO")>]
 module T20_Helper =

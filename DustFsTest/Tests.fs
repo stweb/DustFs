@@ -21,10 +21,10 @@ module R01_DustFs =
 
     [<Test>] // {>recursion:./}{
     let ``regex should parse tag with context`` () =
-        let name, ctx, kv = parseInside """recursion:."""
+        let name, ctx, _ = parseInside """recursion:."""
         name |> expect "recursion"
         ctx  |> shouldBeSomeS "." // TODO remove colon...
-        
+
 module R02_CoreTests =
 
     // javascript-special characters in template names shouldn't break things
@@ -414,7 +414,39 @@ module R06_ArrayIndexAccess =
       |> dust  "array reference $idx/$len on empty array case"
                "{#names}Idx={$idx} Size=({$len}).{title} {.}{~n}{/names}"
       |> expect ""
-    
+
+    // should test double nested array and . reference: issue #340
+    [<Test>]
+    let ``should test double nested array and dot reference: issue #340`` () =
+      json "{\"test\":[[1,2,3]]}"
+      |> dust  "using idx in double nested array"
+               "{#test}{#.}{.}i:{$idx}l:{$len},{/.}{/test}"
+      |> expect "1i:0l:3,2i:1l:3,3i:2l:3,"
+      
+    // test array reference $idx/$len on single element case
+    [<Test>]
+    let ``test array reference $idx $len on single element case`` () =
+      json "{\"name\":\"Just one name\"}"
+      |> dust  "array reference $idx/$len on single element case (scalar case)"
+               "{#name}Idx={$idx} Size={$len} {.}{/name}"
+      |> expect "Idx= Size= Just one name"
+       
+    // test array reference $idx/$len {#.} section case
+    [<Test>]
+    let ``test array reference $idx $len section case`` () =
+      json "{\"names\":[\"Moe\",\"Larry\",\"Curly\"]}"
+      |> dust  "array reference $idx/$len {#.} section case"
+               "{#names}{#.}{$idx}{.} {/.}{/names}"
+      |> expect "0Moe 1Larry 2Curly "
+
+    // test array reference $idx/$len not changed in nested object
+    [<Test>]
+    let ``test array reference $idx $len not changed in nested object`` () =
+      json "{\"results\":[{\"info\":{\"name\":\"Steven\"}},{\"info\":{\"name\":\"Richard\"}}]}"
+      |> dust  "array reference $idx/$len not changed in nested object"
+               "{#results}{#info}{$idx}{name}-{$len} {/info}{/results}"
+      |> expect "0Steven-2 1Richard-2 "
+                      
 module R06_Conditional =
 
     // === SUITE ===conditional tests
@@ -642,6 +674,14 @@ module R15_CoreGrammar =
                         "{`<pre>\nA: \"hello\"\n              B: \'hello\'?\nA: a walrus (:{=\n              B: Lols!\n               __ ___                              \n            .\'. -- . \'.                            \n           /U)  __   (O|                           \n          /.\'  ()()   \'.._                        \n        .\',/;,_.--._.;;) . \'--..__                 \n       /  ,///|.__.|.\\   \'.  \'.\'\'---..___       \n      /\'._ \'\' ||  ||  \'\' _\'  :      \'   . \'.     \n     /        ||  ||        \'.,    )   )   :      \n    :\'-.__ _  ||  ||   _ __.\' __ .\'  \'   \'   ,)   \n    (          \'  |\'        ( __= ___..-._ ( (.\\  \n   (\'      .___ ___.      /\'.___=          ..  \n    \\-..____________..-\'\'                        \n</pre>`}"
 
       let exp = "<pre>\nA: \"hello\"\n              B: \'hello\'?\nA: a walrus (:{=\n              B: Lols!\n               __ ___                              \n            .\'. -- . \'.                            \n           /U)  __   (O|                           \n          /.\'  ()()   \'.._                        \n        .\',/;,_.--._.;;) . \'--..__                 \n       /  ,///|.__.|.\\   \'.  \'.\'\'---..___       \n      /\'._ \'\' ||  ||  \'\' _\'  :      \'   . \'.     \n     /        ||  ||        \'.,    )   )   :      \n    :\'-.__ _  ||  ||   _ __.\' __ .\'  \'   \'   ,)   \n    (          \'  |\'        ( __= ___..-._ ( (.\\  \n   (\'      .___ ___.      /\'.___=          ..  \n    \\-..____________..-\'\'                        \n</pre>"
+      out |> expect exp
+
+    // raw text should allow {
+    [<Test>]
+    let ``raw text should allow {`` () =
+      let out = empty|> dust "using raw to allow {"
+                             "<div data-fancy-json={`\"{rawJsonKey: \'value\'}\"`}>\n</div>"
+      let exp = "<div data-fancy-json=\"{rawJsonKey: \'value\'}\"></div>"
       out |> expect exp
 
 module R17_Misc =
