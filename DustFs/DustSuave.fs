@@ -35,7 +35,7 @@ let page<'T> atmpl (model : 'T) ctx = async {
                         Logger = slog }
     
     let! doc = atmpl // get parsed template async and render
-    doc |> List.iter(fun p -> render dustctx [] p)
+    doc |> List.iter(fun p -> render dustctx p)
 
     let resp = Response.response HTTP_200 (Encoding.UTF8.GetBytes (sb.ToString())) ctx
     return! resp

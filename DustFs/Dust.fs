@@ -98,12 +98,12 @@ let private asyncMemoize isValid f =
 // trim quotes from a string - assumes proper double quoted
 let unquote (s:string) = if s.StartsWith("\"") then s.Substring(1, s.Length-2) else s
 
-let optional o = if o = null then None else Some(o)
+let inline optional o = if o = null then None else Some(o)
 
 let elapsedMs (sw:System.Diagnostics.Stopwatch) =
     double sw.ElapsedTicks * 1000.0 / double System.Diagnostics.Stopwatch.Frequency
 
-let toString chars = System.String(chars |> Array.ofList)
+let inline toString chars = System.String(chars |> Array.ofList)
 
 let (|Rex|_|) pattern chars =
     let input = chars |> toString
@@ -172,16 +172,16 @@ type Context =
         TmplDir:    string
         Data:       obj
         Index:      (int * int) option // in #array 
-        Current:    Option<obj>
-        Scope:      Member list
+        Current:    obj option
+        Parent:     Context option
         Logger:     string -> unit
     }
     override x.ToString() =
         match x.Index with
-        | Some(ix,len) -> sprintf "%s %A %d/%d" (String.Join("/", x.Scope)) x.Current ix len
-        | None         -> sprintf "%s %A"       (String.Join("/", x.Scope)) x.Current 
+        | Some(ix,len) -> sprintf "%A %A %d/%d" x.Parent x.Current ix len
+        | None         -> sprintf "%A %A"       x.Parent x.Current 
 
-    static member defaults = { TmplDir = ""; W = null; Data = null; Index = None; Current = None; Scope = []; Logger = fun s -> () }    
+    static member defaults = { TmplDir = ""; W = null; Data = null; Index = None; Current = None; Parent = None; Logger = fun s -> () }    
 
     member this.LoadAndParse parse name = async {
         let sw = System.Diagnostics.Stopwatch()
@@ -252,15 +252,15 @@ type Context =
 #endif  
                                         None
 
-    member c.ResolveRef scope (id:Identifier) : Option<obj> =      
+    member c.ResolveRef (id:Identifier) : Option<obj> =      
         let key =           match id with
                             | Key(k) -> k
                             | Path(p) -> if p.Length = 1 && p.Head.Index.IsNone then p.Head.Name else failwith "TODO"
         match key with
         | StartChar '\"' _  -> Some(key.Substring(1, key.Length-2) :> obj) // assumes proper double quoted
-        | "."               -> c.Current
-        | "$idx"            -> if c.Index.IsSome then Some(box <| fst c.Index.Value) else None
-        | "$len"            -> if c.Index.IsSome then Some(box <| snd c.Index.Value) else None
+                                        | "."               -> c.Current
+                                        | "$idx"            -> if c.Index.IsSome then Some(box <| fst c.Index.Value) else None
+                                        | "$len"            -> if c.Index.IsSome then Some(box <| snd c.Index.Value) else None
         | _ ->                                           
             let result = match (c.Current) with
                          | Some obj -> obj.TryFind key
@@ -281,8 +281,8 @@ type Context =
 //                                                                else result2 // failwith "never?"
 //                                                    | _ -> result2
 
-    member c.EvalBool scope cond = 
-        match c.ResolveRef scope cond with
+    member c.EvalBool cond = 
+        match c.ResolveRef cond with
         | None ->   false // failwith ("undefined condition: " + cond)   
         | Some o -> match o with
                     | null -> false
@@ -453,14 +453,9 @@ let rec (|Part|_|) = function
                         // section <- sec_tag_start ws* rd body bodies end_tag / sec_tag_start ws* "/" rd
                         match r with
                         | Until ['}'] (x,r) ->  
-                            let closed = match x with
-                                         | '/' :: _ -> true
-                                         | _ -> false
-
-                            //printfn "REST: %A | %A" x r
-                            if closed then
-                                Some(Section(st, id, ct, pa), r)
-                            else
+                            match x with // is tag closed?
+                            | '/' :: _ -> Some(Section(st, id, ct, pa), r)
+                            | _ -> 
                                 let rec loop acc ch =  
                                     match ch with
                                     | Part(End(i),r)       -> (List.rev acc, End(i), r)
@@ -477,13 +472,10 @@ let rec (|Part|_|) = function
                                     | NamedBody(n)  ->  let body, end2, r = loop [] r
                                                         loop2 ((n, body) :: acc) r end2
                                     | _             ->  (acc,ch)
-                                let bodies,r = (loop2 [] r endp) 
-                               
+                                
+                                let bodies,r = (loop2 [] r endp)                                
                                 Some(SectionBlock(st, id, ct, pa, body, bodies |> Map.ofList), r)
-
                         | _ -> failwith "syntax error"
-                                       
-
                     // special <- ld "~" key rd
                     | '~' :: Until ['}'] (x,r) -> Some(Special(toString x), r)
                     // end_tag <- ld "/" ws* identifier ws* rd
@@ -511,9 +503,8 @@ let parse text =
     loop [] chars
 
 // render template parts with provided context & scope
-let rec render (c:Context) (scope:Member list) (part:Part) = 
-    let renderList newscope parts = parts |> List.iter(fun p -> render c newscope p)
-    let push (scope:Member list) id = scope      // TODO   
+let rec render (c:Context) (part:Part) = 
+    let inline renderList parts = parts |> List.iter(fun p -> render c p)   
 
     let helper name =
         match helpers.TryGetValue name with
@@ -529,16 +520,13 @@ let rec render (c:Context) (scope:Member list) (part:Part) =
     | Partial(n,x,m) -> let body = match cache.TryGetValue n with
                                    | true, (_, part) -> part 
                                    | _ -> c.ParseCached parse n
-                        let c2 = { c with Current = match x with
+                        let c2 = { c with Parent = Some c
+                                          Current = match x with
                                                     | Some i -> c.Get i
                                                     | None -> Some(m :> obj)
                                  } 
-                        // if not kv.IsEmpty then c.Log (">partial " + c2.current.Value.ToString())
-                        let s2 = match x with
-                                 | Some i -> i |> push scope 
-                                 | None -> scope
-                        body |> Seq.iter(fun p -> render c2 s2 p)
-    | Reference(k,f) -> match c.ResolveRef scope k with                     
+                        body |> Seq.iter(fun p -> render c2 p)
+    | Reference(k,f) -> match c.ResolveRef k with                     
                         | None -> ()
                         | Some value    ->  match value with
                                             | null -> ()
@@ -547,22 +535,21 @@ let rec render (c:Context) (scope:Member list) (part:Part) =
     | Section(st,n,_,_) -> 
                         match st with 
 //                        | Block ->          match cache.TryGetValue n with 
-//                                            | true, (_, part) -> part |> Seq.iter(fun p -> render c scope p) // else ignore
+//                                            | true, (_, part) -> part |> Seq.iter(fun p -> render c p) // else ignore
 //                                            | _ -> ()
                         | Scope ->          failwith "scope must have a body"
                         | Helper(l, map) -> match l with
-                                            | Custom(name) ->   let c2 = { c with Scope = scope }                        
-                                                                helper name c2 Map.empty map (fun () -> ())
+                                            | Custom(name) -> helper name c Map.empty map (fun () -> ())
                                             | _ -> failwith "logic should be a SectionBlock" 
                         | _ -> ()
     | SectionBlock(st,n,_,_,l,bodies) -> 
-        let renderIf cond = if cond then renderList (push scope n) l 
+        let renderIf cond = if cond then renderList l 
                             else match bodies.TryFind "else" with
-                                 | Some body -> renderList (push scope n) body // TODO check if n should be added
+                                 | Some body -> renderList body // TODO check if n should be added
                                  | None -> ()                            
         match st with 
         | Helper(t, map) -> match t with
-                            | Custom(name)  -> helper name c bodies map (fun () -> renderList scope l)                                                             
+                            | Custom(name)  -> helper name c bodies map (fun () -> renderList l)                                                             
                             | t ->  if not ((map.ContainsKey "key") && (map.ContainsKey "value")) then
                                         failwith "missing key/Value"
                             
@@ -570,8 +557,8 @@ let rec render (c:Context) (scope:Member list) (part:Part) =
                                     let mval = map.["value"]
                                     if mkey = "type" then 
                                         printfn "%s" mval
-                                    let ckey = c.ResolveRef scope (Key(mkey))
-                                    let cval = c.ResolveRef scope (Key(mval)) // TODO
+                                    let ckey = c.ResolveRef (Key(mkey))
+                                    let cval = c.ResolveRef (Key(mval)) // TODO
                                     // TODO let ctyp = map.["type"] // e.g. "number"
                                     let comp = match ckey with                     
                                                | None    -> failwith "key must be defined" 
@@ -589,26 +576,29 @@ let rec render (c:Context) (scope:Member list) (part:Part) =
                                     printfn "%A: %A %A %A %s %s" comp (match ckey with | Some(x) -> x.ToString() | _ -> "<n/a>") t (match cval with | Some(x) -> x.ToString() | _ -> "<n/a>") map.["key"] map.["value"] 
 #endif
                                     renderIf comp                                                
-        | Condition     ->  renderIf (c.EvalBool scope n)
-        | NotCondition  ->  renderIf (not (c.EvalBool scope n))
-        | Scope         ->  match c.ResolveRef scope n with                     
+        | Condition     ->  renderIf (c.EvalBool n)
+        | NotCondition  ->  renderIf (not (c.EvalBool n))
+        | Scope         ->  match c.ResolveRef n with                     
                             | Some(valu) -> match valu with
+                                            // Dust's default behavior is to enumerate over the array elem, passing each object in the array to the block.
+                                            // When elem resolves to a value or object instead of an array, Dust sets the current context to the value
+                                            // and renders the block one time.    
                                             | :? IEnumerable<obj> as ie 
                                                  -> let arr = ie |> Seq.cast<obj> |> Seq.toArray
                                                     let len = arr.Length
-                                                    if len < 1 then renderIf false
+                                                    if len < 1 then renderIf false // = skip
                                                     else arr |> Array.iteri(fun i o -> 
-                                                        let c2 = { c with Current = Some(o); Index = Some(i,len) }
-                                                        l |> List.iter(fun p -> render c2 (push scope n) p) )
+                                                        let c2 = { c with Parent = Some c; Current = Some o; Index = Some(i,len) }
+                                                        l |> List.iter(fun p -> render c2 p) )
                                             | :? bool as b -> renderIf b
                                             | null -> renderIf false
-                                            | o ->      let c2 = { c with Current = Some(o) }
-                                                        l |> List.iter(fun p -> render c2 (push scope n) p) 
+                                            | o ->      let c2 = { c with Parent = Some c; Current = Some o }
+                                                        l |> List.iter(fun p -> render c2 p) 
                             | None -> renderIf false      // TODO create new current from keyvalue map 
                                               
         | Block         -> match cache.TryGetValue (n.ToString()) with 
-                           | true, (_,b) -> b |> Seq.iter(fun p -> render c scope p) // override
-                           | _           -> renderList (push scope n) l // default                        
+                           | true, (_,b) -> b |> Seq.iter(fun p -> render c p) // override
+                           | _           -> renderList l // default                        
         // Deprecated | Escaped       -> renderList (n :: scope) l  
         | _ -> failwith <| sprintf "unexpected %A" st
     | _ -> ()
