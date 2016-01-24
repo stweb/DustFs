@@ -7,23 +7,23 @@ open FsUnit
 
 #if !TODO
 
-module R01_DustFs =       
-
-    [<Test>]
-    let ``regex should parse tag into name,ctx,kv`` () =
-        let name, ctx, kv = parseInside """test type="primary" name="add_product" label="action.order.now" test2=hallo """
-        name |> expect "test"
-        ctx  |> should equal None
-        kv.TryFindProp "type"  |> shouldBeSome "primary"
-        kv.TryFindProp "name"  |> shouldBeSome "add_product"
-        kv.TryFindProp "label" |> shouldBeSome "action.order.now"
-        kv.TryFindProp "test2" |> shouldBeSome "hallo"
-
-    [<Test>] // {>recursion:./}{
-    let ``regex should parse tag with context`` () =
-        let name, ctx, _ = parseInside """recursion:."""
-        name |> expect "recursion"
-        ctx  |> shouldBeSomeS "." // TODO remove colon...
+//module R01_DustFs =       
+//
+//    [<Test>]
+//    let ``regex should parse tag into name,ctx,kv`` () =
+//        let name, ctx, kv = parseInside """test type="primary" name="add_product" label="action.order.now" test2=hallo """
+//        name |> expect "test"
+//        ctx  |> should equal None
+//        kv.TryFindProp "type"  |> shouldBeSome "primary"
+//        kv.TryFindProp "name"  |> shouldBeSome "add_product"
+//        kv.TryFindProp "label" |> shouldBeSome "action.order.now"
+//        kv.TryFindProp "test2" |> shouldBeSome "hallo"
+//
+//    [<Test>] // {>recursion:./}{
+//    let ``regex should parse tag with context`` () =
+//        let name, ctx, _ = parseInside """recursion:."""
+//        name |> expect "recursion"
+//        ctx  |> shouldBeSomeS "." // TODO remove colon...
 
 module R02_CoreTests =
 

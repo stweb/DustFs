@@ -1,43 +1,32 @@
 ﻿module Dust.Engine
 
+open System
+open System.IO
 open System.Collections.Generic
 open System.Collections.Concurrent
 open System.Text.RegularExpressions
-open System.IO
-open System
-open System.Diagnostics
-
-// key is defined as a character matching a to z, upper or lower case, followed by 0 or more alphanumeric characters
-// key "key" = h:[a-zA-Z_$] t:[0-9a-zA-Z_$-]*
-let _keyPattern  = "[a-zA-Z_\$][0-9a-zA-Z_\-\$]*" // h:[a-zA-Z_$] t:[0-9a-zA-Z_$-]*
-let _keyPatternN = "(?<key>" + _keyPattern + ")" 
-
-// path is defined as matching a key plus one or more characters of key preceded by a dot
-// path "path" = k:key? d:(array_part / array)+
-//             / "."    d:(array_part / array)*
-
-// identifier is defined as matching a path or key
-// identifier "identifier" = p:path / k:key
-// TODO currently only "." path supported
-let _identPattern = "^\s*(?<ident>(\.|" + _keyPattern + ")" + "(\." + _keyPattern + ")*)" 
-
-// context is defined as matching a colon followed by an identifier
-// context = n:(":" n:identifier)?
-
-let _kvPattern = "(?<kvp>(" + _keyPatternN + "=(?<value>\".*?\"|\d+|[\.\w]+)" + ")\s*)*" 
-let _keyValPattern = _identPattern +  
-                     "\s*(?<ctx>:(\.))?" +  // TODO   
-                     "\s*(?<all>" + _kvPattern + ")/{0,1}"
-
-// reference is defined as matching a opening brace followed by an identifier plus one or more filters and a closing brace
-// reference "reference" = { n:identifier f:filters }
-// filters "filters" = f:("|" n:key )*
-
-let rexRef = new Regex(_identPattern)
-let rexKvp = new Regex(_keyValPattern)
 
 let rexStr = new Regex("\{[^}]*\}")
 let rexStr2 = new Regex("\[(.*?)\]")
+
+type Member = { Name: string; Index: int option }
+type PathRef = { Path: Member list; FromCurrent: bool }
+type Identifier =
+    | Key of string
+    | Path of Member list
+    with 
+        override x.ToString() = 
+            match x with
+            | Key(k)  -> k
+            | Path(p) -> let path = p |> List.map( fun m -> match m.Index with 
+                                                            | Some(i) -> sprintf "%s[%A]" m.Name i
+                                                            | None    -> m.Name  )  
+                         String.Join(".", path)
+
+type Value =
+    | VInline of string
+    | VIdent of Identifier
+    | VNumber of decimal
 
 type Logic = 
     | Eq | Ne | Lt | Lte | Gt | Gte  // Logic Helper
@@ -55,23 +44,39 @@ type SectionType =
     | Inline // < inline partials
     | Block // + Blocks in the base template can contain default content and a child template can override that content.
     | Escaped // % - deprecated?
+    | Method
 
 type Filter = obj -> obj
 type Filters = Filter seq
 
+//type Body = Part list
+//and Part =  // ld t:[#?^<+@%] n:identifier c:context p:params
+//    | Comment of string // "{! !}"  
+//    | Section of SectionType * string // self-closed element
+//    | SectionBlock of SectionType * string * Body  * BodyDict // block element
+//    | Partial of string * string option * KeyValue // "{> (key/inline) context /}
+//    | Special of string // "{~ key}
+//    | Reference of string * Filters// {key[|filter1|filterN]}
+//    | Buffer of string
+//    | EndSection of string 
+//    | Bodies of string
+//    | Eol
+//and BodyDict = Map<string, Body> 
+
 type Body = Part list
-and Part =  // ld t:[#?^<+@%] n:identifier c:context p:params
-    | Comment of string // "{! !}"  
-    | Section of SectionType * string // self-closed element
-    | SectionBlock of SectionType * string * Body  * BodyDict // block element
-    | Partial of string * string option * KeyValue // "{> (key/inline) context /}
-    | Special of string // "{~ key}
-    | Reference of string * Filters// {key[|filter1|filterN]}
+and Part = 
     | Buffer of string
-    | EndSection of string 
-    | Bodies of string
-    | Eol
+    | Comment of string
+    | Partial of string * Identifier option * Params
+    | Section of SectionType * Identifier * Identifier option * Params
+    | SectionBlock of SectionType * Identifier * Identifier option * Params * Body * BodyDict
+    | Special of string
+    | Reference of Identifier * Filters
+    | NamedBody of string
+    | End of Identifier
+
 and BodyDict = Map<string, Body> 
+and Params   = (string * Value) list //Map<string, Value> 
 
 let filters = new ConcurrentDictionary<string, Filter>()
 
@@ -100,9 +105,10 @@ let elapsedMs (sw:System.Diagnostics.Stopwatch) =
 
 let toString chars = System.String(chars |> Array.ofList)
 
-let (|Rex|_|) pattern input =
-    let m = Regex.Match(input,pattern) 
-    if m.Success then Some (m.Value, input.Substring(m.Length)) else None  
+let (|Rex|_|) pattern chars =
+    let input = chars |> toString
+    let m = Regex.Match(input, pattern) 
+    if m.Success then Some (m.Value |> List.ofSeq, input.Substring(m.Length) |> List.ofSeq) else None  
 
 let (|StartChar|_|) ch (input:string) = 
     if (input.Length > 1) && (input.[0] = ch) then Some (input.Substring 1) else None
@@ -119,14 +125,18 @@ let rec parseUntil closing acc = function
     | c :: chars              -> parseUntil closing (c :: acc) chars
     | _ -> None
 
+let (|Until|_|) closing chars = 
+    parseUntil closing [] chars 
+
 let (|Quoted|_|) = function
-    | '\"' :: chars -> parseUntil [ '\"' ] [] chars
+    | '\"' :: chars -> chars |> parseUntil ['\"'] [] 
     | _ -> None
 
-let (|QuotedStr|_|) (s:string) = 
-    match s |> List.ofSeq with
-    | Quoted (q,r) -> Some(toString q, toString r)
+let (|Whitespace|_|) ch = 
+    match Char.IsWhiteSpace ch with
+    | true -> Some(ch)
     | _ -> None
+
 
 // extension method to use objects like a Map, works with ExpandoObjects
 type System.Object with    // TODO if key.StartsWith(".") then let cur = true key = key.substr(1)
@@ -149,7 +159,7 @@ type System.Object with    // TODO if key.StartsWith(".") then let cur = true ke
   member o.Get path = 
     match path with
     | [] -> None
-    | h :: [] -> o.TryFindProp h
+    | [h] -> o.TryFindProp h
     | h :: tail ->  let xo = o.TryFindProp h
                     if xo.IsSome then xo.Value.Get tail else None
 
@@ -158,26 +168,26 @@ type System.Object with    // TODO if key.StartsWith(".") then let cur = true ke
     o.Get path
 
 type Context = 
-    {   _w:TextWriter; // private - access via this.Write
-        _templateDir:string;
-        data:obj;  
-        index:(int * int) option; // in #array 
-        current:Option<obj>;
-        scope:string list;
-        logger: string -> unit
+    {   W:          TextWriter // private - access via this.Write
+        TmplDir:    string
+        Data:       obj
+        Index:      (int * int) option // in #array 
+        Current:    Option<obj>
+        Scope:      Member list
+        Logger:     string -> unit
     }
     override x.ToString() =
-        match x.index with
-        | Some(ix,len) -> sprintf "%s %A %d/%d" (String.Join("/", x.scope)) x.current ix len
-        | None         -> sprintf "%s %A"       (String.Join("/", x.scope)) x.current 
+        match x.Index with
+        | Some(ix,len) -> sprintf "%s %A %d/%d" (String.Join("/", x.Scope)) x.Current ix len
+        | None         -> sprintf "%s %A"       (String.Join("/", x.Scope)) x.Current 
 
-    static member defaults = { _templateDir = ""; _w = null; data = null; index = None; current = None; scope = []; logger = fun s -> () }    
+    static member defaults = { TmplDir = ""; W = null; Data = null; Index = None; Current = None; Scope = []; Logger = fun s -> () }    
 
-    member this.loadAndParse parse name = async {
+    member this.LoadAndParse parse name = async {
         let sw = System.Diagnostics.Stopwatch()
         sw.Start()
 
-        let fname = Path.Combine(this._templateDir, name )
+        let fname = Path.Combine(this.TmplDir, name )
         let writeTime = File.GetLastWriteTime(fname)
         let body =  
             if File.Exists fname then 
@@ -191,19 +201,18 @@ type Context =
         return (writeTime, body)
     }
 
-    member this.parseCachedAsync parse = 
-        this.loadAndParse parse |> asyncMemoize (fun name (lastWrite, _) -> 
-                                                    let path = Path.Combine(this._templateDir, name )
+    member this.ParseCachedAsync parse = 
+        this.LoadAndParse parse |> asyncMemoize (fun name (lastWrite, _) -> 
+                                                    let path = Path.Combine(this.TmplDir, name )
                                                     let date = File.GetLastWriteTime(path)
                                                     this.Log(System.String.Format("check {0} {1} <?= {2}", path, date, lastWrite))
                                                     date <= lastWrite ) 
-
-    member this.parseCached parse name = 
-        let _, body = this.parseCachedAsync parse name |> Async.RunSynchronously
+    member this.ParseCached parse name = 
+        let _, body = this.ParseCachedAsync parse name |> Async.RunSynchronously
         body
     
-    member this.Write (s:string)      = this._w.Write(s)
-    member this.Write (c:char)        = this._w.Write(c)
+    member this.Write (s:string)      = this.W.Write(s)
+    member this.Write (c:char)        = this.W.Write(c)
     // by default always apply the h filter, unless asked to unescape with |s
     member this.WriteFiltered (f:Filters) (v:obj) = 
                                         let mutable o = 
@@ -215,24 +224,27 @@ type Context =
                                         if Seq.isEmpty f && o :? string then
                                             o <- System.Net.WebUtility.HtmlEncode(o :?> string) :> obj 
                                         else for x in f do o <- x o                                        
-                                        this._w.Write(o)
-    member this.WriteSpecial(tag)     = this._w.Write(match tag with | "s"->' ' | "n"->'\n' | "r"->'\r' | "lb"->'{' | "rb"->'}' | _ -> failwith "not supported")
-    member this.WriteI (s:string)     = this._w.Write(rexStr.Replace(s, (fun m ->   let tag = m.ToString();
+                                        this.W.Write(o)
+    member this.WriteSpecial(tag)     = this.W.Write(match tag with | "s"->' ' | "n"->'\n' | "r"->'\r' | "lb"->'{' | "rb"->'}' | _ -> failwith "not supported")
+    member this.WriteI (s:string)     = this.W.Write(rexStr.Replace(s, (fun m ->    let tag = m.ToString();
                                                                                     let key = tag.Substring(1, tag.Length-2)
-                                                                                    match this.Get(key) with
+                                                                                    match this.GetKey(key) with
                                                                                     | Some(v) -> v.ToString()
                                                                                     | None    -> tag.ToUpper() )))
-    member this.WriteI2(s:string)     = this._w.Write(rexStr2.Replace(s, (fun m ->  let tag = m.ToString();
+    member this.WriteI2(s:string)     = this.W.Write(rexStr2.Replace(s, (fun m ->   let tag = m.ToString();
                                                                                     let key = tag.Substring(1, tag.Length-2)
-                                                                                    match this.Get(key) with
+                                                                                    match this.GetKey(key) with
                                                                                     | Some(v) -> v.ToString()
                                                                                     | None    -> tag.ToUpper() )))                                                                                        
-    member this.Get   (key:string)    = this.data.TryFind key
-    member this.GetStr(key:string)    = match this.resolveRef this.scope key with
-                                        | Some(o) -> o.ToString()
-                                        | None    -> ""
+    member this.Get(i:Identifier)     = match i with    
+                                        | Key(key) -> this.Data.TryFind key
+                                        | _ -> failwith "TODO"
+    member this.GetKey(key:string)    = this.Data.TryFind key
+//    member this.GetStr(key:string)    = match this.resolveRef this.scope key with
+//                                        | Some(o) -> o.ToString()
+//                                        | None    -> ""
 
-    member this.Log msg = this.logger msg
+    member this.Log msg = this.Logger msg
     member this.Unresolved scope key =
 #if DEBUG
                                         names.Add(key) |> ignore
@@ -240,29 +252,46 @@ type Context =
 #endif  
                                         None
 
-    member c.resolveRef scope (key:string) : Option<obj> =      
+    member c.ResolveRef scope (id:Identifier) : Option<obj> =      
+        let key =           match id with
+                            | Key(k) -> k
+                            | Path(p) -> if p.Length = 1 && p.Head.Index.IsNone then p.Head.Name else failwith "TODO"
         match key with
         | StartChar '\"' _  -> Some(key.Substring(1, key.Length-2) :> obj) // assumes proper double quoted
-        | "."               -> c.current
-        | "$idx"            -> if c.index.IsSome then Some(box <| fst c.index.Value) else None
-        | "$len"            -> if c.index.IsSome then Some(box <| snd c.index.Value) else None
+        | "."               -> c.Current
+        | "$idx"            -> if c.Index.IsSome then Some(box <| fst c.Index.Value) else None
+        | "$len"            -> if c.Index.IsSome then Some(box <| snd c.Index.Value) else None
         | _ ->                                           
-            let result = match (c.current) with
+            let result = match (c.Current) with
                          | Some obj -> obj.TryFind key
                          | None     -> None
             match result with 
             | Some _ -> result
-            | None   -> let found = c.data.TryFind key
+            | None   -> let found = c.Data.TryFind key
                         match found with                     
                         | Some _ -> found
-                        | None   -> match scope with
-                                    | []        ->  c.Unresolved scope key 
-                                    | head::tail->  let key2 = head + "." + key
-                                                    let result2 = c.data.TryFind key2 
-                                                    match result2 with
-                                                    | None ->   if tail = [] then c.Unresolved scope key 
-                                                                else result2 // failwith "never?"
-                                                    | _ -> result2
+                        | None   -> None // TODO
+                                    
+//                                    match scope with
+//                                    | []        ->  c.Unresolved scope key 
+//                                    | head::tail->  let key2 = head :: key
+//                                                    let result2 = c.data.TryFind key2 
+//                                                    match result2 with
+//                                                    | None ->   if tail = [] then c.Unresolved scope key 
+//                                                                else result2 // failwith "never?"
+//                                                    | _ -> result2
+
+    member c.EvalBool scope cond = 
+        match c.ResolveRef scope cond with
+        | None ->   false // failwith ("undefined condition: " + cond)   
+        | Some o -> match o with
+                    | null -> false
+                    | :? bool as b -> b
+                    | :? IEnumerable<obj> as ie ->  let en = ie.GetEnumerator()
+                                                    en.MoveNext()
+                    | _ ->  let s = o.ToString()
+                            let result = s.Equals("true") || not (System.String.IsNullOrEmpty(s))
+                            result
 
 type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit        
 let helpers = new ConcurrentDictionary<string, Helper>()
@@ -274,49 +303,6 @@ helpers.[""] <- nullHelper
 
 // --------------------------------------------------------------------------------------
 
-let (|DustTag|_|) = function
-    | '{' :: chars -> match chars with
-                      | ' ' :: _ | '\n' :: _ | '\r' :: _ | '\t' :: _ -> None // TODO may be inaccurate
-                      | '!' :: rest -> parseUntil [ '!'; '}' ]  [chars.Head] rest
-                      | '`' :: rest -> parseUntil [ '`'; '}' ]  [chars.Head] rest
-                      | '#' :: rest -> let r = rest |> List.skipWhile(fun c -> Char.IsWhiteSpace(c))
-                                       parseUntil [ '}' ]  [chars.Head] r
-                      | _   :: rest -> parseUntil [ '}' ]  [chars.Head] rest
-                      | [] -> None
-    | _ -> None
-
-// --------------------------------------------------------------------------------------
-
-// parse into map of key,value
-let parseInside input =
-    let m = rexKvp.Match(input)
-    if m.Success then
-        let keys = m.Groups.["key"].Captures
-        let ctx = m.Groups.["ctx"] // Some context
-        let values = m.Groups.["value"].Captures
-        ( 
-            m.Groups.["ident"].Value, 
-            (if ctx.Length > 0 then Some(ctx.Value) else None),
-            [0 .. keys.Count-1] |> Seq.map (fun i -> (keys.[i].Value, values.[i].Value )) |> Map.ofSeq
-        )
-    else  
-        let m = rexRef.Match(input)
-        if m.Success then (m.Value, None, Map.empty)
-        else failwith ("path expected " + input)
-
-let parseSection ident param = function
-    | '#' -> Scope
-    | '?' -> Condition
-    | '^' -> NotCondition
-    | '<' -> Inline
-    | '+' -> Block
-    | '%' -> Escaped
-    | '@' -> let logic = match ident with
-                         | "eq" -> Eq | "ne" -> Ne | "lt" -> Lt | "lte" -> Lte | "gt" -> Gt | "gte" -> Gte
-                         | _ -> Custom(ident)
-             Helper(logic, param)
-    | _ -> failwith "unknown tag" 
-
 let parseFilters (strarr:seq<string>) =
     seq {
         for f in Seq.skip 1 strarr do
@@ -326,101 +312,215 @@ let parseFilters (strarr:seq<string>) =
             | _ -> ()
     }
 
-// tokenizes a stream of chars
-let rec parseSpans acc chars = 
-    seq { 
-        let emitLiteral() = seq { if acc <> [] then yield acc |> List.rev |> toString |> Buffer }
-        match chars with
-        | DustTag (inside, chars) -> 
-            yield! emitLiteral ()
-            if not inside.IsEmpty then
-                let tag = (inside.Tail |> toString) // n:identifier c:context p:params TODO exact parsing               
+// inline <- '\"' '\"' / '\"' literal '\"'/ '\"' inline_part+ '\"'
+// TODO inline_part <- special / reference / literal 
+let (|Inline|_|) = function
+    | Quoted(x) -> Some x // TODO
+    | _         -> None    
 
-                match inside.Head with 
-                | '!' ->    yield Comment(inside |> toString)
-                | '`' ->    //let raw = tag.TrimEnd('`')
-                            yield Buffer(tag)
-                | ':' ->    yield Bodies(tag)
-                | '~' ->    yield Special(tag) // k:key
-                    // sec_tag_start is defined as matching an opening brace followed by one of #?^<+@% plus identifier plus context plus param
-                    // followed by 0 or more white spaces
-                    // sec_tag_start = ld t:[#?^<+@%] ws* n:identifier c:context p:params
-                | '#' | '?' | '^' | '<' | '+' | '@' | '%'  ->             
-                            let ident, ctx, kvp = parseInside tag
-                            let st = parseSection ident kvp inside.Head 
-                        
-                            if tag.EndsWith("/") then
-                                match st with
-                                | Helper(l,_) -> yield Section(Helper(l, kvp), ident)
-                                | Block ->       yield Section(Block, ident)
-                                | _ ->           failwith ("unexpected " + st.ToString())
-                            else    
-                                yield SectionBlock(st, ident, [], Map.empty)
+// key <- (({Ll} / {Lu} / [_$]) ({Nd} / {Ll} / {Lu} / [_$-])*)
+// IMPORTANT RegEx must start with '^' to match from the start
+let (|Key|_|) = function
+    | Rex "^[a-zA-Z_\$][0-9a-zA-Z_\-\$]*" x -> Some x
+    | _ -> None
 
-                | '/' ->    yield EndSection(tag)
-                | '>' ->    yield Partial(parseInside tag)
-                | _ ->      let s = toString inside
-                            let m = rexRef.Match(s)
-                            if m.Success then 
-                                let filters = parseFilters (s.Split('|'))
-                                yield Reference(m.Value, filters)
-                            else 
-                                yield Buffer("{" + toString(inside)  + "}")
-            yield! parseSpans [] chars
-        | '\n' :: chars ->  yield! emitLiteral ()
-                            yield Eol // TODO other EOLs 
-                            yield! parseSpans [] chars
-        | c :: chars    ->  yield! parseSpans (c :: acc) chars
-        | []            ->  yield! emitLiteral()
-    }
+let (|Int|_|) = function
+    | Rex "^[0-9]+" (i,r) -> Some(Convert.ToInt32(toString i),r)
+    | _ -> None
 
-// gather parts into sections and return the tree
-let rec getTree acc stop = function
-    | []                                        ->  (acc |> List.rev, []  , "")
-    | Bodies(tag) :: tail                       ->  (acc |> List.rev, tail, tag)
-    | EndSection(name) :: tail when name = stop ->  (acc |> List.rev, tail, "")
-    | EndSection(name) :: _                     ->  failwith ("unexpected end " + name)
-    | SectionBlock(typ,name,_,_) :: tail        ->  let body, rest, tag = getTree [] name tail
-                                                    let (s,tail2) = if tag <> "" then
-                                                                        let body2, rest2, _ = getTree [] name rest
-                                                                        (SectionBlock(typ, name, body, [tag, body2] |> Map.ofList), rest2)
-                                                                    else
-                                                                        (SectionBlock(typ, name, body, Map.empty), rest)
-                                                    if typ = Inline then
-                                                        cache.[name] <- (DateTime.Now, body) // defines inline part, TODO local namespace
-                                                        getTree (acc) stop tail2
-                                                    else
-                                                        getTree (s :: acc) stop tail2
-    | head :: tail ->   match head, acc with // performs whitespace elimination
-                        | Eol,       Buffer(a)::t -> getTree (Buffer(a+"\n") :: t) stop tail 
-                        | Buffer(b), Eol      ::t -> getTree (Buffer(b.TrimStart([|' '; '\t'|])) :: t) stop tail
-                        | Buffer(b), Buffer(a)::t -> getTree (Buffer(a.TrimEnd([|'\t'; '\n'; '\r'|])+b.TrimStart([|' '; '\t'|])) :: t) stop tail 
-                        | _ -> getTree (head :: acc) stop tail
+// number <- (float / integer)
+let (|Number|_|) = function
+    | Rex "^[0-9]*(?:\.[0-9]*)?" x -> Some x
+    | Rex "^[0-9]+" x -> Some x
+    | _ -> None
 
-let parse (doc:string) =
-    let body,_,_ = doc |> List.ofSeq |> parseSpans [] |> Seq.toList |> getTree [] ""
-    body 
+// array <- ( lb ( ({Nd}+) / identifier) rb ) array_part?
+let (|ArrayIdx|_|) = function
+    | '[' :: Int(i, ']' :: r) -> Some(i, r)
+    // | '[' :: Ident(i, ']' :: r) -> failwith "TODO"
+    | _ -> None    
 
+// array_part <- ("." key)+ (array)?
+let (|ArrayPart|_|) chars = 
+    let rec loop acc = function 
+        | '.' :: Key(k,rest) -> loop ({Name = toString(k); Index = None} :: acc) rest
+        | rest when acc.Length > 0 -> match rest, acc with // optional index
+                                      | ArrayIdx (i,r), hd :: tail -> Some({hd with Index = Some i} :: tail, r)
+                                      | _, acc                     -> Some(acc, rest)
+        | _ -> None
+    loop [] chars
+
+// (array / array_part)*
+let (|ArrayOrPart|_|) chars = 
+    let rec loop acc = function 
+        | ArrayIdx  (i,r) -> loop ({Name = ""; Index = Some i} :: acc) r
+        | ArrayPart (l,r) -> loop (l @ acc) r
+        | rest when acc.Length > 0 -> Some(List.rev acc, rest)
+        | _ -> None
+    loop [] chars
+
+// path <- "." ArrayOrPart* / key? ArrayOrPart+ 
+let (|Path|_|) = function    
+    | '.' :: ArrayOrPart(a) ->  Some a
+    | '.' :: r              ->  Some( [{Name = "."; Index = None}], r)
+    | chars                 ->  let k,r = match chars with // optional key
+                                          | Key(k,r) -> Some {Name = toString(k); Index = None}, r
+                                          | _        -> None, chars
+                                match r with
+                                | ArrayOrPart(a,r) -> match k with 
+                                                      | Some(k) -> Some(k :: a,r)
+                                                      | _       -> Some(a,r)
+                                | _                -> None
+// identifier <- path / key
+let (|Ident|_|) = function
+     | Path(p,r) -> Some(Path(p),r)
+     | Key(k,r)  -> Some(Key(toString(k)),r)
+     | _ -> None
+
+// param <- (key "=" (number / identifier / inline)
+let (|Param|_|) = function
+    | Key (k, '=' :: r) ->  let key = toString k
+                            match r with
+                            | Inline (x,r) -> Some <| ((key, VInline(toString x)), r)
+                            | Ident  (m,r) -> Some <| ((key, VIdent(m)), r)
+                            | Int    (i,r) -> Some <| ((key, VNumber(decimal i)), r)
+                            | Number (x,r) -> Some <| ((key, VNumber(Convert.ToDecimal(toString x))), r)
+                            | _ -> None
+    | _ -> None    
+
+// params <- (ws+ key "=" (number / identifier / inline) )*
+let (|Params|_|) chars = 
+    let ch1 = chars |> List.skipWhile Char.IsWhiteSpace 
+    let rec loop acc = function 
+        | Param(p,rest) -> loop (p :: acc) (rest |> List.skipWhile Char.IsWhiteSpace)
+        | rest when acc.Length > 0 -> Some(List.rev acc, rest)
+        | _ -> None
+    loop [] ch1
+
+// context <- (":" identifier)?
+let (|Context|_|) = function
+    | ':' :: Ident x -> Some x 
+    | _ -> None    
+
+let sectionType = function
+    | '#' -> Scope
+    | '?' -> Condition
+    | '^' -> NotCondition
+    | '<' -> Inline
+    | '>'
+    | '+' -> Block
+    | '%' -> Escaped
+    | '@' -> Method
+    | c -> failwithf "unknown tag %A" c 
+
+//part <- raw / comment / section / partial / special / reference / buffer
+let rec (|Part|_|) = function
+    | '{' :: rest-> match rest with
+                    // | ' ' :: _ | '\n' :: _ | '\r' :: _ | '\t' :: _ -> None // TODO may be inaccurate
+                    | '!' :: Until ['!';'}'] (x,r) -> Some(Comment(toString x), r)
+                    | '`' :: Until ['`';'}'] (x,r) -> Some(Buffer(toString x), r)
+                    // partial <- ld (">"/"+") ws* (key / inline) context params ws* "/" rd
+                    | '>' :: Until ['/';'}'] (r,r2)
+                    | '+' :: Until ['/';'}'] (r,r2) -> 
+                        let st = sectionType rest.Head 
+                        let r = r |> List.skipWhile Char.IsWhiteSpace 
+                        let id,r =  match r with
+                                    | Key   (x,r) -> toString x, r |> List.skipWhile Char.IsWhiteSpace 
+                                    | Inline(x,r) -> toString x, r |> List.skipWhile Char.IsWhiteSpace 
+                                    | _ -> failwith "expected (key / inline)"              
+                        let ct,r =  match r with
+                                    | Context(m,r) -> Some m, r |> List.skipWhile Char.IsWhiteSpace 
+                                    | _ -> None, r
+                        let pa,r =  match r with
+                                    | Params(p,r) -> p, r |> List.skipWhile Char.IsWhiteSpace 
+                                    | _ -> [], r
+
+                        Some(Partial(id, ct, pa), r2)
+                    // sec_tag_start <- ld [#?^<@%] ws* identifier context params 
+                    | '#' :: r | '?' :: r | '^' :: r | '<' :: r  | '@' :: r | '%' :: r | '+' :: r ->             
+                        let st = sectionType rest.Head 
+                        let r = r |> List.skipWhile Char.IsWhiteSpace 
+                        let id,r =  match r with
+                                    | Ident(i,r) -> i, r |> List.skipWhile Char.IsWhiteSpace 
+                                    | _ -> failwith "expected (identifier)"
+                        let ct,r =  match r with
+                                    | Context (m,r) -> Some m, r |> List.skipWhile Char.IsWhiteSpace 
+                                    | _ -> None, r
+                        let pa,r =  match r with
+                                    | Params (p,r) -> p, r |> List.skipWhile Char.IsWhiteSpace 
+                                    | _ -> [], r
+
+                        // section <- sec_tag_start ws* rd body bodies end_tag / sec_tag_start ws* "/" rd
+                        match r with
+                        | Until ['}'] (x,r) ->  
+                            let closed = match x with
+                                         | '/' :: _ -> true
+                                         | _ -> false
+
+                            //printfn "REST: %A | %A" x r
+                            if closed then
+                                Some(Section(st, id, ct, pa), r)
+                            else
+                                let rec loop acc ch =  
+                                    match ch with
+                                    | Part(End(i),r)       -> (List.rev acc, End(i), r)
+                                    | Part(NamedBody(k),r) -> (List.rev acc, NamedBody(k), r)                                                                
+//                                    | StartsWith ['{';':'] r->  (List.rev acc, i, r)
+                                    | Part(p,rest)      ->  loop (p :: acc) rest
+                                    | x                 ->  printfn "BODY REST: %A | %A" x r
+                                                            failwith "TODO"
+                                let body, endp, r = loop [] r
+
+                                let rec loop2 acc ch p =  
+                                    match p with
+                                    | End(i) -> if i <> id then failwithf "unexpected enf  %A ... %A" id i else (acc, ch)
+                                    | NamedBody(n)  ->  let body, end2, r = loop [] r
+                                                        loop2 ((n, body) :: acc) r end2
+                                    | _             ->  (acc,ch)
+                                let bodies,r = (loop2 [] r endp) 
+                               
+                                Some(SectionBlock(st, id, ct, pa, body, bodies |> Map.ofList), r)
+
+                        | _ -> failwith "syntax error"
+                                       
+
+                    // special <- ld "~" key rd
+                    | '~' :: Until ['}'] (x,r) -> Some(Special(toString x), r)
+                    // end_tag <- ld "/" ws* identifier ws* rd
+                    | '/' :: Until ['}'] (x,r) -> 
+                        let chars = x |> List.skipWhile Char.IsWhiteSpace 
+                        match chars with
+                        | Ident(i,_) -> Some(End(i), r)
+                        | _ -> failwith "expected (identifier)"
+                    // bodies <- (ld ":" key rd body)*
+                    | ':' :: Key(k,Until ['}'] (_,r)) -> Some(NamedBody(toString k), r) 
+                    // reference <- ld identifier filters rd
+                    | Ident(i, Until ['}'] (_,r)) -> Some(Reference(i, []), r) // TODO filters
+
+                    | _ -> None
+    | Until [ '{' ] (t,chars) ->  Some <| (Buffer(toString t), '{' :: chars)
+    | _ -> None
+
+let parse text =
+    let chars = text |> List.ofSeq
+    let rec loop acc ch =  
+        match ch with
+        | Part(p,rest) -> loop (p :: acc) rest
+        | [] -> List.rev acc
+        | x -> List.rev (Buffer(toString x) :: acc)
+    loop [] chars
 
 // render template parts with provided context & scope
-let rec render (c:Context) scope (part:Part) = 
+let rec render (c:Context) (scope:Member list) (part:Part) = 
     let renderList newscope parts = parts |> List.iter(fun p -> render c newscope p)
+    let push (scope:Member list) id = scope      // TODO   
 
-    let evalBool cond = match c.resolveRef scope cond with
-                        | None ->   false // failwith ("undefined condition: " + cond)   
-                        | Some o -> match o with
-                                    | null -> false
-                                    | :? bool as b -> b
-                                    | :? IEnumerable<obj> as ie ->  let en = ie.GetEnumerator()
-                                                                    en.MoveNext()
-                                    | _ ->  let s = o.ToString()
-                                            let result = s.Equals("true") || not (System.String.IsNullOrEmpty(s))
-                                            result
     let helper name =
         match helpers.TryGetValue name with
         | true, ref -> ref
         | _ ->  c.Log <| sprintf "missing helper: %s" name
                 helpers.[""] // the nullHelper                
+
                 
     match part with
     //| Comment _      -> c.Write("<!-- " + text + " -->")
@@ -428,36 +528,37 @@ let rec render (c:Context) scope (part:Part) =
     | Buffer text    -> c.Write(text)
     | Partial(n,x,m) -> let body = match cache.TryGetValue n with
                                    | true, (_, part) -> part 
-                                   | _ -> c.parseCached parse n
-                        let c2 = { c with current = match x with
-                                                    | Some i -> c.Get (i.TrimStart ':') 
+                                   | _ -> c.ParseCached parse n
+                        let c2 = { c with Current = match x with
+                                                    | Some i -> c.Get i
                                                     | None -> Some(m :> obj)
                                  } 
                         // if not kv.IsEmpty then c.Log (">partial " + c2.current.Value.ToString())
                         let s2 = match x with
-                                 | Some i -> (i.TrimStart ':') :: scope 
+                                 | Some i -> i |> push scope 
                                  | None -> scope
                         body |> Seq.iter(fun p -> render c2 s2 p)
-    | Reference(k,f) -> match c.resolveRef scope k with                     
+    | Reference(k,f) -> match c.ResolveRef scope k with                     
                         | None -> ()
                         | Some value    ->  match value with
                                             | null -> ()
                                             | :? bool as b -> if b then c.WriteFiltered f value
                                             | _ ->  c.WriteFiltered f value
-    | Section(st, n) -> match st with 
-                        | Block ->          match cache.TryGetValue n with 
-                                            | true, (_, part) -> part |> Seq.iter(fun p -> render c scope p) // else ignore
-                                            | _ -> ()
+    | Section(st,n,_,_) -> 
+                        match st with 
+//                        | Block ->          match cache.TryGetValue n with 
+//                                            | true, (_, part) -> part |> Seq.iter(fun p -> render c scope p) // else ignore
+//                                            | _ -> ()
                         | Scope ->          failwith "scope must have a body"
                         | Helper(l, map) -> match l with
-                                            | Custom(name) ->   let c2 = { c with scope = scope }                        
+                                            | Custom(name) ->   let c2 = { c with Scope = scope }                        
                                                                 helper name c2 Map.empty map (fun () -> ())
                                             | _ -> failwith "logic should be a SectionBlock" 
                         | _ -> ()
-    | SectionBlock (st,n,l,bodies) -> 
-        let renderIf cond = if cond then renderList (n :: scope) l 
+    | SectionBlock(st,n,_,_,l,bodies) -> 
+        let renderIf cond = if cond then renderList (push scope n) l 
                             else match bodies.TryFind "else" with
-                                 | Some body -> renderList (n :: scope) body // TODO check if n should be added
+                                 | Some body -> renderList (push scope n) body // TODO check if n should be added
                                  | None -> ()                            
         match st with 
         | Helper(t, map) -> match t with
@@ -469,8 +570,8 @@ let rec render (c:Context) scope (part:Part) =
                                     let mval = map.["value"]
                                     if mkey = "type" then 
                                         printfn "%s" mval
-                                    let ckey = c.resolveRef scope mkey
-                                    let cval = c.resolveRef scope mval
+                                    let ckey = c.ResolveRef scope (Key(mkey))
+                                    let cval = c.ResolveRef scope (Key(mval)) // TODO
                                     // TODO let ctyp = map.["type"] // e.g. "number"
                                     let comp = match ckey with                     
                                                | None    -> failwith "key must be defined" 
@@ -488,27 +589,26 @@ let rec render (c:Context) scope (part:Part) =
                                     printfn "%A: %A %A %A %s %s" comp (match ckey with | Some(x) -> x.ToString() | _ -> "<n/a>") t (match cval with | Some(x) -> x.ToString() | _ -> "<n/a>") map.["key"] map.["value"] 
 #endif
                                     renderIf comp                                                
-        | Condition     ->  renderIf (evalBool n)
-        | NotCondition  ->  renderIf (not (evalBool n))
-        | Scope         ->  match c.resolveRef scope n with                     
+        | Condition     ->  renderIf (c.EvalBool scope n)
+        | NotCondition  ->  renderIf (not (c.EvalBool scope n))
+        | Scope         ->  match c.ResolveRef scope n with                     
                             | Some(valu) -> match valu with
                                             | :? IEnumerable<obj> as ie 
                                                  -> let arr = ie |> Seq.cast<obj> |> Seq.toArray
                                                     let len = arr.Length
                                                     if len < 1 then renderIf false
                                                     else arr |> Array.iteri(fun i o -> 
-                                                        let c2 = { c with current = Some(o); index = Some(i,len) }
-                                                        l |> List.iter(fun p -> render c2 (n :: scope) p) )
+                                                        let c2 = { c with Current = Some(o); Index = Some(i,len) }
+                                                        l |> List.iter(fun p -> render c2 (push scope n) p) )
                                             | :? bool as b -> renderIf b
                                             | null -> renderIf false
-                                            | o ->      let c2 = { c with current = Some(o) }
-                                                        l |> List.iter(fun p -> render c2 (n :: scope) p) 
+                                            | o ->      let c2 = { c with Current = Some(o) }
+                                                        l |> List.iter(fun p -> render c2 (push scope n) p) 
                             | None -> renderIf false      // TODO create new current from keyvalue map 
                                               
-        | Block         -> match cache.TryGetValue n with 
+        | Block         -> match cache.TryGetValue (n.ToString()) with 
                            | true, (_,b) -> b |> Seq.iter(fun p -> render c scope p) // override
-                           | _           -> renderList (n :: scope) l // default
-                        
+                           | _           -> renderList (push scope n) l // default                        
         // Deprecated | Escaped       -> renderList (n :: scope) l  
         | _ -> failwith <| sprintf "unexpected %A" st
     | _ -> ()

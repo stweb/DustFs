@@ -14,9 +14,9 @@ let mutable templateDir = ""
 
 // parse template from global directory and cache
 let parseToCache name = async {
-    let ctx = { Context.defaults with _templateDir = templateDir }
+    let ctx = { Context.defaults with TmplDir = templateDir }
     try
-      return ctx.parseCached parse name
+      return ctx.ParseCached parse name
     with
       e -> return [] // TODO error handling
 }
@@ -29,10 +29,10 @@ let page<'T> atmpl (model : 'T) ctx = async {
 
     let sb = System.Text.StringBuilder()
     let dustctx = { Context.defaults with 
-                        _templateDir = templateDir; 
-                        _w = new StringWriter(sb); 
-                        data = (box model); 
-                        logger = slog }
+                        TmplDir = templateDir; 
+                        W = new StringWriter(sb); 
+                        Data = (box model); 
+                        Logger = slog }
     
     let! doc = atmpl // get parsed template async and render
     doc |> List.iter(fun p -> render dustctx [] p)
