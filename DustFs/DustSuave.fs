@@ -31,7 +31,7 @@ let page<'T> atmpl (model : 'T) ctx = async {
     let dustctx = { Context.defaults with 
                         TmplDir = templateDir; 
                         W = new StringWriter(sb); 
-                        Data = (box model); 
+                        Current = Some(box model); 
                         Logger = slog }
     
     let! doc = atmpl // get parsed template async and render

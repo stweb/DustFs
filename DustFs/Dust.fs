@@ -8,20 +8,28 @@ open System.Text.RegularExpressions
 
 let rexStr = new Regex("\{[^}]*\}")
 let rexStr2 = new Regex("\[(.*?)\]")
-
-type Member = { Name: string; Index: int option }
-type PathRef = { Path: Member list; FromCurrent: bool }
+    
 type Identifier =
     | Key of string
-    | Path of Member list
-    with 
-        override x.ToString() = 
-            match x with
-            | Key(k)  -> k
-            | Path(p) -> let path = p |> List.map( fun m -> match m.Index with 
-                                                            | Some(i) -> sprintf "%s[%A]" m.Name i
-                                                            | None    -> m.Name  )  
-                         String.Join(".", path)
+    | Path of Segment list
+with 
+    override x.ToString() = 
+        match x with
+        | Key(k)  -> k
+        | Path(p) -> String.Join(".", p |> List.map( fun x -> x.ToString() ))  
+    member x.ToPath() = 
+        match x with
+        | Key(k)  -> [Name(k)]
+        | Path(p) -> p 
+
+and Segment =
+    | Name of string
+    | Index of int
+with 
+    override x.ToString() = 
+        match x with 
+        | Name  s -> s
+        | Index i -> sprintf "[%d]" i      
 
 type Value =
     | VInline of string
@@ -156,21 +164,30 @@ type System.Object with    // TODO if key.StartsWith(".") then let cur = true ke
                 | null -> None
                 | _    -> optional (p.GetValue(o))
 
-  member o.Get path = 
-    match path with
-    | [] -> None
-    | [h] -> o.TryFindProp h
-    | h :: tail ->  let xo = o.TryFindProp h
-                    if xo.IsSome then xo.Value.Get tail else None
+  member o.TryFindIndex (i:int) = 
+    match o with
+    | :? IEnumerable<obj> as s -> s |> Seq.cast<obj> |> Seq.skip i |> Seq.tryHead 
+    | _ -> failwith "object without index access"
 
-  member o.TryFind (key:string) = // TODO if key.StartsWith(".") then let cur = true key = key.substr(1)
-    let path = key.Split('.') |> Array.toList;
-    o.Get path
+  member o.TryFindSegment = function
+    | Index(i) -> o.TryFindIndex i
+    | Name(n)  -> o.TryFindProp n 
+
+//  member o.Get path = 
+//    match path with
+//    | [] -> None
+//    | [h] -> o.TryFindProp h
+//    | h :: tail ->  let xo = o.TryFindProp h
+//                    if xo.IsSome then xo.Value.Get tail else None
+//
+//  member o.TryFind (key:string) = // TODO if key.StartsWith(".") then let cur = true key = key.substr(1)
+//    let path = key.Split('.') |> Array.toList;
+//    o.Get path
 
 type Context = 
     {   W:          TextWriter // private - access via this.Write
         TmplDir:    string
-        Data:       obj
+        Global:     obj // Global Context
         Index:      (int * int) option // in #array 
         Current:    obj option
         Parent:     Context option
@@ -181,7 +198,7 @@ type Context =
         | Some(ix,len) -> sprintf "%A %A %d/%d" x.Parent x.Current ix len
         | None         -> sprintf "%A %A"       x.Parent x.Current 
 
-    static member defaults = { TmplDir = ""; W = null; Data = null; Index = None; Current = None; Parent = None; Logger = fun s -> () }    
+    static member defaults = { TmplDir = ""; W = null; Global = null; Current = None; Index = None; Parent = None; Logger = fun s -> () }    
 
     member this.LoadAndParse parse name = async {
         let sw = System.Diagnostics.Stopwatch()
@@ -226,20 +243,17 @@ type Context =
                                         else for x in f do o <- x o                                        
                                         this.W.Write(o)
     member this.WriteSpecial(tag)     = this.W.Write(match tag with | "s"->' ' | "n"->'\n' | "r"->'\r' | "lb"->'{' | "rb"->'}' | _ -> failwith "not supported")
-    member this.WriteI (s:string)     = this.W.Write(rexStr.Replace(s, (fun m ->    let tag = m.ToString();
-                                                                                    let key = tag.Substring(1, tag.Length-2)
-                                                                                    match this.GetKey(key) with
-                                                                                    | Some(v) -> v.ToString()
-                                                                                    | None    -> tag.ToUpper() )))
-    member this.WriteI2(s:string)     = this.W.Write(rexStr2.Replace(s, (fun m ->   let tag = m.ToString();
-                                                                                    let key = tag.Substring(1, tag.Length-2)
-                                                                                    match this.GetKey(key) with
-                                                                                    | Some(v) -> v.ToString()
-                                                                                    | None    -> tag.ToUpper() )))                                                                                        
-    member this.Get(i:Identifier)     = match i with    
-                                        | Key(key) -> this.Data.TryFind key
-                                        | _ -> failwith "TODO"
-    member this.GetKey(key:string)    = this.Data.TryFind key
+//    member this.WriteI (s:string)     = this.W.Write(rexStr.Replace(s, (fun m ->    let tag = m.ToString();
+//                                                                                    let key = tag.Substring(1, tag.Length-2)
+//                                                                                    match this.GetKey(key) with
+//                                                                                    | Some(v) -> v.ToString()
+//                                                                                    | None    -> tag.ToUpper() )))
+//    member this.WriteI2(s:string)     = this.W.Write(rexStr2.Replace(s, (fun m ->   let tag = m.ToString();
+//                                                                                    let key = tag.Substring(1, tag.Length-2)
+//                                                                                    match this.GetKey(key) with
+//                                                                                    | Some(v) -> v.ToString()
+//                                                                                    | None    -> tag.ToUpper() )))                                                                                        
+//    member this.GetKey(key:string)    = this.Data.TryFind key
 //    member this.GetStr(key:string)    = match this.resolveRef this.scope key with
 //                                        | Some(o) -> o.ToString()
 //                                        | None    -> ""
@@ -252,37 +266,48 @@ type Context =
 #endif  
                                         None
 
-    member c.ResolveRef (id:Identifier) : Option<obj> =      
-        let key =           match id with
-                            | Key(k) -> k
-                            | Path(p) -> if p.Length = 1 && p.Head.Index.IsNone then p.Head.Name else failwith "TODO"
-        match key with
-        | StartChar '\"' _  -> Some(key.Substring(1, key.Length-2) :> obj) // assumes proper double quoted
-                                        | "."               -> c.Current
-                                        | "$idx"            -> if c.Index.IsSome then Some(box <| fst c.Index.Value) else None
-                                        | "$len"            -> if c.Index.IsSome then Some(box <| snd c.Index.Value) else None
-        | _ ->                                           
-            let result = match (c.Current) with
-                         | Some obj -> obj.TryFind key
-                         | None     -> None
-            match result with 
-            | Some _ -> result
-            | None   -> let found = c.Data.TryFind key
-                        match found with                     
-                        | Some _ -> found
-                        | None   -> None // TODO
-                                    
-//                                    match scope with
-//                                    | []        ->  c.Unresolved scope key 
-//                                    | head::tail->  let key2 = head :: key
-//                                                    let result2 = c.data.TryFind key2 
-//                                                    match result2 with
-//                                                    | None ->   if tail = [] then c.Unresolved scope key 
-//                                                                else result2 // failwith "never?"
-//                                                    | _ -> result2
+    member c.Get (id:Identifier) : obj Option =      
+        let cur, path = match id with
+                        | Key(k)  -> let cur = k.StartsWith "." 
+                                     let k2 = if cur then k.Substring 1 else k
+                                     if k2.Contains "." then failwith "TODO split at dot"
+                                     (cur, [Name(k2)])
+                        | Path(p) -> false, p
+        c.GetPath cur path
+
+    member c.GetPath (cur:bool) (p:Segment list) : obj Option =      
+        let rec searchUpStack ctx =
+            let value = match ctx.Current with | Some obj -> obj.TryFindSegment p.Head | _ -> None
+            match value, ctx.Parent with
+            | None, Some(p) -> searchUpStack p
+            | _             -> value
+
+        let rec resolve o (path:Segment list) =
+            match path.Tail, o.TryFindSegment path.Head with
+            | [], None -> None
+            | _ , None -> failwith "bad path"
+            | [], x -> x
+            | _ , Some o2 -> resolve o2 path.Tail
+
+        match p with
+        | [Name("$idx")] -> if c.Index.IsSome then Some(box <| fst c.Index.Value) else None
+        | [Name("$len")] -> if c.Index.IsSome then Some(box <| snd c.Index.Value) else None
+        | [Name(".")]    -> c.Current
+        | _ ->
+            let ctx,v = match cur, p with
+                        | true, [_] ->  c, None // fixed to current context
+                        | false, _  ->  let result = searchUpStack c // Search up the stack for the first value
+                                        match result with // Try looking in the global context if we haven't found anything yet                                       
+                                        | Some _ -> c, result
+                                        | None   -> c, (c.Global.TryFindSegment p.Head)
+                        | _         ->  failwith "TODO ResolvePath ?"        
+            match v, p.Tail with
+            | Some _ , [] -> v
+            | Some o , _  -> resolve o p.Tail
+            | None   , _  -> match ctx.Current with | Some obj -> obj.TryFindSegment p.Head | _ -> None
 
     member c.EvalBool cond = 
-        match c.ResolveRef cond with
+        match c.Get cond with
         | None ->   false // failwith ("undefined condition: " + cond)   
         | Some o -> match o with
                     | null -> false
@@ -343,17 +368,17 @@ let (|ArrayIdx|_|) = function
 // array_part <- ("." key)+ (array)?
 let (|ArrayPart|_|) chars = 
     let rec loop acc = function 
-        | '.' :: Key(k,rest) -> loop ({Name = toString(k); Index = None} :: acc) rest
+        | '.' :: Key(k,rest) -> loop ( Name(toString(k)) :: acc) rest
         | rest when acc.Length > 0 -> match rest, acc with // optional index
-                                      | ArrayIdx (i,r), hd :: tail -> Some({hd with Index = Some i} :: tail, r)
-                                      | _, acc                     -> Some(acc, rest)
+                                      | ArrayIdx (i,r), tail -> Some(Index(i) :: tail, r)
+                                      | _, acc               -> Some(acc, rest)
         | _ -> None
     loop [] chars
 
 // (array / array_part)*
 let (|ArrayOrPart|_|) chars = 
     let rec loop acc = function 
-        | ArrayIdx  (i,r) -> loop ({Name = ""; Index = Some i} :: acc) r
+        | ArrayIdx  (i,r) -> loop ( Index(i) :: acc) r
         | ArrayPart (l,r) -> loop (l @ acc) r
         | rest when acc.Length > 0 -> Some(List.rev acc, rest)
         | _ -> None
@@ -362,9 +387,9 @@ let (|ArrayOrPart|_|) chars =
 // path <- "." ArrayOrPart* / key? ArrayOrPart+ 
 let (|Path|_|) = function    
     | '.' :: ArrayOrPart(a) ->  Some a
-    | '.' :: r              ->  Some( [{Name = "."; Index = None}], r)
+    | '.' :: r              ->  Some([Name(".")], r)
     | chars                 ->  let k,r = match chars with // optional key
-                                          | Key(k,r) -> Some {Name = toString(k); Index = None}, r
+                                          | Key(k,r) -> Some <| Name(toString(k)), r
                                           | _        -> None, chars
                                 match r with
                                 | ArrayOrPart(a,r) -> match k with 
@@ -526,7 +551,7 @@ let rec render (c:Context) (part:Part) =
                                                     | None -> Some(m :> obj)
                                  } 
                         body |> Seq.iter(fun p -> render c2 p)
-    | Reference(k,f) -> match c.ResolveRef k with                     
+    | Reference(k,f) -> match c.Get k with                     
                         | None -> ()
                         | Some value    ->  match value with
                                             | null -> ()
@@ -557,8 +582,8 @@ let rec render (c:Context) (part:Part) =
                                     let mval = map.["value"]
                                     if mkey = "type" then 
                                         printfn "%s" mval
-                                    let ckey = c.ResolveRef (Key(mkey))
-                                    let cval = c.ResolveRef (Key(mval)) // TODO
+                                    let ckey = c.Get (Key(mkey))
+                                    let cval = c.Get (Key(mval)) // TODO
                                     // TODO let ctyp = map.["type"] // e.g. "number"
                                     let comp = match ckey with                     
                                                | None    -> failwith "key must be defined" 
@@ -578,7 +603,7 @@ let rec render (c:Context) (part:Part) =
                                     renderIf comp                                                
         | Condition     ->  renderIf (c.EvalBool n)
         | NotCondition  ->  renderIf (not (c.EvalBool n))
-        | Scope         ->  match c.ResolveRef n with                     
+        | Scope         ->  match c.Get n with                     
                             | Some(valu) -> match valu with
                                             // Dust's default behavior is to enumerate over the array elem, passing each object in the array to the block.
                                             // When elem resolves to a value or object instead of an array, Dust sets the current context to the value
