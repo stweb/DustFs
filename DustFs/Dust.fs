@@ -355,7 +355,7 @@ let (|Int|_|) = function
 
 // number <- (float / integer)
 let (|Number|_|) = function
-    | Rex "^[0-9]*(?:\.[0-9]*)?" x -> Some x
+    | Rex "^(-)?[0-9]*(?:\.[0-9]*)?" x -> Some x
     | Rex "^[0-9]+" x -> Some x
     | _ -> None
 
@@ -387,6 +387,7 @@ let (|ArrayOrPart|_|) chars =
 // path <- "." ArrayOrPart* / key? ArrayOrPart+ 
 let (|Path|_|) = function    
     | '.' :: ArrayOrPart(a) ->  Some a
+    | ArrayOrPart(a) ->  Some a
     | '.' :: r              ->  Some([Name(".")], r)
     | chars                 ->  let k,r = match chars with // optional key
                                           | Key(k,r) -> Some <| Name(toString(k)), r
@@ -446,6 +447,7 @@ let rec (|Part|_|) = function
                     | '`' :: Until ['`';'}'] (x,r) -> Some(Buffer(toString x), r)
                     // partial <- ld (">"/"+") ws* (key / inline) context params ws* "/" rd
                     | '>' :: Until ['/';'}'] (r,r2)
+                    | '>' :: Until ['}'] (r,r2)
                     | '+' :: Until ['/';'}'] (r,r2) -> 
                         let st = sectionType rest.Head 
                         let r = r |> List.skipWhile Char.IsWhiteSpace 
@@ -487,8 +489,10 @@ let rec (|Part|_|) = function
                                     | Part(NamedBody(k),r) -> (List.rev acc, NamedBody(k), r)                                                                
 //                                    | StartsWith ['{';':'] r->  (List.rev acc, i, r)
                                     | Part(p,rest)      ->  loop (p :: acc) rest
-                                    | x                 ->  printfn "BODY REST: %A | %A" x r
+                                    | x                 ->  printfn "BODY REST: %s | %s" (toString x) (toString r)
                                                             failwith "TODO"
+//            | x                 ->  (List.rev (Buffer(toString x) ::acc), , r)
+
                                 let body, endp, r = loop [] r
 
                                 let rec loop2 acc ch p =  
@@ -498,8 +502,13 @@ let rec (|Part|_|) = function
                                                         loop2 ((n, body) :: acc) r end2
                                     | _             ->  (acc,ch)
                                 
-                                let bodies,r = (loop2 [] r endp)                                
-                                Some(SectionBlock(st, id, ct, pa, body, bodies |> Map.ofList), r)
+                                let bodies,r = (loop2 [] r endp)        
+                                if st = Inline then
+                                    let key = id.ToString();
+                                    cache.[key] <- (DateTime.Now, body) // defines inline part
+                                    None // returns nothing
+                                else                                                        
+                                    Some(SectionBlock(st, id, ct, pa, body, bodies |> Map.ofList), r)
                         | _ -> failwith "syntax error"
                     // special <- ld "~" key rd
                     | '~' :: Until ['}'] (x,r) -> Some(Special(toString x), r)
@@ -619,8 +628,7 @@ let rec render (c:Context) (part:Part) =
                                             | null -> renderIf false
                                             | o ->      let c2 = { c with Parent = Some c; Current = Some o }
                                                         l |> List.iter(fun p -> render c2 p) 
-                            | None -> renderIf false      // TODO create new current from keyvalue map 
-                                              
+                            | None -> renderIf false      // TODO create new current from keyvalue map     
         | Block         -> match cache.TryGetValue (n.ToString()) with 
                            | true, (_,b) -> b |> Seq.iter(fun p -> render c p) // override
                            | _           -> renderList l // default                        

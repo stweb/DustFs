@@ -27,6 +27,20 @@ open FsUnit
 
 module R02_CoreTests =
 
+    [<Test>]
+    let ``a dot test`` () =
+      empty
+      |> dust  "dot"
+               "{.}"
+      |> expect ""
+
+    [<Test>]
+    let ``a dot path with index test`` () =
+      empty
+      |> dust  "dot"
+               "{.C[0]}"
+      |> expect ""      
+
     // javascript-special characters in template names shouldn't break things
     [<Test>]
     let ``javascript-special characters in template names shouldn't break things`` () =
@@ -61,6 +75,18 @@ module R02_CoreTests =
                "{#names}{.}{~n}{/names}"
       |> expect "Moe\nLarry\nCurly\n"
 
+    // should setup base template for next test. hi should not be part of base block name
+    [<Test>]
+    let ``should setup base template for next test; hi should not be part of base block name`` () =
+      empty
+      |> dustReg "issue322"
+               "hi{+\"{name}\"/}"
+      |> expect "hi"
+
+      empty
+      |> dust  "issue322 use base template picks up prefix chunk data"
+               "{>issue322 name=\"abc\"/}{<abc}ABC{/abc}"
+      |> expect "hiABC"
 
     // should test base template and overriding blocks "title" and "main"
     [<Test>]
@@ -91,6 +117,14 @@ module R02_CoreTests =
       |> dust  "filter un-escape"
                "{safe|s}{~n}{unsafe}"
       |> expect "<script>alert(\'Hello!\')</script>\n&lt;script&gt;alert(&#39;Goodbye!&#39;)&lt;/script&gt;"
+
+    // should test force a key
+    [<Test>]
+    let ``should test force a key`` () =
+      json "{\"root\":\"Subject\",\"person\":{\"name\":\"Larry\",\"age\":45}}"
+      |> dust  "force local"
+               "{#person}{.root}: {name}, {age}{/person}"
+      |> expect ": Larry, 45"
 
     // should render the helper with missing global context
     [<Test>]
@@ -466,6 +500,98 @@ module R06_Conditional =
                "{#foo}full foo{:else}empty foo{/foo}"
       |> expect "empty foo"
 
+module T06_ArrayIndexAccess =
+
+    // === SUITE ===array/index-access tests
+
+    // should return a specific array element by index when element value is a primitive
+    [<Test>]
+    let ``should return a specific array element by index when element value is a primitive`` () =
+      json "{\"do\":{\"re\":[\"hello!\",\"bye!\"]}}"
+      |> dust  "accessing array element by index when element value is a primitive"
+               "{do.re[0]}"
+      |> expect "hello!"
+
+    // should return a specific array element by index when element value is a object
+    [<Test>]
+    let ``should return a specific array element by index when element value is a object`` () =
+      json "{\"do\":{\"re\":[{\"mi\":\"hello!\"},\"bye!\"]}}"
+      |> dust  "accessing array by index when element value is a object"
+               "{do.re[0].mi}"
+      |> expect "hello!"
+
+    // should return a specific array element by index when element is a nested object
+    [<Test>]
+    let ``should return a specific array element by index when element is a nested object`` () =
+      json "{\"do\":{\"re\":[{\"mi\":[\"one\",{\"fa\":\"hello!\"}]},\"bye!\"]}}"
+      |> dust  "accessing array by index when element is a nested object"
+               "{do.re[0].mi[1].fa}"
+      |> expect "hello!"
+
+    // should return a specific array element by index when element is list of primitives
+    [<Test>]
+    let ``should return a specific array element by index when element is list of primitives`` () =
+      json "{\"do\":[\"lala\",\"lele\"]}"
+      |> dust  "accessing array by index when element is list of primitives"
+               "{do[0]}"
+      |> expect "lala"
+
+    // should return a specific array element using the current context
+    [<Test>]
+    let ``should return a specific array element using the current context`` () =
+      json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"}]]}"
+      |> dust  "accessing array inside a loop using the current context"
+               "{#list3}{.[0].biz}{/list3}"
+      |> expect "123345"
+
+    // test array reference $idx/$len nested loops
+    [<Test>]
+    let ``test array reference $idx $len nested loops`` () =
+      json "{\"A\":[{\"B\":[{\"C\":[\"Ca1\",\"C2\"]},{\"C\":[\"Ca2\",\"Ca22\"]}]},{\"B\":[{\"C\":[\"Cb1\",\"C2\"]},{\"C\":[\"Cb2\",\"Ca2\"]}]}]}"
+      |> dust  "array reference $idx/$len nested loops"
+               "{#A}A loop:{$idx}-{$len},{#B}B loop:{$idx}-{$len}C[0]={.C[0]} {/B}A loop trailing: {$idx}-{$len}{/A}"
+      |> expect "A loop:0-2,B loop:0-2C[0]=Ca1 B loop:1-2C[0]=Ca2 A loop trailing: 0-2A loop:1-2,B loop:0-2C[0]=Cb1 B loop:1-2C[0]=Cb2 A loop trailing: 1-2"
+
+    // should test the array reference access with idx
+    [<Test>]
+    let ``should test the array reference access with idx`` () =
+      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
+      |> dust  "using idx in array reference Accessing"
+               "{#list4} {name} {number[$idx]} {$idx}{/list4}"
+      |> expect " Dog 1 0 Cat 5 1"
+
+    // should test the array reference access with len
+    [<Test>]
+    let ``should test the array reference access with len`` () =
+      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
+      |> dust  "using len in array reference Accessing"
+               "{#list4} {name} {number[$len]}{/list4}"
+      |> expect " Dog 3 Cat 6"
+
+    // should test the array reference access with idx and current context
+    [<Test>]
+    let ``should test the array reference access with idx and current context`` () =
+      json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"},{\"biz\":\"456\"}]]}"
+      |> dust  "using idx in array reference Accessing"
+               "{#list3}{.[$idx].biz}{/list3}"
+      |> expect "123456"
+
+    // should test the array reference access with len and current context
+    [<Test>]
+    let ``should test the array reference access with len and current context`` () =
+      json "{\"list3\":[[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}],[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}]]}"
+      |> dust  "using len in array reference Accessing"
+               "{#list3}{.[$len].idx}{/list3}"
+      |> expect "22"
+
+    // should test using a multilevel reference as a key in array access
+    [<Test>]
+    let ``should test using a multilevel reference as a key in array access`` () =
+      json "{\"loop\":{\"array\":{\"thing\":{\"sub\":1,\"sap\":2},\"thing2\":\"bar\"}},\"key\":{\"foo\":\"thing\"}}"
+      |> dust  "using a nested key as a reference for array index access"
+               "{#loop.array[key.foo].sub}{.}{/loop.array[key.foo].sub}"
+      |> expect "1"
+
 module R07_ObjectTests =
 
     // === SUITE ===object tests
@@ -543,7 +669,6 @@ module R07_ObjectTests =
                "{foo.bar}"
       |> expect "0"
 
-
 module R07_NestedPaths =
     // === SUITE ===nested path tests
     // should test the leading dot behavior in local mode
@@ -562,6 +687,14 @@ module R07_NestedPaths =
       |> dust  "check true value in section iteration are also OK"
                "{#list}{a.b}{/list}"
       |> expect "BBB"
+
+    // should test explicit context blocks looking further up stack
+    [<Test>]
+    let ``should test explicit context blocks looking further up stack`` () =
+      json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
+      |> dust  "same as previous test but with explicit context"
+               "{#data.A:B}Aname{name}{data.C.name}{/data.A}"
+      |> expect "AnameAl"
 
 module R10_Partial =
 
@@ -614,6 +747,305 @@ module R10_Partial =
                "{>nested_partial_print_name/}"
       |> expect ""
 
+
+module T11_PartialParams =
+
+    // === SUITE ===partial/params tests
+    // should test partials
+    [<Test>]
+    let ``should test partials`` () =
+      json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
+      |> dust  "partials"
+               "{>partial foo=0 /} {>\"hello_world\" foo=1 /} {>\"{ref}\" foo=2 /}"
+      |> expect "Hello Jim! You have 42 new messages. Hello World! Hello World!"
+
+    // should test partial with an asynchronously-resolved template name
+    [<Test>]
+    let ``should test partial with an asynchronously-resolved template name`` () =
+      json "{}"
+      |> dust  "partial with async ref as name"
+               "{>\"{ref}\" /}"
+      |> expect "Hello World!"
+
+    // should test partial with context
+    [<Test>]
+    let ``should test partial with context`` () =
+      json "{\"profile\":{\"name\":\"Mick\",\"count\":30}}"
+      |> dust  "partial with context"
+               "{>partial:.profile/}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // partial with blocks, with no default values for blocks
+    [<Test>]
+    let ``partial with blocks, with no default values for blocks`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust  "partial with blocks, with no default values for blocks"
+               "{>partial_with_blocks_and_no_defaults/}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // partial with blocks, with no default values for blocks, but override default values with inline partials
+    [<Test>]
+    let ``partial with blocks, with no default values for blocks, but override default values with inline partials`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust  "partial with blocks, with no default values for blocks, but override default values with inline partials"
+               "{>partial_with_blocks_and_no_defaults/}{<header}override header {/header}"
+      |> expect "override header Hello Mick! You have 30 new messages."
+
+    // partial with blocks, override default values with inline partials
+    [<Test>]
+    let ``partial with blocks, override default values with inline partials`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust  "partial with blocks, override default values with inline partials"
+               "{>partial_with_blocks/}{<header}my header {/header}"
+      |> expect "my header Hello Mick! You have 30 new messages."
+
+    // should test partial with inline params
+    [<Test>]
+    let ``should test partial with inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust  "partial with inline params"
+               "{>partial name=n count=\"{c}\"/}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with inline params tree walk up
+    [<Test>]
+    let ``should test partial with inline params tree walk up`` () =
+      json "{\"n\":\"Mick\",\"x\":30,\"a\":{\"b\":{\"c\":{\"d\":{\"e\":\"1\"}}}}}"
+      |> dust  "partial with inline params tree walk up"
+               "{#a}{#b}{#c}{#d}{>partial name=n count=\"{x}\"/}{/d}{/c}{/b}{/a}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with inline params and context
+    [<Test>]
+    let ``should test partial with inline params and context`` () =
+      json "{\"profile\":{\"n\":\"Mick\",\"c\":30}}"
+      |> dust  "partial with inline params and context"
+               "{>partial:profile name=\"{n}\" count=\"{c}\"/}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with inline params and context tree walk up
+    [<Test>]
+    let ``should test partial with inline params and context tree walk up`` () =
+      json "{\"profile\":{\"n\":\"Mick\",\"x\":30,\"a\":{\"b\":{\"c\":{\"d\":{\"e\":\"1\"}}}}}}"
+      |> dust  "partial with inline params and context tree walk up"
+               "{#profile}{#a}{#b}{#c}{#d}{>partial:profile name=n count=\"{x}\"/}{/d}{/c}{/b}{/a}{/profile}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with literal inline param and context. Fallback values for name or count are undefined
+    [<Test>]
+    let ``should test partial with literal inline param and context; Fallback values for name or count are undefined`` () =
+      json "{\"profile\":{\"n\":\"Mick\",\"count\":30}}"
+      |> dust  "partial with literal inline param and context"
+               "{>partial:profile name=\"Joe\" count=\"99\"/}"
+      |> expect "Hello Joe! You have 30 new messages."
+
+    // should test partial with dynamic name and a context
+    [<Test>]
+    let ``should test partial with dynamic name and a context`` () =
+      json "{\"partialName\":\"partial\",\"me\":{\"name\":\"Mick\",\"count\":30}}"
+      |> dust  "partial with dynamic name and context"
+               "{>\"{partialName}\":me /}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with dynamic name and a context
+    [<Test>]
+    let ``should test partial with dynamic name and a context 2`` () =
+      json "{\"partialName\":\"partial\",\"me\":{\"name\":\"Mick\",\"count\":30}}"
+      |> dust  "partial with dynamic name and context and inline params"
+               "{>\"{partialName}\" name=me.name count=me.count /}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should preserve partials backwards compatibility with compilers pre-2.7
+//    [<Test>]
+//    [<Ignore("doesn't apply to dustfs")>]
+//    let ``should preserve partials backwards compatibility with compilers pre 2_7`` () =
+//      json "{\"name\":\"Mick\",\"count\":30}"
+//      |> dust  "backcompat (< 2.7.0) compiler with no partial context"
+//               "{#oldPartial/}"
+//      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with blocks and inline params
+    [<Test>]
+    let ``should test partial with blocks and inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust  "partial with blocks and inline params"
+               "{>partial_with_blocks name=n count=\"{c}\"/}"
+      |> expect "default header Hello Mick! You have 30 new messages."
+
+    // should test partial with blocks, override default values for blocks and inline params
+    [<Test>]
+    let ``should test partial with blocks, override default values for blocks and inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust  "partial with blocks, override default values for blocks and inline params"
+               "{>partial_with_blocks name=n count=\"{c}\"/}{<header}my header {/header}"
+      |> expect "my header Hello Mick! You have 30 new messages."
+
+    // should test partial blocks and no defaults, override default values for blocks and inline params
+    [<Test>]
+    let ``should test partial blocks and no defaults, override default values for blocks and inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust  "partial with blocks and no defaults, override default values for blocks and inline params"
+               "{>partial_with_blocks_and_no_defaults name=n count=\"{c}\"/}{<header}my header {/header}"
+      |> expect "my header Hello Mick! You have 30 new messages."
+
+    // should test partial with no blocks, ignore the override inline partials
+    [<Test>]
+    let ``should test partial with no blocks, ignore the override inline partials`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust  "partial with no blocks, ignore the override inline partials"
+               "{>partial name=n count=\"{c}\"/}{<header}my header {/header}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should print the current template name
+    [<Test>]
+    let ``should print the current template name`` () =
+      json "{}"
+      |> dust  "partial prints the current template name"
+               "{>partial_print_name/}"
+      |> expect "partial_print_name"
+
+    // should print the current dynamic template name
+    [<Test>]
+    let ``should print the current dynamic template name`` () =
+      json "{\"partial_print_name\":\"partial prints the current template name\"}"
+      |> dust  "partial prints the current dynamic template name"
+               "{>\"{partial_print_name}\"/}"
+      |> expect "partial_print_name"
+
+    // should print the current template name
+    [<Test>]
+    let ``should print the current template name 2`` () =
+      json "{}"
+      |> dust  "nested partial prints the current template name"
+               "{>nested_partial_print_name/}"
+      |> expect "partial_print_name"
+
+    // should print the current template name with some additional output
+    [<Test>]
+    let ``should print the current template name with some additional output`` () =
+      json "{\"parentTemplate\":\"parent\",\"parentSource\":\"{?undefinedVar}{:else}{>\\\"content\\\"/}{/undefinedVar}\",\"contentTemplate\":\"content\",\"contentSource\":\"templateName: {#printTemplateName}{/printTemplateName} output: additional output\"}"
+      |> dust  "nested partial 2 levels deep from loadSource prints the current template name"
+               "{#loadTemplate name=\"{contentTemplate}\" source=\"{contentSource|s}\"}{/loadTemplate}\n{#loadTemplate name=\"{parentTemplate}\" source=\"{parentSource|s}\"}{/loadTemplate}\n{>\"{parentTemplate}\"/} | additional parent output"
+      |> expect "templateName: content output: additional output | additional parent output"
+
+    // should render the helper with missing global context
+    [<Test>]
+    let ``should render the helper with missing global context`` () =
+      json "{}"
+      |> dust  "partial with makeBase_missing_global"
+               "{#helper template=\"partial\"}{/helper}"
+      |> expect "Hello ! You have  new messages."
+
+    // Should gracefully handle stepping into context that does not exist
+    [<Test>]
+    let ``Should gracefully handle stepping into context that does not exist`` () =
+      json "{}"
+      |> dust  "partial stepping into context that does not exist"
+               "{#loadPartialTl}{/loadPartialTl}\n{>partialTl:contextDoesNotExist/}"
+      |> expect " "
+
+module T12_InlineParams =
+
+    // === SUITE ===inline params tests
+    // should test inner params
+    [<Test>]
+    [<Ignore("requires JS & Block handlers")>]
+    let ``should test inner params`` () =
+      json "{}"
+      // context:  {  helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },
+      |> dust  "params"
+               "{#helper foo=\"bar\"/}"
+      |> expect "bar"
+
+    // Block handlers syntax should support integer number parameters
+    [<Test>]
+    [<Ignore("requires JS & Block handlers")>]
+    let ``Block handlers syntax should support integer number parameters`` () =
+      json "{}"
+      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },
+      |> dust  "inline params as integer"
+               "{#helper foo=10 /}"
+      |> expect "10"
+
+    // Block handlers syntax should support decimal number parameters
+    [<Test>]
+    [<Ignore("requires JS & Block handlers")>]
+    let ``Block handlers syntax should support decimal number parameters`` () =
+      json "{}"
+      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },       
+      |> dust  "inline params as float"
+               "{#helper foo=3.14159 /}"
+      |> expect "3.14159"
+
+    // should print negative integer
+    [<Test>]
+    let ``should print negative integer`` () =
+      json "{\"foo\":true}"
+      |> dust  "inline params as negative integer"
+               "{#foo bar=-1}{bar}{/foo}"
+      |> expect "-1"
+
+    // should print negative float
+    [<Test>]
+    let ``should print negative float`` () =
+      json "{\"foo\":true}"
+      |> dust  "inline params as negative float"
+               "{#foo bar=-1.1}{bar}{/foo}"
+      |> expect "-1.1"
+
+    // should test parameters with dashes
+    [<Test>]
+    [<Ignore("requires JS & Block handlers")>]
+    let ``should test parameters with dashes`` () =
+      json "{}"
+      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params['data-foo']); } },
+      |> dust  "inline params with dashes"
+               "{#helper data-foo=\"dashes\" /}"
+      |> expect "dashes"
+
+    // Inline params that evaluate to a dust function should evaluate their body
+    [<Test>]
+    let ``Inline params that evaluate to a dust function should evaluate their body`` () =
+      json "{\"section\":true,\"b\":\"world\"}"
+      |> dust  "inline params as dust function"
+               "{#section a=\"{b}\"}{#a}Hello, {.}!{/a}{/section}"
+      |> expect "Hello, world!"
+
+module T13_InlinePartialBlock =
+
+    // === SUITE ===inline partial/block tests
+    // should test blocks with dynamic keys
+    [<Test>]
+    let ``should test blocks with dynamic keys`` () =
+      json "{\"val\":\"A\"}"
+      |> dust  "blocks with dynamic keys"
+               "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"title_{val}\"/}"
+      |> expect "AAA"
+
+    // should test blocks with more than one dynamic keys
+    [<Test>]
+    let ``should test blocks with more than one dynamic keys`` () =
+      json "{\"val1\":\"title\",\"val2\":\"A\"}"
+      |> dust  "blocks with more than one dynamic keys"
+               "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{val2}\"/}"
+      |> expect "AAA"
+
+    // should test blocks with dynamic key values as objects
+    [<Test>]
+    let ``should test blocks with dynamic key values as objects`` () =
+      json "{\"val1\":\"title\",\"val2\":\"A\",\"obj\":{\"name\":\"B\"}}"
+      |> dust  "blocks with dynamic key values as objects"
+               "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{obj.name}\"/}"
+      |> expect "BBB"
+
+    // should test blocks with dynamic key values as arrays
+    [<Test>]
+    let ``should test blocks with dynamic key values as arrays`` () =
+      json "{\"val1\":\"title\",\"val2\":\"A\",\"obj\":{\"name\":[\"A\",\"B\"]}}"
+      |> dust  "blocks with dynamic key values as arrays"
+               "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{obj.name[0]}\"/}"
+      |> expect "AAA"
+
 module R15_CoreGrammar =
     // === SUITE ===core-grammar tests
     // should ignore extra whitespaces between opening brace plus any of (#,?,@,^,+,%) and the tag identifier
@@ -665,7 +1097,6 @@ module R15_CoreGrammar =
                "Hello {first-name}, {last-name}! You have {count} new messages."
       |> expect "Hello Mick, Jagger! You have 30 new messages."
 
-
     // raw text should keep all whitespace
     [<Test>]
     let ``raw text should keep all whitespace`` () =
@@ -683,6 +1114,22 @@ module R15_CoreGrammar =
                              "<div data-fancy-json={`\"{rawJsonKey: \'value\'}\"`}>\n</div>"
       let exp = "<div data-fancy-json=\"{rawJsonKey: \'value\'}\"></div>"
       out |> expect exp
+
+    // should test dash in partial's keys
+    [<Test>]
+    let ``should test dash in partial's keys`` () =
+      json "{\"foo-title\":\"title\",\"bar-letter\":\"a\"}"
+      |> dust  "support dash in partial\'s key"
+               "{<title-a}foo-bar{/title-a}{+\"{foo-title}-{bar-letter}\"/}"
+      |> expect "foo-bar"
+
+    // should test dash in partial's params
+    [<Test>]
+    let ``should test dash in partial's params`` () =
+      json "{\"first-name\":\"Mick\",\"c\":30}"
+      |> dust  "support dash in partial\'s params"
+               "{>partial name=first-name count=\"{c}\"/}"
+      |> expect "Hello Mick! You have 30 new messages."
 
 module R17_Misc =
     // === SUITE ===buffer test
@@ -736,5 +1183,18 @@ module T18_WhitespaceOff =
       |> dust  "whitespace off: multiline text block with trailing space does not run together"
                "<p>\n    foo bar baz \n    foo bar baz\n</p>"
       |> expect "<p>foo bar baz foo bar baz</p>"
+
+module T19_RawText =
+    // === SUITE ===raw text test
+
+    // raw text is not matching
+    [<Test>]
+    let ``raw text is not matching`` () =
+      let out = json "{\"A\":{\"name\":{\"first\":\"Paul\",\"last\":\"Walrus\"}}}"
+                |> dust "raw text more likely example"
+                        "{#A}\nbuffer text\n         !spaces and new lines are nullified (by default). Booo\n{~n}   Starting with newline make it not so bad\n{`<pre>\nbut\n  what{\n    we\n      want is this\nhelpful for:\n * talking about Dust syntax which looks like `{ref}` `{@helpers}`\n * interpolations like \'My name is:`} {#name}{first} {last}{/name}{`\n</pre>`}\nafter\n!newline\n{/A}"
+      let exp = "buffer text!spaces and new lines are nullified (by default). Booo\n   Starting with newline make it not so bad<pre>\nbut\n  what{\n      we\n      want is this\nhelpful for:\n * talking about Dust syntax which looks like `{ref}` `{@helpers}`\n * interpolations like \'My name is: Paul Walrus\n</pre>after!newline"
+      save out exp
+      out |> expect exp
 
 #endif

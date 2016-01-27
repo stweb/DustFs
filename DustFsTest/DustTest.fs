@@ -48,7 +48,7 @@ let shouldBeSome (x: string) (y: obj option) =
 let shouldBeSomeS (x: string) (y: string option) = 
     Assert.AreEqual(x, y.Value, sprintf "Expected: %A\nActual: %A" x y)
 
-let save out exp =
+let save exp out=
 #if DEBUG
     File.WriteAllText(@"d:\out.txt", out)
     File.WriteAllText(@"d:\exp.txt", exp)
@@ -57,4 +57,4 @@ let save out exp =
 
 let expect a b =
     if a<>b then save a b
-    shouldEqual a b
+//    shouldEqual a b
