@@ -41,18 +41,18 @@ type Logic =
 //    | Sep | First | Last // Separator Helper
 //    | Select | Any | None // Select Helper
 //    | ContextDump // Debug Helper
-    | Custom of string
+    | Custom
 
-type KeyValue = Map<string, string> 
+type KeyValue = Map<string, Value> 
 type SectionType =
     | Scope // # - defines $idx and $len
     | Condition // ?name exists and evaluates to true
     | NotCondition // ^name doesn't exist or evaluates to false
-    | Helper of Logic * KeyValue // @ logic helpers
+    | Helper // @ helper method
+    | LogicHelper of Logic // @ helper method
     | Inline // < inline partials
     | Block // + Blocks in the base template can contain default content and a child template can override that content.
     | Escaped // % - deprecated?
-    | Method
 
 type Filter = obj -> obj
 type Filters = Filter seq
@@ -84,7 +84,7 @@ and Part =
     | End of Identifier
 
 and BodyDict = Map<string, Body> 
-and Params   = (string * Value) list //Map<string, Value> 
+and Params   = Map<string, Value> 
 
 let filters = new ConcurrentDictionary<string, Filter>()
 
@@ -436,13 +436,12 @@ let sectionType = function
     | '>'
     | '+' -> Block
     | '%' -> Escaped
-    | '@' -> Method
+    | '@' -> Helper
     | c -> failwithf "unknown tag %A" c 
 
 //part <- raw / comment / section / partial / special / reference / buffer
 let rec (|Part|_|) = function
     | '{' :: rest-> match rest with
-                    // | ' ' :: _ | '\n' :: _ | '\r' :: _ | '\t' :: _ -> None // TODO may be inaccurate
                     | '!' :: Until ['!';'}'] (x,r) -> Some(Comment(toString x), r)
                     | '`' :: Until ['`';'}'] (x,r) -> Some(Buffer(toString x), r)
                     // partial <- ld (">"/"+") ws* (key / inline) context params ws* "/" rd
@@ -462,7 +461,7 @@ let rec (|Part|_|) = function
                                     | Params(p,r) -> p, r |> List.skipWhile Char.IsWhiteSpace 
                                     | _ -> [], r
 
-                        Some(Partial(id, ct, pa), r2)
+                        Some(Partial(id, ct, Map.ofList pa), r2)
                     // sec_tag_start <- ld [#?^<@%] ws* identifier context params 
                     | '#' :: r | '?' :: r | '^' :: r | '<' :: r  | '@' :: r | '%' :: r | '+' :: r ->             
                         let st = sectionType rest.Head 
@@ -476,12 +475,12 @@ let rec (|Part|_|) = function
                         let pa,r =  match r with
                                     | Params (p,r) -> p, r |> List.skipWhile Char.IsWhiteSpace 
                                     | _ -> [], r
-
+                        let pam = pa |> Map.ofList 
                         // section <- sec_tag_start ws* rd body bodies end_tag / sec_tag_start ws* "/" rd
                         match r with
                         | Until ['}'] (x,r) ->  
                             match x with // is tag closed?
-                            | '/' :: _ -> Some(Section(st, id, ct, pa), r)
+                            | '/' :: _ -> Some(Section(st, id, ct, pam), r)
                             | _ -> 
                                 let rec loop acc ch =  
                                     match ch with
@@ -503,12 +502,19 @@ let rec (|Part|_|) = function
                                     | _             ->  (acc,ch)
                                 
                                 let bodies,r = (loop2 [] r endp)        
-                                if st = Inline then
-                                    let key = id.ToString();
-                                    cache.[key] <- (DateTime.Now, body) // defines inline part
-                                    None // returns nothing
+                                match st with
+                                | SectionType.Helper -> let name = id.ToString()
+                                                        let logic = match name with
+                                                                    | "eq" -> Eq | "ne" -> Ne | "lt" -> Lt | "lte" -> Lte | "gt" -> Gt | "gte" -> Gte
+                                                                    | _ -> Custom
+                                                        if logic = Custom then
+                                                            Some(Section(Helper, id, ct, pam), r)
                                 else                                                        
-                                    Some(SectionBlock(st, id, ct, pa, body, bodies |> Map.ofList), r)
+                                                            Some(Section(LogicHelper(logic), id, ct, pam), r)
+                                | SectionType.Inline -> let key = id.ToString()
+                                                        cache.[key] <- (DateTime.Now, body) // defines inline part
+                                                        Some(Comment(""), r) // returns nothing, cannot be NONE!
+                                | _ ->                  Some(SectionBlock(st, id, ct, pam, body, Map.ofList bodies), r)
                         | _ -> failwith "syntax error"
                     // special <- ld "~" key rd
                     | '~' :: Until ['}'] (x,r) -> Some(Special(toString x), r)
@@ -566,50 +572,39 @@ let rec render (c:Context) (part:Part) =
                                             | null -> ()
                                             | :? bool as b -> if b then c.WriteFiltered f value
                                             | _ ->  c.WriteFiltered f value
-    | Section(st,n,_,_) -> 
+    | Section(st,n,_,pa) -> 
                         match st with 
 //                        | Block ->          match cache.TryGetValue n with 
 //                                            | true, (_, part) -> part |> Seq.iter(fun p -> render c p) // else ignore
 //                                            | _ -> ()
                         | Scope ->          failwith "scope must have a body"
-                        | Helper(l, map) -> match l with
-                                            | Custom(name) -> helper name c Map.empty map (fun () -> ())
-                                            | _ -> failwith "logic should be a SectionBlock" 
+                        | Helper         -> helper (n.ToString()) c Map.empty pa (fun () -> failwith "not available")
+                        | LogicHelper(_) -> failwith "LogicHelper should be a SectionBlock" 
                         | _ -> ()
-    | SectionBlock(st,n,_,_,l,bodies) -> 
+    | SectionBlock(st,n,_,map,l,bodies) -> 
         let renderIf cond = if cond then renderList l 
                             else match bodies.TryFind "else" with
                                  | Some body -> renderList body // TODO check if n should be added
                                  | None -> ()                            
         match st with 
-        | Helper(t, map) -> match t with
-                            | Custom(name)  -> helper name c bodies map (fun () -> renderList l)                                                             
-                            | t ->  if not ((map.ContainsKey "key") && (map.ContainsKey "value")) then
-                                        failwith "missing key/Value"
-                            
-                                    let mkey = map.["key"]
-                                    let mval = map.["value"]
-                                    if mkey = "type" then 
-                                        printfn "%s" mval
-                                    let ckey = c.Get (Key(mkey))
-                                    let cval = c.Get (Key(mval)) // TODO
-                                    // TODO let ctyp = map.["type"] // e.g. "number"
-                                    let comp = match ckey with                     
-                                               | None    -> failwith "key must be defined" 
-                                               | Some(l) -> match cval with
-                                                            | None    -> false
-                                                            | Some(r) -> match t with
+        | Helper         -> helper (n.ToString()) c bodies map (fun () -> renderList l)
+        | LogicHelper(t) -> let get s = match map.TryFind s with
+                                        | Some(VInline(x)) -> box x
+                                        | Some(VNumber(x)) -> box x 
+                                        | Some(VIdent(x))  -> match c.Get x with
+                                                                | Some(o) -> box o
+                                                                | None -> failwithf "%s must be defined" s
+                                        | _ -> failwithf "missing %s" s
+
+                            let l, r = get "key", get "value"
+                            renderIf <| match t with
                                                                             | Eq -> l.Equals(r)
                                                                             | Ne -> not (l.Equals(r))
                                                                             | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
                                                                             | Gte-> System.Convert.ToDouble(l) >= System.Convert.ToDouble(r)
                                                                             | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
                                                                             | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
-                                                                            | _  -> failwith "TODO"
-#if DEBUG2                                                   
-                                    printfn "%A: %A %A %A %s %s" comp (match ckey with | Some(x) -> x.ToString() | _ -> "<n/a>") t (match cval with | Some(x) -> x.ToString() | _ -> "<n/a>") map.["key"] map.["value"] 
-#endif
-                                    renderIf comp                                                
+                                        | _  -> false
         | Condition     ->  renderIf (c.EvalBool n)
         | NotCondition  ->  renderIf (not (c.EvalBool n))
         | Scope         ->  match c.Get n with                     
