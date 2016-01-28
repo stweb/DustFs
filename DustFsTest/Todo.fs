@@ -7,7 +7,7 @@ open NUnit.Framework.Constraints
 open FsUnit
 open System.IO
 
-#if !TODO
+#if TODO
 
 module T02_CoreTests =
     // should render the template name
@@ -361,6 +361,13 @@ module T07_NestedPaths =
                "{#people}{.name} is {?.age}{.age} years old.{:else}not telling us their age.{/age}{/people}"
       |> expect "Alice is not telling us their age.Bob is 42 years old."
 
+    // should test explicit context blocks (=prevents) looking further up stack
+    [<Test>] // TODO set cur = true inside explicit # -> how?
+    let ``should test explicit context blocks looking further up stack`` () =
+      json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
+      |> dust  "same as previous test but with explicit context"
+               "{#data.A:B}Aname{name}{data.C.name}{/data.A}"
+      |> expect "AnameAl"
 
     // should test access global despite explicit context
     [<Test>]
@@ -370,7 +377,6 @@ module T07_NestedPaths =
       |> dust  "explicit context but gets value from global"
                "{#data.A:B}Aname{name}{glob.globChild}{/data.A}"
       |> expect "AnameAltestGlobal"
-
 
     // Should find glob.globChild which is in context.global
     [<Test>]
@@ -482,6 +488,304 @@ module T09_Filter =
                "{#dust}{name|woo}{/dust}"
       |> expect "DUST!!!!!"
 
+module T11_PartialParams =
+
+    // === SUITE ===partial/params tests
+    // should test partials
+    [<Test>]
+    let ``should test partials`` () =
+      json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
+      |> dust  "partials"
+               "{>partial foo=0 /} {>\"hello_world\" foo=1 /} {>\"{ref}\" foo=2 /}"
+      |> expect "Hello Jim! You have 42 new messages. Hello World! Hello World!"
+
+    // should test partial with an asynchronously-resolved template name
+    [<Test>]
+    let ``should test partial with an asynchronously-resolved template name`` () =
+      json "{}"
+      |> dust  "partial with async ref as name"
+               "{>\"{ref}\" /}"
+      |> expect "Hello World!"
+
+    // should test partial with context
+    [<Test>]
+    let ``should test partial with context`` () =
+      json "{\"profile\":{\"name\":\"Mick\",\"count\":30}}"
+      |> dust  "partial with context"
+               "{>partial:.profile/}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // partial with blocks, with no default values for blocks
+    [<Test>]
+    let ``partial with blocks, with no default values for blocks`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust  "partial with blocks, with no default values for blocks"
+               "{>partial_with_blocks_and_no_defaults/}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // partial with blocks, with no default values for blocks, but override default values with inline partials
+    [<Test>]
+    let ``partial with blocks, with no default values for blocks, but override default values with inline partials`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust  "partial with blocks, with no default values for blocks, but override default values with inline partials"
+               "{>partial_with_blocks_and_no_defaults/}{<header}override header {/header}"
+      |> expect "override header Hello Mick! You have 30 new messages."
+
+    // partial with blocks, override default values with inline partials
+    [<Test>]
+    let ``partial with blocks, override default values with inline partials`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust  "partial with blocks, override default values with inline partials"
+               "{>partial_with_blocks/}{<header}my header {/header}"
+      |> expect "my header Hello Mick! You have 30 new messages."
+
+    // should test partial with inline params
+    [<Test>]
+    let ``should test partial with inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust  "partial with inline params"
+               "{>partial name=n count=\"{c}\"/}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with inline params tree walk up
+    [<Test>]
+    let ``should test partial with inline params tree walk up`` () =
+      json "{\"n\":\"Mick\",\"x\":30,\"a\":{\"b\":{\"c\":{\"d\":{\"e\":\"1\"}}}}}"
+      |> dust  "partial with inline params tree walk up"
+               "{#a}{#b}{#c}{#d}{>partial name=n count=\"{x}\"/}{/d}{/c}{/b}{/a}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with inline params and context
+    [<Test>]
+    let ``should test partial with inline params and context`` () =
+      json "{\"profile\":{\"n\":\"Mick\",\"c\":30}}"
+      |> dust  "partial with inline params and context"
+               "{>partial:profile name=\"{n}\" count=\"{c}\"/}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with inline params and context tree walk up
+    [<Test>]
+    let ``should test partial with inline params and context tree walk up`` () =
+      json "{\"profile\":{\"n\":\"Mick\",\"x\":30,\"a\":{\"b\":{\"c\":{\"d\":{\"e\":\"1\"}}}}}}"
+      |> dust  "partial with inline params and context tree walk up"
+               "{#profile}{#a}{#b}{#c}{#d}{>partial:profile name=n count=\"{x}\"/}{/d}{/c}{/b}{/a}{/profile}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with literal inline param and context. Fallback values for name or count are undefined
+    [<Test>]
+    let ``should test partial with literal inline param and context; Fallback values for name or count are undefined`` () =
+      json "{\"profile\":{\"n\":\"Mick\",\"count\":30}}"
+      |> dust  "partial with literal inline param and context"
+               "{>partial:profile name=\"Joe\" count=\"99\"/}"
+      |> expect "Hello Joe! You have 30 new messages."
+
+    // should test partial with dynamic name and a context
+    [<Test>]
+    let ``should test partial with dynamic name and a context`` () =
+      json "{\"partialName\":\"partial\",\"me\":{\"name\":\"Mick\",\"count\":30}}"
+      |> dust  "partial with dynamic name and context"
+               "{>\"{partialName}\":me /}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with dynamic name and a context
+    [<Test>]
+    let ``should test partial with dynamic name and a context 2`` () =
+      json "{\"partialName\":\"partial\",\"me\":{\"name\":\"Mick\",\"count\":30}}"
+      |> dust  "partial with dynamic name and context and inline params"
+               "{>\"{partialName}\" name=me.name count=me.count /}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should preserve partials backwards compatibility with compilers pre-2.7
+//    [<Test>]
+//    [<Ignore("doesn't apply to dustfs")>]
+//    let ``should preserve partials backwards compatibility with compilers pre 2_7`` () =
+//      json "{\"name\":\"Mick\",\"count\":30}"
+//      |> dust  "backcompat (< 2.7.0) compiler with no partial context"
+//               "{#oldPartial/}"
+//      |> expect "Hello Mick! You have 30 new messages."
+
+    // should test partial with blocks and inline params
+    [<Test>]
+    let ``should test partial with blocks and inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust  "partial with blocks and inline params"
+               "{>partial_with_blocks name=n count=\"{c}\"/}"
+      |> expect "default header Hello Mick! You have 30 new messages."
+
+    // should test partial with blocks, override default values for blocks and inline params
+    [<Test>]
+    let ``should test partial with blocks, override default values for blocks and inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust  "partial with blocks, override default values for blocks and inline params"
+               "{>partial_with_blocks name=n count=\"{c}\"/}{<header}my header {/header}"
+      |> expect "my header Hello Mick! You have 30 new messages."
+
+    // should test partial blocks and no defaults, override default values for blocks and inline params
+    [<Test>]
+    let ``should test partial blocks and no defaults, override default values for blocks and inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust  "partial with blocks and no defaults, override default values for blocks and inline params"
+               "{>partial_with_blocks_and_no_defaults name=n count=\"{c}\"/}{<header}my header {/header}"
+      |> expect "my header Hello Mick! You have 30 new messages."
+
+    // should test partial with no blocks, ignore the override inline partials
+    [<Test>]
+    let ``should test partial with no blocks, ignore the override inline partials`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust  "partial with no blocks, ignore the override inline partials"
+               "{>partial name=n count=\"{c}\"/}{<header}my header {/header}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    // should print the current template name
+    [<Test>]
+    let ``should print the current template name`` () =
+      json "{}"
+      |> dust  "partial prints the current template name"
+               "{>partial_print_name/}"
+      |> expect "partial_print_name"
+
+    // should print the current dynamic template name
+    [<Test>]
+    let ``should print the current dynamic template name`` () =
+      json "{\"partial_print_name\":\"partial prints the current template name\"}"
+      |> dust  "partial prints the current dynamic template name"
+               "{>\"{partial_print_name}\"/}"
+      |> expect "partial_print_name"
+
+    // should print the current template name
+    [<Test>]
+    let ``should print the current template name 2`` () =
+      json "{}"
+      |> dust  "nested partial prints the current template name"
+               "{>nested_partial_print_name/}"
+      |> expect "partial_print_name"
+
+    // should print the current template name with some additional output
+    [<Test>]
+    let ``should print the current template name with some additional output`` () =
+      json "{\"parentTemplate\":\"parent\",\"parentSource\":\"{?undefinedVar}{:else}{>\\\"content\\\"/}{/undefinedVar}\",\"contentTemplate\":\"content\",\"contentSource\":\"templateName: {#printTemplateName}{/printTemplateName} output: additional output\"}"
+      |> dust  "nested partial 2 levels deep from loadSource prints the current template name"
+               "{#loadTemplate name=\"{contentTemplate}\" source=\"{contentSource|s}\"}{/loadTemplate}\n{#loadTemplate name=\"{parentTemplate}\" source=\"{parentSource|s}\"}{/loadTemplate}\n{>\"{parentTemplate}\"/} | additional parent output"
+      |> expect "templateName: content output: additional output | additional parent output"
+
+    // should render the helper with missing global context
+    [<Test>]
+    let ``should render the helper with missing global context`` () =
+      json "{}"
+      |> dust  "partial with makeBase_missing_global"
+               "{#helper template=\"partial\"}{/helper}"
+      |> expect "Hello ! You have  new messages."
+
+    // Should gracefully handle stepping into context that does not exist
+    [<Test>]
+    let ``Should gracefully handle stepping into context that does not exist`` () =
+      json "{}"
+      |> dust  "partial stepping into context that does not exist"
+               "{#loadPartialTl}{/loadPartialTl}\n{>partialTl:contextDoesNotExist/}"
+      |> expect " "
+
+module T12_InlineParams =
+
+    // === SUITE ===inline params tests
+    // should test inner params
+    [<Test>]
+    [<Ignore("requires JS & Block handlers")>]
+    let ``should test inner params`` () =
+      json "{}"
+      // context:  {  helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },
+      |> dust  "params"
+               "{#helper foo=\"bar\"/}"
+      |> expect "bar"
+
+    // Block handlers syntax should support integer number parameters
+    [<Test>]
+    [<Ignore("requires JS & Block handlers")>]
+    let ``Block handlers syntax should support integer number parameters`` () =
+      json "{}"
+      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },
+      |> dust  "inline params as integer"
+               "{#helper foo=10 /}"
+      |> expect "10"
+
+    // Block handlers syntax should support decimal number parameters
+    [<Test>]
+    [<Ignore("requires JS & Block handlers")>]
+    let ``Block handlers syntax should support decimal number parameters`` () =
+      json "{}"
+      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },       
+      |> dust  "inline params as float"
+               "{#helper foo=3.14159 /}"
+      |> expect "3.14159"
+
+    // should print negative integer
+    [<Test>]
+    let ``should print negative integer`` () =
+      json "{\"foo\":true}"
+      |> dust  "inline params as negative integer"
+               "{#foo bar=-1}{bar}{/foo}"
+      |> expect "-1"
+
+    // should print negative float
+    [<Test>]
+    let ``should print negative float`` () =
+      json "{\"foo\":true}"
+      |> dust  "inline params as negative float"
+               "{#foo bar=-1.1}{bar}{/foo}"
+      |> expect "-1.1"
+
+    // should test parameters with dashes
+    [<Test>]
+    [<Ignore("requires JS & Block handlers")>]
+    let ``should test parameters with dashes`` () =
+      json "{}"
+      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params['data-foo']); } },
+      |> dust  "inline params with dashes"
+               "{#helper data-foo=\"dashes\" /}"
+      |> expect "dashes"
+
+    // Inline params that evaluate to a dust function should evaluate their body
+    [<Test>]
+    let ``Inline params that evaluate to a dust function should evaluate their body`` () =
+      json "{\"section\":true,\"b\":\"world\"}"
+      |> dust  "inline params as dust function"
+               "{#section a=\"{b}\"}{#a}Hello, {.}!{/a}{/section}"
+      |> expect "Hello, world!"
+
+module T13_InlinePartialBlock =
+
+    // === SUITE ===inline partial/block tests
+    // should test blocks with dynamic keys
+    [<Test>]
+    let ``should test blocks with dynamic keys`` () =
+      json "{\"val\":\"A\"}"
+      |> dust  "blocks with dynamic keys"
+               "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"title_{val}\"/}"
+      |> expect "AAA"
+
+    // should test blocks with more than one dynamic keys
+    [<Test>]
+    let ``should test blocks with more than one dynamic keys`` () =
+      json "{\"val1\":\"title\",\"val2\":\"A\"}"
+      |> dust  "blocks with more than one dynamic keys"
+               "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{val2}\"/}"
+      |> expect "AAA"
+
+    // should test blocks with dynamic key values as objects
+    [<Test>]
+    let ``should test blocks with dynamic key values as objects`` () =
+      json "{\"val1\":\"title\",\"val2\":\"A\",\"obj\":{\"name\":\"B\"}}"
+      |> dust  "blocks with dynamic key values as objects"
+               "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{obj.name}\"/}"
+      |> expect "BBB"
+
+    // should test blocks with dynamic key values as arrays
+    [<Test>]
+    let ``should test blocks with dynamic key values as arrays`` () =
+      json "{\"val1\":\"title\",\"val2\":\"A\",\"obj\":{\"name\":[\"A\",\"B\"]}}"
+      |> dust  "blocks with dynamic key values as arrays"
+               "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{obj.name[0]}\"/}"
+      |> expect "AAA"
+
 [<Ignore("TODO requires JavaScript in context")>]
 module T14_Lambda =
 
@@ -534,7 +838,7 @@ module T15_CoreGrammar =
 
       helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
                                 match param.TryFind "boo" with
-                                | Some v -> c.Write v
+                                | Some v -> c.Write (v.ToString()) // TODO
                                 | None -> failwith "missing key"
                             )
       json "{}"
@@ -749,9 +1053,6 @@ module R18_WhitespaceOn =
                "<html>\n<head>\n</head>\n<body>{+body/}<body>\n</html>\n{<body}\n    <h1>Title</h1>\n    <p>Content...</p>\n{/body}"
       |> expect "<html>\n<head>\n</head>\n<body>\n    <h1>Title</h1>\n    <p>Content...</p>\n<body>\n</html>\n"
 
-
-
-[<Ignore("TODO")>]
 module T20_Helper =
     // === SUITE ===helper tests
     // helper can return a primitive

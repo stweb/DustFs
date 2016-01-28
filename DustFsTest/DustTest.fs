@@ -19,11 +19,7 @@ let js code =
     empty // TODO
 
 let json s =
-    try
-        JsonConvert.DeserializeObject<ExpandoObject>(s, new ExpandoObjectConverter()) :> obj;
-    with
-    | ex -> printfn "EXCEPTION %s in %s" ex.Message s
-            ex.Message  :> obj;  
+    JsonConvert.DeserializeObject<ExpandoObject>(s, new ExpandoObjectConverter()) :> obj;
 
 let dustExec name body data =
     let sb = System.Text.StringBuilder()
@@ -57,4 +53,4 @@ let save exp out=
 
 let expect a b =
     if a<>b then save a b
-//    shouldEqual a b
+    shouldEqual a b
