@@ -82,6 +82,7 @@ and Part =
     | Reference of Identifier * Filters
     | NamedBody of string
     | End of Identifier
+    | Eol
 
 and BodyDict = Map<string, Body> 
 and Params   = Map<string, Value> 
@@ -135,6 +136,15 @@ let rec parseUntil closing acc = function
 
 let (|Until|_|) closing chars = 
     parseUntil closing [] chars 
+
+let (|BeforeOneOf|_|) chars = // [ '\n', '{' ] 
+    let rec loop acc = function 
+        | '{'  :: rest -> Some(List.rev acc, '{'  :: rest)
+        | '\n' :: rest -> Some(List.rev acc, '\n' :: rest)
+        | '\r' :: rest -> Some(List.rev acc, '\r' :: rest)
+        | c :: chars   -> loop (c :: acc) chars
+        | _ -> None
+    loop [] chars 
 
 let (|Quoted|_|) = function
     | '\"' :: chars -> chars |> parseUntil ['\"'] [] 
@@ -439,6 +449,32 @@ let sectionType = function
     | '@' -> Helper
     | c -> failwithf "unknown tag %A" c 
 
+let folder (acc:Part list) (elem:Part) =
+        match acc, elem with // replaces acc.Head when followed by elem
+        | Buffer(a) :: tail, Eol       -> Buffer(a+"\n") :: tail
+        | Buffer(a) :: tail, Special s -> elem :: Buffer(a.TrimEnd([|'\t'; '\n'; '\r'|])) :: tail
+        | Special s :: _, Eol          -> acc // ignores Eol after special
+        | Eol       :: _, Buffer(b)    -> Buffer(b.TrimStart([|' '; '\t'|])) :: acc
+        | Buffer(a) :: tail, Buffer(b) -> //let b1 = b.TrimStart([|' '; '\t'|]) // ensure one space is kept, TODO verify
+                                          //let b2 = if b1.Length = 0 then " " else b1
+                                          let a2 = a.TrimEnd([|'\t'; '\n'; '\r'|]);
+                                          if a2.Length < a.Length
+                                          then Buffer(a2 + b.TrimStart([|' '; '\t'|])) :: tail
+                                          else Buffer(a + b) :: tail
+        | _                            -> elem :: acc
+
+let compress body =
+    //System.Diagnostics.Trace.TraceInformation(sprintf "compress %A" body)
+    printfn "compress %A" body
+    let tmp = 
+        body
+        |> List.filter (fun p -> match p with | Comment(_) -> false | _ -> true )
+        |> List.fold folder [] 
+
+    match tmp with
+    | Buffer(a) :: tail -> List.rev <| Buffer(a.TrimEnd([|'\t'; '\n'; '\r'|])) :: tail
+    | _                 -> List.rev <| tmp
+
 //part <- raw / comment / section / partial / special / reference / buffer
 let rec (|Part|_|) = function
     | '{' :: rest-> match rest with
@@ -448,7 +484,7 @@ let rec (|Part|_|) = function
                     | '>' :: Until ['/';'}'] (r,r2)
                     | '>' :: Until ['}'] (r,r2)
                     | '+' :: Until ['/';'}'] (r,r2) -> 
-                        let st = sectionType rest.Head 
+                        //let st = sectionType rest.Head 
                         let r = r |> List.skipWhile Char.IsWhiteSpace 
                         let id,r =  match r with
                                     | Key   (x,r) -> toString x, r |> List.skipWhile Char.IsWhiteSpace 
@@ -477,31 +513,32 @@ let rec (|Part|_|) = function
                                     | _ -> [], r
                         let pam = pa |> Map.ofList 
                         // section <- sec_tag_start ws* rd body bodies end_tag / sec_tag_start ws* "/" rd
+                        
                         match r with
                         | Until ['}'] (x,r) ->  
+                            // printfn "SECTION %A %s %A until %A | %A" (rest.Head) (id.ToString()) rrr x (r |> List.take 3)
                             match x with // is tag closed?
                             | '/' :: _ -> Some(Section(st, id, ct, pam), r)
                             | _ -> 
                                 let rec loop acc ch =  
                                     match ch with
-                                    | Part(End(i),r)       -> (List.rev acc, End(i), r)
-                                    | Part(NamedBody(k),r) -> (List.rev acc, NamedBody(k), r)                                                                
-//                                    | StartsWith ['{';':'] r->  (List.rev acc, i, r)
-                                    | Part(p,rest)      ->  loop (p :: acc) rest
-                                    | x                 ->  printfn "BODY REST: %s | %s" (toString x) (toString r)
-                                                            failwith "TODO"
-//            | x                 ->  (List.rev (Buffer(toString x) ::acc), , r)
+                                    | Part(p,r2) -> match p with
+                                                    | End(i)       -> (acc, End(i), r2)
+                                                    | NamedBody(k) -> (acc, NamedBody(k), r2)
+                                                    | _            -> loop (p :: acc) r2
+                                    | _          -> failwith "unexpected"
 
-                                let body, endp, r = loop [] r
+                                let bodyacc, endp, r = loop [] r
 
                                 let rec loop2 acc ch p =  
                                     match p with
-                                    | End(i) -> if i <> id then failwithf "unexpected enf  %A ... %A" id i else (acc, ch)
+                                    | End(i) -> if i <> id then failwithf "unexpected end %A ... %A" id i else (acc, ch)
                                     | NamedBody(n)  ->  let body, end2, r = loop [] r
                                                         loop2 ((n, body) :: acc) r end2
                                     | _             ->  (acc,ch)
                                 
                                 let bodies,r = (loop2 [] r endp)        
+                                let body = bodyacc |> List.rev |> compress
                                 match st with
                                 | SectionType.Helper -> let name = id.ToString()
                                                         let logic = match name with
@@ -509,9 +546,10 @@ let rec (|Part|_|) = function
                                                                     | _ -> Custom
                                                         if logic = Custom then
                                                             Some(Section(Helper, id, ct, pam), r)
-                                else                                                        
+                                                        else                                                        
                                                             Some(Section(LogicHelper(logic), id, ct, pam), r)
                                 | SectionType.Inline -> let key = id.ToString()
+
                                                         cache.[key] <- (DateTime.Now, body) // defines inline part
                                                         Some(Comment(""), r) // returns nothing, cannot be NONE!
                                 | _ ->                  Some(SectionBlock(st, id, ct, pam, body, Map.ofList bodies), r)
@@ -530,7 +568,9 @@ let rec (|Part|_|) = function
                     | Ident(i, Until ['}'] (_,r)) -> Some(Reference(i, []), r) // TODO filters
 
                     | _ -> None
-    | Until [ '{' ] (t,chars) ->  Some <| (Buffer(toString t), '{' :: chars)
+    // THE ORDERING OF THE FOLLOWING RULES IS IMPORTANT
+    | '\n' :: chars -> Some <| (Eol, chars)
+    | BeforeOneOf (t,chars) ->  Some <| (Buffer(toString t), chars)
     | _ -> None
 
 let parse text =
@@ -540,7 +580,7 @@ let parse text =
         | Part(p,rest) -> loop (p :: acc) rest
         | [] -> List.rev acc
         | x -> List.rev (Buffer(toString x) :: acc)
-    loop [] chars
+    compress <| loop [] chars
 
 // render template parts with provided context & scope
 let rec render (c:Context) (part:Part) = 
@@ -598,12 +638,12 @@ let rec render (c:Context) (part:Part) =
 
                             let l, r = get "key", get "value"
                             renderIf <| match t with
-                                                                            | Eq -> l.Equals(r)
-                                                                            | Ne -> not (l.Equals(r))
-                                                                            | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
-                                                                            | Gte-> System.Convert.ToDouble(l) >= System.Convert.ToDouble(r)
-                                                                            | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
-                                                                            | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
+                                        | Eq -> l.Equals(r)
+                                        | Ne -> not (l.Equals(r))
+                                        | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
+                                        | Gte-> System.Convert.ToDouble(l) >= System.Convert.ToDouble(r)
+                                        | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
+                                        | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
                                         | _  -> false
         | Condition     ->  renderIf (c.EvalBool n)
         | NotCondition  ->  renderIf (not (c.EvalBool n))

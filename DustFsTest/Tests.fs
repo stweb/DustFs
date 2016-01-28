@@ -849,7 +849,7 @@ module R17_Misc =
     let ``comments should be ignored`` () =
       empty
       |> dust  "comment"
-               "before {!  this is a comment { and } and all sorts of stuff including\nnewlines and tabs     are valid and is simply ignored !}after"
+               "before {!  this is a comment { and } and all sorts of stuff including\nnewlines and tabs \t are valid and is simply ignored !}after"
       |> expect "before after"
 
 module T18_WhitespaceOff =
@@ -889,13 +889,13 @@ module T18_WhitespaceOff =
 module T19_RawText =
     // === SUITE ===raw text test
 
-    // raw text is not matching
+    // raw text more likely example
     [<Test>]
-    let ``raw text is not matching`` () =
+    let ``raw text more likely example`` () =
       let out = json "{\"A\":{\"name\":{\"first\":\"Paul\",\"last\":\"Walrus\"}}}"
                 |> dust "raw text more likely example"
-                        "{#A}\nbuffer text\n         !spaces and new lines are nullified (by default). Booo\n{~n}   Starting with newline make it not so bad\n{`<pre>\nbut\n  what{\n    we\n      want is this\nhelpful for:\n * talking about Dust syntax which looks like `{ref}` `{@helpers}`\n * interpolations like \'My name is:`} {#name}{first} {last}{/name}{`\n</pre>`}\nafter\n!newline\n{/A}"
-      let exp = "buffer text!spaces and new lines are nullified (by default). Booo\n   Starting with newline make it not so bad<pre>\nbut\n  what{\n      we\n      want is this\nhelpful for:\n * talking about Dust syntax which looks like `{ref}` `{@helpers}`\n * interpolations like \'My name is: Paul Walrus\n</pre>after!newline"
+                        "{#A}\nbuffer text\n         !spaces and new lines are nullified (by default). Booo\n{~n}   Starting with newline make it not so bad\n{`<pre>\nbut\n  what{\n  \twe\n      want is this\nhelpful for:\n * talking about Dust syntax which looks like `{ref}` `{@helpers}`\n * interpolations like \'My name is:`} {#name}{first} {last}{/name}{`\n</pre>`}\nafter\n!newline\n{/A}"
+      let exp = "buffer text!spaces and new lines are nullified (by default). Booo\n   Starting with newline make it not so bad<pre>\nbut\n  what{\n  \twe\n      want is this\nhelpful for:\n * talking about Dust syntax which looks like `{ref}` `{@helpers}`\n * interpolations like \'My name is: Paul Walrus\n</pre>after!newline"
       save out exp
       out |> expect exp
 
