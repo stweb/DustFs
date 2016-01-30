@@ -605,30 +605,26 @@ let parse text =
     compress <| body
 
 // render template parts with provided context & scope
-let rec render (c:Context) (part:Part) = 
-    let inline renderList parts = parts |> List.iter(fun p -> render c p)   
+let rec render (c:Context) (list:Part list) = 
 
-    let helper name =
+  let helper name =
         match helpers.TryGetValue name with
         | true, ref -> ref
         | _ ->  c.Log <| sprintf "missing helper: %s" name
                 helpers.[""] // the nullHelper                
 
-                
+  for part in list do
     match part with
     //| Comment _      -> c.Write("<!-- " + text + " -->")
     | Special ch     -> c.Write(ch)
     | Buffer text    -> c.Write(text)
     | Partial(k,x,m) -> let n = if k = "{name}" then c.GetStr "name" else k   
-                        let body = match cache.TryGetValue n with
-                                   | true, (_, part) -> part 
-                                   | _ -> c.ParseCached parse n
-                        let c2 = { c with Parent = Some c
-                                          Current = match x with
-                                                    | Some i -> c.Get i
-                                                    | None -> Some(m :> obj)
-                                 } 
-                        body |> Seq.iter(fun p -> render c2 p)
+                        match cache.TryGetValue n with
+                        | true, (_, part) -> part 
+                        | _ -> c.ParseCached parse n
+                        |> render { c with Parent = Some c; Current = match x with
+                                                                      | Some i -> c.Get i
+                                                                      | None -> Some(m :> obj) } 
     | Reference(k,f) -> match c.Get k with                     
                         | None -> ()
                         | Some value    ->  match value with
@@ -637,20 +633,17 @@ let rec render (c:Context) (part:Part) =
                                             | _ ->  c.WriteFiltered f value
     | Section(st,n,_,pa) -> 
                         match st with 
-//                        | Block ->          match cache.TryGetValue n with 
-//                                            | true, (_, part) -> part |> Seq.iter(fun p -> render c p) // else ignore
-//                                            | _ -> ()
                         | Scope ->          failwith "scope must have a body"
                         | Helper         -> helper (n.ToString()) c Map.empty pa (fun () -> failwith "not available")
                         | LogicHelper(_) -> failwith "LogicHelper should be a SectionBlock" 
                         | _ -> ()
     | SectionBlock(st,n,_,map,l,bodies) -> 
-        let renderIf cc cond = if cond then l |> List.iter(fun p -> render cc p) 
+        let renderIf cc cond = if cond then l |> render cc
                                else match bodies.TryFind "else" with
-                                    | Some body -> body |> List.iter(fun p -> render cc p) 
+                                    | Some body -> body |> render cc
                                     | None -> ()                            
         match st with 
-        | Helper         -> helper (n.ToString()) c bodies map (fun () -> renderList l)
+        | Helper         -> helper (n.ToString()) c bodies map (fun () -> l |> render c)
         | LogicHelper(t) -> let get s = match map.TryFind s with
                                         | Some(VInline(x)) -> box x
                                         | Some(VNumber(x)) -> box x 
@@ -680,17 +673,14 @@ let rec render (c:Context) (part:Part) =
                                                  -> let arr = ie |> Seq.cast<obj> |> Seq.toArray
                                                     let len = arr.Length
                                                     if len < 1 then renderIf cc false // = skip
-                                                    else arr |> Array.iteri(fun i o -> 
-                                                        let c2 = { cc with Parent = Some cc; Current = Some o; Index = Some(i,len) }
-                                                        l |> List.iter(fun p -> render c2 p) )
+                                                    else arr |> Array.iteri(fun i o -> l |> render { cc with Parent = Some cc; Current = Some o; Index = Some(i,len) } )
                                             | :? bool as b -> renderIf cc b
                                             | null -> renderIf cc false
-                                            | o ->      let c2 = { cc with Parent = Some cc; Current = Some o }
-                                                        l |> List.iter(fun p -> render c2 p) 
+                                            | o ->  l |> render { cc with Parent = Some cc; Current = Some o }                                                         
                             | None -> renderIf cc false      // TODO create new current from keyvalue map     
         | Block         -> match cache.TryGetValue (n.ToString()) with 
-                           | true, (_,b) -> b |> Seq.iter(fun p -> render c p) // override
-                           | _           -> renderList l // default                        
+                           | true, (_,b) -> b |> render c // override
+                           | _           -> l |> render c // default                        
         // Deprecated | Escaped       -> renderList (n :: scope) l  
         | _ -> failwith <| sprintf "unexpected %A" st
     | _ -> ()

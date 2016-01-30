@@ -24,7 +24,7 @@ let json s =
 let dustExec name body data =
     let sb = System.Text.StringBuilder()
     let ctx = { Context.defaults with W = new StringWriter(sb); TmplDir = __SOURCE_DIRECTORY__ + """\null\""" ; Current = Some data }
-    body |> List.iter(fun p -> render ctx p)
+    body |> render ctx
     sb.ToString() //.Replace("\r\n", "\n")
 
 let dust name source data =
