@@ -127,6 +127,49 @@ module T02_CoreTests =
                "{#helper}{greeting} {firstName} {lastName}{/helper}"
       |> expect "Hello Dusty Dusterson"
 
+module T06_ArrayIndexAccess =
+
+    // === SUITE ===array/index-access tests
+    // should test the array reference access with idx
+    [<Test>]
+    let ``should test the array reference access with idx`` () =
+      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
+      |> dust  "using idx in array reference Accessing"
+               "{#list4} {name} {number[$idx]} {$idx}{/list4}"
+      |> expect " Dog 1 0 Cat 5 1"
+
+    // should test the array reference access with len
+    [<Test>]
+    let ``should test the array reference access with len`` () =
+      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
+      |> dust  "using len in array reference Accessing"
+               "{#list4} {name} {number[$len]}{/list4}"
+      |> expect " Dog 3 Cat 6"
+
+    // should test the array reference access with idx and current context
+    [<Test>]
+    let ``should test the array reference access with idx and current context`` () =
+      json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"},{\"biz\":\"456\"}]]}"
+      |> dust  "using idx in array reference Accessing"
+               "{#list3}{.[$idx].biz}{/list3}"
+      |> expect "123456"
+
+    // should test the array reference access with len and current context
+    [<Test>]
+    let ``should test the array reference access with len and current context`` () =
+      json "{\"list3\":[[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}],[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}]]}"
+      |> dust  "using len in array reference Accessing"
+               "{#list3}{.[$len].idx}{/list3}"
+      |> expect "22"
+
+    // should test using a multilevel reference as a key in array access
+    [<Test>]
+    let ``should test using a multilevel reference as a key in array access`` () =
+      json "{\"loop\":{\"array\":{\"thing\":{\"sub\":1,\"sap\":2},\"thing2\":\"bar\"}},\"key\":{\"foo\":\"thing\"}}"
+      |> dust  "using a nested key as a reference for array index access"
+               "{#loop.array[key.foo].sub}{.}{/loop.array[key.foo].sub}"
+      |> expect "1"
+
 
 
 [<Ignore "Implement thenable/promises">]
@@ -716,22 +759,6 @@ module T12_InlineParams =
       |> dust  "inline params as float"
                "{#helper foo=3.14159 /}"
       |> expect "3.14159"
-
-    // should print negative integer
-    [<Test>]
-    let ``should print negative integer`` () =
-      json "{\"foo\":true}"
-      |> dust  "inline params as negative integer"
-               "{#foo bar=-1}{bar}{/foo}"
-      |> expect "-1"
-
-    // should print negative float
-    [<Test>]
-    let ``should print negative float`` () =
-      json "{\"foo\":true}"
-      |> dust  "inline params as negative float"
-               "{#foo bar=-1.1}{bar}{/foo}"
-      |> expect "-1.1"
 
     // should test parameters with dashes
     [<Test>]

@@ -412,7 +412,77 @@ module R05_EmptyData =
                "{#emptyParamHelper}{/emptyParamHelper}"
       |> expect ""
 
+module R06_Conditional =
+
+    // === SUITE ===conditional tests
+    // should test conditional tags
+    [<Test>]
+    let ``should test conditional tags`` () =
+      json "{\"tags\":[],\"likes\":[\"moe\",\"larry\",\"curly\",\"shemp\"]}"
+      |> dust  "conditional"
+               "{?tags}<ul>{~n}{#tags}{~s} <li>{.}</li>{~n}{/tags}</ul>{:else}No Tags!{/tags}{~n}{^likes}No Likes!{:else}<ul>{~n}{#likes}{~s} <li>{.}</li>{~n}{/likes}</ul>{/likes}"
+      |> expect "No Tags!\n<ul>\n  <li>moe</li>\n  <li>larry</li>\n  <li>curly</li>\n  <li>shemp</li>\n</ul>"
+
+    // should test else block when array empty
+    [<Test>]
+    let ``should test else block when array empty`` () =
+      json "{\"foo\":[]}"
+      |> dust  "empty else block"
+               "{#foo}full foo{:else}empty foo{/foo}"
+      |> expect "empty foo"
+
 module R06_ArrayIndexAccess =
+
+    // === SUITE ===array/index-access tests
+
+    // should return a specific array element by index when element value is a primitive
+    [<Test>]
+    let ``should return a specific array element by index when element value is a primitive`` () =
+      json "{\"do\":{\"re\":[\"hello!\",\"bye!\"]}}"
+      |> dust  "accessing array element by index when element value is a primitive"
+               "{do.re[0]}"
+      |> expect "hello!"
+
+    // should return a specific array element by index when element value is a object
+    [<Test>]
+    let ``should return a specific array element by index when element value is a object`` () =
+      json "{\"do\":{\"re\":[{\"mi\":\"hello!\"},\"bye!\"]}}"
+      |> dust  "accessing array by index when element value is a object"
+               "{do.re[0].mi}"
+      |> expect "hello!"
+
+    // should return a specific array element by index when element is a nested object
+    [<Test>]
+    let ``should return a specific array element by index when element is a nested object`` () =
+      json "{\"do\":{\"re\":[{\"mi\":[\"one\",{\"fa\":\"hello!\"}]},\"bye!\"]}}"
+      |> dust  "accessing array by index when element is a nested object"
+               "{do.re[0].mi[1].fa}"
+      |> expect "hello!"
+
+    // should return a specific array element by index when element is list of primitives
+    [<Test>]
+    let ``should return a specific array element by index when element is list of primitives`` () =
+      json "{\"do\":[\"lala\",\"lele\"]}"
+      |> dust  "accessing array by index when element is list of primitives"
+               "{do[0]}"
+      |> expect "lala"
+
+    // should return a specific array element using the current context
+    [<Test>]
+    let ``should return a specific array element using the current context`` () =
+      json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"}]]}"
+      |> dust  "accessing array inside a loop using the current context"
+               "{#list3}{.[0].biz}{/list3}"
+      |> expect "123345"
+
+    // test array reference $idx/$len nested loops
+    [<Test>]
+    let ``test array reference $idx $len nested loops`` () =
+      json "{\"A\":[{\"B\":[{\"C\":[\"Ca1\",\"C2\"]},{\"C\":[\"Ca2\",\"Ca22\"]}]},{\"B\":[{\"C\":[\"Cb1\",\"C2\"]},{\"C\":[\"Cb2\",\"Ca2\"]}]}]}"
+      |> dust  "array reference $idx/$len nested loops"
+               "{#A}A loop:{$idx}-{$len},{#B}B loop:{$idx}-{$len}C[0]={.C[0]} {/B}A loop trailing: {$idx}-{$len}{/A}"
+      |> expect "A loop:0-2,B loop:0-2C[0]=Ca1 B loop:1-2C[0]=Ca2 A loop trailing: 0-2A loop:1-2,B loop:0-2C[0]=Cb1 B loop:1-2C[0]=Cb2 A loop trailing: 1-2"
+
     // should test an array
     [<Test>]
     let ``should test an array`` () =
@@ -501,116 +571,7 @@ module R06_ArrayIndexAccess =
                "{#results}{#info}{$idx}{name}-{$len} {/info}{/results}"
       |> expect "0Steven-2 1Richard-2 "
                       
-module R06_Conditional =
 
-    // === SUITE ===conditional tests
-    // should test conditional tags
-    [<Test>]
-    let ``should test conditional tags`` () =
-      json "{\"tags\":[],\"likes\":[\"moe\",\"larry\",\"curly\",\"shemp\"]}"
-      |> dust  "conditional"
-               "{?tags}<ul>{~n}{#tags}{~s} <li>{.}</li>{~n}{/tags}</ul>{:else}No Tags!{/tags}{~n}{^likes}No Likes!{:else}<ul>{~n}{#likes}{~s} <li>{.}</li>{~n}{/likes}</ul>{/likes}"
-      |> expect "No Tags!\n<ul>\n  <li>moe</li>\n  <li>larry</li>\n  <li>curly</li>\n  <li>shemp</li>\n</ul>"
-
-    // should test else block when array empty
-    [<Test>]
-    let ``should test else block when array empty`` () =
-      json "{\"foo\":[]}"
-      |> dust  "empty else block"
-               "{#foo}full foo{:else}empty foo{/foo}"
-      |> expect "empty foo"
-
-module T06_ArrayIndexAccess =
-
-    // === SUITE ===array/index-access tests
-
-    // should return a specific array element by index when element value is a primitive
-    [<Test>]
-    let ``should return a specific array element by index when element value is a primitive`` () =
-      json "{\"do\":{\"re\":[\"hello!\",\"bye!\"]}}"
-      |> dust  "accessing array element by index when element value is a primitive"
-               "{do.re[0]}"
-      |> expect "hello!"
-
-    // should return a specific array element by index when element value is a object
-    [<Test>]
-    let ``should return a specific array element by index when element value is a object`` () =
-      json "{\"do\":{\"re\":[{\"mi\":\"hello!\"},\"bye!\"]}}"
-      |> dust  "accessing array by index when element value is a object"
-               "{do.re[0].mi}"
-      |> expect "hello!"
-
-    // should return a specific array element by index when element is a nested object
-    [<Test>]
-    let ``should return a specific array element by index when element is a nested object`` () =
-      json "{\"do\":{\"re\":[{\"mi\":[\"one\",{\"fa\":\"hello!\"}]},\"bye!\"]}}"
-      |> dust  "accessing array by index when element is a nested object"
-               "{do.re[0].mi[1].fa}"
-      |> expect "hello!"
-
-    // should return a specific array element by index when element is list of primitives
-    [<Test>]
-    let ``should return a specific array element by index when element is list of primitives`` () =
-      json "{\"do\":[\"lala\",\"lele\"]}"
-      |> dust  "accessing array by index when element is list of primitives"
-               "{do[0]}"
-      |> expect "lala"
-
-    // should return a specific array element using the current context
-    [<Test>]
-    let ``should return a specific array element using the current context`` () =
-      json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"}]]}"
-      |> dust  "accessing array inside a loop using the current context"
-               "{#list3}{.[0].biz}{/list3}"
-      |> expect "123345"
-
-    // test array reference $idx/$len nested loops
-    [<Test>]
-    let ``test array reference $idx $len nested loops`` () =
-      json "{\"A\":[{\"B\":[{\"C\":[\"Ca1\",\"C2\"]},{\"C\":[\"Ca2\",\"Ca22\"]}]},{\"B\":[{\"C\":[\"Cb1\",\"C2\"]},{\"C\":[\"Cb2\",\"Ca2\"]}]}]}"
-      |> dust  "array reference $idx/$len nested loops"
-               "{#A}A loop:{$idx}-{$len},{#B}B loop:{$idx}-{$len}C[0]={.C[0]} {/B}A loop trailing: {$idx}-{$len}{/A}"
-      |> expect "A loop:0-2,B loop:0-2C[0]=Ca1 B loop:1-2C[0]=Ca2 A loop trailing: 0-2A loop:1-2,B loop:0-2C[0]=Cb1 B loop:1-2C[0]=Cb2 A loop trailing: 1-2"
-
-    // should test the array reference access with idx
-    [<Test>]
-    let ``should test the array reference access with idx`` () =
-      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
-      |> dust  "using idx in array reference Accessing"
-               "{#list4} {name} {number[$idx]} {$idx}{/list4}"
-      |> expect " Dog 1 0 Cat 5 1"
-
-    // should test the array reference access with len
-    [<Test>]
-    let ``should test the array reference access with len`` () =
-      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
-      |> dust  "using len in array reference Accessing"
-               "{#list4} {name} {number[$len]}{/list4}"
-      |> expect " Dog 3 Cat 6"
-
-    // should test the array reference access with idx and current context
-    [<Test>]
-    let ``should test the array reference access with idx and current context`` () =
-      json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"},{\"biz\":\"456\"}]]}"
-      |> dust  "using idx in array reference Accessing"
-               "{#list3}{.[$idx].biz}{/list3}"
-      |> expect "123456"
-
-    // should test the array reference access with len and current context
-    [<Test>]
-    let ``should test the array reference access with len and current context`` () =
-      json "{\"list3\":[[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}],[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}]]}"
-      |> dust  "using len in array reference Accessing"
-               "{#list3}{.[$len].idx}{/list3}"
-      |> expect "22"
-
-    // should test using a multilevel reference as a key in array access
-    [<Test>]
-    let ``should test using a multilevel reference as a key in array access`` () =
-      json "{\"loop\":{\"array\":{\"thing\":{\"sub\":1,\"sap\":2},\"thing2\":\"bar\"}},\"key\":{\"foo\":\"thing\"}}"
-      |> dust  "using a nested key as a reference for array index access"
-               "{#loop.array[key.foo].sub}{.}{/loop.array[key.foo].sub}"
-      |> expect "1"
 
 module R07_ObjectTests =
 
@@ -765,6 +726,22 @@ module R10_Partial =
                "{>nested_partial_print_name/}"
       |> expect ""
 
+module R12_InlineParams =
+
+    [<Test>]
+    let ``should print negative integer`` () =
+      json "{\"foo\":true}"
+      |> dust  "inline params as negative integer"
+               "{#foo bar=-1}{bar}{/foo}"
+      |> expect "-1"
+
+    [<Test>]
+    let ``should print negative float`` () =
+      json "{\"foo\":true}"
+      |> dust  "inline params as negative float"
+               "{#foo bar=-1.1}{bar}{/foo}"
+      |> expect "-1.1"
+
 module R15_CoreGrammar =
     // === SUITE ===core-grammar tests
     // should ignore extra whitespaces between opening brace plus any of (#,?,@,^,+,%) and the tag identifier
@@ -855,7 +832,7 @@ module R17_Misc =
                "before {!  this is a comment { and } and all sorts of stuff including\nnewlines and tabs \t are valid and is simply ignored !}after"
       |> expect "before after"
 
-module T18_WhitespaceOff =
+module R18_WhitespaceOff =
     // === SUITE ===whitespace test
     // whitespace off: whitespace-only template is removed
     [<Test>]
@@ -889,7 +866,7 @@ module T18_WhitespaceOff =
                "<p>\n    foo bar baz \n    foo bar baz\n</p>"
       |> expect "<p>foo bar baz foo bar baz</p>"
 
-module T19_RawText =
+module R19_RawText =
     // === SUITE ===raw text test
 
     // raw text more likely example

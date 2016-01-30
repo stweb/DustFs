@@ -4,6 +4,7 @@ open System
 open System.IO
 open System.Collections.Generic
 open System.Collections.Concurrent
+open System.Globalization
 open System.Text.RegularExpressions
 
 let rexStr = new Regex("\{[^}]*\}")
@@ -187,6 +188,7 @@ type Context =
         Current:    obj option          // replaces Stack.Head in orginal impl / "this" in data context
         Global:     obj                 // global data
         Index:      (int * int) option  // inside #array 
+        Culture:    CultureInfo         // used for formatting of values
         // execution data
         W:          TextWriter          // write used to render output
         TmplDir:    string              // the template source directory
@@ -198,7 +200,8 @@ type Context =
         | Some(ix,len) -> sprintf "%A %A %d/%d" x.Parent x.Current ix len
         | None         -> sprintf "%A %A"       x.Parent x.Current 
 
-    static member defaults = { TmplDir = ""; W = null; Global = null; Current = None; Index = None; Parent = None; Logger = fun s -> () }    
+    static member defaults = { TmplDir = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
+                               Current = None; Index = None; Parent = None; Logger = fun s -> () }    
 
     member this.LoadAndParse parse name = async {
         let sw = System.Diagnostics.Stopwatch()
@@ -236,6 +239,7 @@ type Context =
                                             match v with
                                             | :? IEnumerable<obj> as ie ->  let arr = ie |> Seq.cast<obj> |> Seq.map( fun o -> Convert.ToString(o))
                                                                             String.Join(",", arr) :> obj
+                                            | :? decimal as d -> box <| d.ToString(this.Culture)
                                             | _ -> v
 
                                         if Seq.isEmpty f && o :? string then
@@ -271,6 +275,7 @@ type Context =
                       | Some(o) ->  match o with
                                     | :? Value as v -> match v with 
                                                        | VIdent(i) -> c.Get i
+                                                       | VNumber(n) -> Some(box n)
                                                        | _ -> failwith "unexpected"
                                     | _ -> Some(o)
                       | _ -> None
@@ -419,7 +424,9 @@ let (|Param|_|) = function
                             | Inline (x,r) -> Some <| ((key, VInline(toString x)), r)
                             | Ident  (m,r) -> Some <| ((key, VIdent(m)), r)
                             | Int    (i,r) -> Some <| ((key, VNumber(decimal i)), r)
-                            | Number (x,r) -> Some <| ((key, VNumber(Convert.ToDecimal(toString x))), r)
+                            | Number (x,r) -> match Decimal.TryParse(toString x, NumberStyles.Any, CultureInfo.InvariantCulture) with
+                                              | true, n -> Some <| ((key, VNumber(n)), r)
+                                              | _       -> failwith "bad number"
                             | _ -> None
     | _ -> None    
 
@@ -613,7 +620,7 @@ let rec render (c:Context) (part:Part) =
                         | None -> ()
                         | Some value    ->  match value with
                                             | null -> ()
-                                            | :? bool as b -> if b then c.WriteFiltered f value
+                                            | :? bool as b -> if b then c.WriteFiltered f value                                            
                                             | _ ->  c.WriteFiltered f value
     | Section(st,n,_,pa) -> 
                         match st with 
@@ -625,10 +632,10 @@ let rec render (c:Context) (part:Part) =
                         | LogicHelper(_) -> failwith "LogicHelper should be a SectionBlock" 
                         | _ -> ()
     | SectionBlock(st,n,_,map,l,bodies) -> 
-        let renderIf cond = if cond then renderList l 
-                            else match bodies.TryFind "else" with
-                                 | Some body -> renderList body // TODO check if n should be added
-                                 | None -> ()                            
+        let renderIf cc cond = if cond then l |> List.iter(fun p -> render cc p) 
+                               else match bodies.TryFind "else" with
+                                    | Some body -> body |> List.iter(fun p -> render cc p) 
+                                    | None -> ()                            
         match st with 
         | Helper         -> helper (n.ToString()) c bodies map (fun () -> renderList l)
         | LogicHelper(t) -> let get s = match map.TryFind s with
@@ -640,7 +647,7 @@ let rec render (c:Context) (part:Part) =
                                         | _ -> failwithf "missing %s" s
 
                             let l, r = get "key", get "value"
-                            renderIf <| match t with
+                            renderIf c <| match t with
                                         | Eq -> l.Equals(r)
                                         | Ne -> not (l.Equals(r))
                                         | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
@@ -648,9 +655,10 @@ let rec render (c:Context) (part:Part) =
                                         | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
                                         | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
                                         | _  -> false
-        | Condition     ->  renderIf (c.EvalBool n)
-        | NotCondition  ->  renderIf (not (c.EvalBool n))
-        | Scope         ->  match c.Get n with                     
+        | Condition     ->  renderIf c (c.EvalBool n)
+        | NotCondition  ->  renderIf c (not (c.EvalBool n))
+        | Scope         ->  let cc = if map.IsEmpty then c else { c with Parent = Some c; Current = Some (map :> obj) }
+                            match c.Get n with                     
                             | Some(valu) -> match valu with
                                             // Dust's default behavior is to enumerate over the array elem, passing each object in the array to the block.
                                             // When elem resolves to a value or object instead of an array, Dust sets the current context to the value
@@ -658,15 +666,15 @@ let rec render (c:Context) (part:Part) =
                                             | :? IEnumerable<obj> as ie 
                                                  -> let arr = ie |> Seq.cast<obj> |> Seq.toArray
                                                     let len = arr.Length
-                                                    if len < 1 then renderIf false // = skip
+                                                    if len < 1 then renderIf cc false // = skip
                                                     else arr |> Array.iteri(fun i o -> 
-                                                        let c2 = { c with Parent = Some c; Current = Some o; Index = Some(i,len) }
+                                                        let c2 = { cc with Parent = Some cc; Current = Some o; Index = Some(i,len) }
                                                         l |> List.iter(fun p -> render c2 p) )
-                                            | :? bool as b -> renderIf b
-                                            | null -> renderIf false
-                                            | o ->      let c2 = { c with Parent = Some c; Current = Some o }
+                                            | :? bool as b -> renderIf cc b
+                                            | null -> renderIf cc false
+                                            | o ->      let c2 = { cc with Parent = Some cc; Current = Some o }
                                                         l |> List.iter(fun p -> render c2 p) 
-                            | None -> renderIf false      // TODO create new current from keyvalue map     
+                            | None -> renderIf cc false      // TODO create new current from keyvalue map     
         | Block         -> match cache.TryGetValue (n.ToString()) with 
                            | true, (_,b) -> b |> Seq.iter(fun p -> render c p) // override
                            | _           -> renderList l // default                        
