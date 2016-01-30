@@ -57,20 +57,6 @@ type SectionType =
 type Filter = obj -> obj
 type Filters = Filter seq
 
-//type Body = Part list
-//and Part =  // ld t:[#?^<+@%] n:identifier c:context p:params
-//    | Comment of string // "{! !}"  
-//    | Section of SectionType * string // self-closed element
-//    | SectionBlock of SectionType * string * Body  * BodyDict // block element
-//    | Partial of string * string option * KeyValue // "{> (key/inline) context /}
-//    | Special of string // "{~ key}
-//    | Reference of string * Filters// {key[|filter1|filterN]}
-//    | Buffer of string
-//    | EndSection of string 
-//    | Bodies of string
-//    | Eol
-//and BodyDict = Map<string, Body> 
-
 type Body = Part list
 and Part = 
     | Buffer of string
@@ -78,7 +64,7 @@ and Part =
     | Partial of string * Identifier option * Params
     | Section of SectionType * Identifier * Identifier option * Params
     | SectionBlock of SectionType * Identifier * Identifier option * Params * Body * BodyDict
-    | Special of string
+    | Special of char
     | Reference of Identifier * Filters
     | NamedBody of string
     | End of Identifier
@@ -139,9 +125,9 @@ let (|Until|_|) closing chars =
 
 let (|BeforeOneOf|_|) chars = // [ '\n', '{' ] 
     let rec loop acc = function 
-        | '{'  :: rest -> Some(List.rev acc, '{'  :: rest)
-        | '\n' :: rest -> Some(List.rev acc, '\n' :: rest)
-        | '\r' :: rest -> Some(List.rev acc, '\r' :: rest)
+        | '{'  :: rest -> if acc <> [] then Some(List.rev acc, '{'  :: rest) else None
+        | '\n' :: rest -> if acc <> [] then Some(List.rev acc, '\n' :: rest) else None
+        | '\r' :: rest -> if acc <> [] then Some(List.rev acc, '\r' :: rest) else None
         | c :: chars   -> loop (c :: acc) chars
         | _ -> None
     loop [] chars 
@@ -168,6 +154,10 @@ type System.Object with    // TODO if key.StartsWith(".") then let cur = true ke
     | :? IDictionary<string,obj> as d ->    match d.ContainsKey key with
                                             | true -> optional (d.Item(key))
                                             | _ -> None
+    | :? IDictionary<string,Value> as d ->  match d.TryGetValue key with
+                                            | true, VInline(s) -> Some (s :> obj)
+                                            | true, v          -> Some (v :> obj)
+                                            | _ -> None
     | _  ->     let t = o.GetType()
                 let p = t.GetProperty(key)
                 match p with
@@ -178,10 +168,6 @@ type System.Object with    // TODO if key.StartsWith(".") then let cur = true ke
     match o with
     | :? IEnumerable<obj> as s -> s |> Seq.cast<obj> |> Seq.skip i |> Seq.tryHead 
     | _ -> failwith "object without index access"
-
-  member o.TryFindSegment = function
-    | Index(i) -> o.TryFindIndex i
-    | Name(n)  -> o.TryFindProp n 
 
 //  member o.Get path = 
 //    match path with
@@ -195,13 +181,17 @@ type System.Object with    // TODO if key.StartsWith(".") then let cur = true ke
 //    o.Get path
 
 type Context = 
-    {   W:          TextWriter // private - access via this.Write
-        TmplDir:    string
-        Global:     obj // Global Context
-        Index:      (int * int) option // in #array 
-        Current:    obj option
-        Parent:     Context option
-        Logger:     string -> unit
+    {   
+        // Data context
+        Parent:     Context option      // replaces Stack.Tail in orginal impl via chained Parents
+        Current:    obj option          // replaces Stack.Head in orginal impl / "this" in data context
+        Global:     obj                 // global data
+        Index:      (int * int) option  // inside #array 
+        // execution data
+        W:          TextWriter          // write used to render output
+        TmplDir:    string              // the template source directory
+        Logger:     string -> unit      // a logger
+        // Options:    Whitespace
     }
     override x.ToString() =
         match x.Index with
@@ -252,7 +242,6 @@ type Context =
                                             o <- System.Net.WebUtility.HtmlEncode(o :?> string) :> obj 
                                         else for x in f do o <- x o                                        
                                         this.W.Write(o)
-    member this.WriteSpecial(tag)     = this.W.Write(match tag with | "s"->' ' | "n"->'\n' | "r"->'\r' | "lb"->'{' | "rb"->'}' | _ -> failwith "not supported")
 //    member this.WriteI (s:string)     = this.W.Write(rexStr.Replace(s, (fun m ->    let tag = m.ToString();
 //                                                                                    let key = tag.Substring(1, tag.Length-2)
 //                                                                                    match this.GetKey(key) with
@@ -264,9 +253,9 @@ type Context =
 //                                                                                    | Some(v) -> v.ToString()
 //                                                                                    | None    -> tag.ToUpper() )))                                                                                        
 //    member this.GetKey(key:string)    = this.Data.TryFind key
-//    member this.GetStr(key:string)    = match this.resolveRef this.scope key with
-//                                        | Some(o) -> o.ToString()
-//                                        | None    -> ""
+    member this.GetStr(key:string)    = match this.Get (Key key) with
+                                        | Some(o) -> o.ToString()
+                                        | None    -> ""
 
     member this.Log msg = this.Logger msg
     member this.Unresolved scope key =
@@ -275,6 +264,16 @@ type Context =
                                         this.Log (sprintf "   ? %s in %A" key scope)
 #endif  
                                         None
+
+      member c.TryFindSegment o = function
+        | Index(i) -> o.TryFindIndex i
+        | Name(n)  -> match o.TryFindProp n with
+                      | Some(o) ->  match o with
+                                    | :? Value as v -> match v with 
+                                                       | VIdent(i) -> c.Get i
+                                                       | _ -> failwith "unexpected"
+                                    | _ -> Some(o)
+                      | _ -> None
 
     member c.Get (id:Identifier) : obj Option =      
         let cur, path = match id with
@@ -287,13 +286,13 @@ type Context =
 
     member c.GetPath (cur:bool) (p:Segment list) : obj Option =      
         let rec searchUpStack ctx =
-            let value = match ctx.Current with | Some obj -> obj.TryFindSegment p.Head | _ -> None
+            let value = match ctx.Current with | Some obj -> c.TryFindSegment obj p.Head | _ -> None
             match value, ctx.Parent with
             | None, Some(p) -> searchUpStack p
             | _             -> value
 
         let rec resolve o (path:Segment list) =
-            match path.Tail, o.TryFindSegment path.Head with
+            match path.Tail, c.TryFindSegment o path.Head with
             | [], None -> None
             | _ , None -> failwith "bad path"
             | [], x -> x
@@ -309,12 +308,12 @@ type Context =
                         | false, _  ->  let result = searchUpStack c // Search up the stack for the first value
                                         match result with // Try looking in the global context if we haven't found anything yet                                       
                                         | Some _ -> c, result
-                                        | None   -> c, (c.Global.TryFindSegment p.Head)
+                                        | None   -> c, (c.TryFindSegment c.Global p.Head)
                         | _         ->  failwith "TODO ResolvePath ?"        
             match v, p.Tail with
             | Some _ , [] -> v
             | Some o , _  -> resolve o p.Tail
-            | None   , _  -> match ctx.Current with | Some obj -> obj.TryFindSegment p.Head | _ -> None
+            | None   , _  -> match ctx.Current with | Some obj -> c.TryFindSegment obj p.Head | _ -> None
 
     member c.EvalBool cond = 
         match c.Get cond with
@@ -451,7 +450,7 @@ let sectionType = function
 
 let folder (acc:Part list) (elem:Part) =
         match acc, elem with // replaces acc.Head when followed by elem
-        | Buffer(a) :: tail, Eol       -> Buffer(a+"\n") :: tail
+        //| Buffer(a) :: tail, Eol       -> Buffer(a+"\n") :: tail
         | Buffer(a) :: tail, Special s -> elem :: Buffer(a.TrimEnd([|'\t'; '\n'; '\r'|])) :: tail
         | Special s :: _, Eol          -> acc // ignores Eol after special
         | Eol       :: _, Buffer(b)    -> Buffer(b.TrimStart([|' '; '\t'|])) :: acc
@@ -464,8 +463,6 @@ let folder (acc:Part list) (elem:Part) =
         | _                            -> elem :: acc
 
 let compress body =
-    //System.Diagnostics.Trace.TraceInformation(sprintf "compress %A" body)
-    printfn "compress %A" body
     let tmp = 
         body
         |> List.filter (fun p -> match p with | Comment(_) -> false | _ -> true )
@@ -533,9 +530,10 @@ let rec (|Part|_|) = function
                                 let rec loop2 acc ch p =  
                                     match p with
                                     | End(i) -> if i <> id then failwithf "unexpected end %A ... %A" id i else (acc, ch)
-                                    | NamedBody(n)  ->  let body, end2, r = loop [] r
+                                    | NamedBody(n)  ->  let b1, end2, r = loop [] r
+                                                        let body = b1 |> List.rev |> compress
                                                         loop2 ((n, body) :: acc) r end2
-                                    | _             ->  (acc,ch)
+                                    | _             ->  failwith "really?" //(acc,ch)
                                 
                                 let bodies,r = (loop2 [] r endp)        
                                 let body = bodyacc |> List.rev |> compress
@@ -549,13 +547,14 @@ let rec (|Part|_|) = function
                                                         else                                                        
                                                             Some(Section(LogicHelper(logic), id, ct, pam), r)
                                 | SectionType.Inline -> let key = id.ToString()
-
-                                                        cache.[key] <- (DateTime.Now, body) // defines inline part
+                                                        if key.Length > 0 && body.Length > 0 then
+                                                            cache.[key] <- (DateTime.Now, body) // defines inline part
                                                         Some(Comment(""), r) // returns nothing, cannot be NONE!
                                 | _ ->                  Some(SectionBlock(st, id, ct, pam, body, Map.ofList bodies), r)
                         | _ -> failwith "syntax error"
                     // special <- ld "~" key rd
-                    | '~' :: Until ['}'] (x,r) -> Some(Special(toString x), r)
+                    | '~' :: Until ['}'] (n,r) ->   let ch = match toString n with | "s"->' ' | "n"->'\n' | "r"->'\r' | "lb"->'{' | "rb"->'}' | _ -> failwith "unknown special"
+                                                    Some(Special(ch), r)
                     // end_tag <- ld "/" ws* identifier ws* rd
                     | '/' :: Until ['}'] (x,r) -> 
                         let chars = x |> List.skipWhile Char.IsWhiteSpace 
@@ -565,7 +564,8 @@ let rec (|Part|_|) = function
                     // bodies <- (ld ":" key rd body)*
                     | ':' :: Key(k,Until ['}'] (_,r)) -> Some(NamedBody(toString k), r) 
                     // reference <- ld identifier filters rd
-                    | Ident(i, Until ['}'] (_,r)) -> Some(Reference(i, []), r) // TODO filters
+                    | Ident(i, Until ['}'] (f,r)) -> let fs = (f |> toString).Split('|') |> parseFilters 
+                                                     Some(Reference(i, fs), r) // TODO filters
 
                     | _ -> None
     // THE ORDERING OF THE FOLLOWING RULES IS IMPORTANT
@@ -580,7 +580,9 @@ let parse text =
         | Part(p,rest) -> loop (p :: acc) rest
         | [] -> List.rev acc
         | x -> List.rev (Buffer(toString x) :: acc)
-    compress <| loop [] chars
+
+    let body = loop [] chars
+    compress <| body
 
 // render template parts with provided context & scope
 let rec render (c:Context) (part:Part) = 
@@ -595,9 +597,10 @@ let rec render (c:Context) (part:Part) =
                 
     match part with
     //| Comment _      -> c.Write("<!-- " + text + " -->")
-    | Special tag    -> c.WriteSpecial(tag)
+    | Special ch     -> c.Write(ch)
     | Buffer text    -> c.Write(text)
-    | Partial(n,x,m) -> let body = match cache.TryGetValue n with
+    | Partial(k,x,m) -> let n = if k = "{name}" then c.GetStr "name" else k   
+                        let body = match cache.TryGetValue n with
                                    | true, (_, part) -> part 
                                    | _ -> c.ParseCached parse n
                         let c2 = { c with Parent = Some c

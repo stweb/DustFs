@@ -910,6 +910,16 @@ module T15_CoreGrammar =
                "{>partial /} {>\"hello_world\" /} {>\"{ref}\" /}"
       |> expect "Hello Jim! You have 42 new messages. Hello World! Hello World!"
 
+    // should test dash in partial's keys
+    [<Test>]
+    [<Ignore("requires Inline parsing and reolution")>]
+    let ``should test dash in partial's keys`` () =
+      json "{\"foo-title\":\"title\",\"bar-letter\":\"a\"}"
+      |> dust  "support dash in partial\'s key"
+               "{<title-a}foo-bar{/title-a}{+\"{foo-title}-{bar-letter}\"/}"
+      |> expect "foo-bar"
+
+
 [<Ignore("TODO")>]
 module T16_SyntaxError =
     // === SUITE ===syntax error tests

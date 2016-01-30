@@ -52,5 +52,5 @@ let save exp out=
     ()
 
 let expect a b =
-    if a<>b then save a b
+    save a b
     shouldEqual a b

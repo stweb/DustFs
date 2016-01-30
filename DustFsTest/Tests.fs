@@ -26,6 +26,12 @@ open FsUnit
 //        ctx  |> shouldBeSomeS "." // TODO remove colon...
 
 module R02_CoreTests =
+    [<Test>]
+    let ``news templaze`` () =
+      let tmpl = System.IO.File.ReadAllText @"c:\Dev\Open\DustFs\DustFsNews\tmpl\index.html"
+      empty
+      |> dust  "dot" tmpl
+      |> ignore
 
     [<Test>]
     let ``a dot test`` () =
@@ -47,6 +53,13 @@ module R02_CoreTests =
       |> dust  "dot"
                "{.C[0]}"
       |> expect ""      
+
+    [<Test>]
+    let ``text before and after tags`` () =
+      empty
+      |> dust  "dot"
+               "start\n{tag}end"
+      |> expect "startend"      
 
     // javascript-special characters in template names shouldn't break things
     [<Test>]
@@ -699,11 +712,17 @@ module R10_Partial =
 
     // === SUITE ===partial definitions
     // should test a basic replace in a template
+    // should test dash in partial's params
     [<Test>]
-    let ``should test a basic replace in a template`` () =
+    let ``should test a basic replace in a template and dash in partial's params`` () =
       json "{\"name\":\"Mick\",\"count\":30}"
-      |> dust  "partial"
+      |> dustReg "partial"
                "Hello {name}! You have {count} new messages."
+      |> expect "Hello Mick! You have 30 new messages."
+
+      json "{\"first-name\":\"Mick\",\"c\":30}"
+      |> dust  "support dash in partial\'s params"
+               "{>partial name=first-name count=\"{c}\"/}"
       |> expect "Hello Mick! You have 30 new messages."
 
     // should test a block with defaults
@@ -745,8 +764,6 @@ module R10_Partial =
       |> dust  "nested_nested_partial_print_name"
                "{>nested_partial_print_name/}"
       |> expect ""
-
-
 
 module R15_CoreGrammar =
     // === SUITE ===core-grammar tests
@@ -817,21 +834,7 @@ module R15_CoreGrammar =
       let exp = "<div data-fancy-json=\"{rawJsonKey: \'value\'}\"></div>"
       out |> expect exp
 
-    // should test dash in partial's keys
-    [<Test>]
-    let ``should test dash in partial's keys`` () =
-      json "{\"foo-title\":\"title\",\"bar-letter\":\"a\"}"
-      |> dust  "support dash in partial\'s key"
-               "{<title-a}foo-bar{/title-a}{+\"{foo-title}-{bar-letter}\"/}"
-      |> expect "foo-bar"
 
-    // should test dash in partial's params
-    [<Test>]
-    let ``should test dash in partial's params`` () =
-      json "{\"first-name\":\"Mick\",\"c\":30}"
-      |> dust  "support dash in partial\'s params"
-               "{>partial name=first-name count=\"{c}\"/}"
-      |> expect "Hello Mick! You have 30 new messages."
 
 module R17_Misc =
     // === SUITE ===buffer test
