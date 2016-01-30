@@ -7,8 +7,12 @@ open System.Collections.Concurrent
 open System.Globalization
 open System.Text.RegularExpressions
 
-let rexStr = new Regex("\{[^}]*\}")
-let rexStr2 = new Regex("\[(.*?)\]")
+let rexKey   = new Regex("^[a-zA-Z_\$][0-9a-zA-Z_\-\$]*", RegexOptions.Compiled)
+let rexFloat = new Regex("^(-)?[0-9]*(?:\.[0-9]*)?", RegexOptions.Compiled)
+let rexInt   = new Regex("^[0-9]+", RegexOptions.Compiled)
+
+let rexStr   = new Regex("\{[^}]*\}", RegexOptions.Compiled)
+let rexStr2  = new Regex("\[(.*?)\]", RegexOptions.Compiled)
     
 type Identifier =
     | Key of string
@@ -102,9 +106,9 @@ let elapsedMs (sw:System.Diagnostics.Stopwatch) =
 
 let inline toString chars = System.String(chars |> Array.ofList)
 
-let (|Rex|_|) pattern chars =
+let (|Rex|_|) (rex:Regex) chars =
     let input = chars |> toString
-    let m = Regex.Match(input, pattern) 
+    let m = rex.Match(input) 
     if m.Success then Some (m.Value |> List.ofSeq, input.Substring(m.Length) |> List.ofSeq) else None  
 
 let (|StartChar|_|) ch (input:string) = 
@@ -361,17 +365,17 @@ let (|Inline|_|) = function
 // key <- (({Ll} / {Lu} / [_$]) ({Nd} / {Ll} / {Lu} / [_$-])*)
 // IMPORTANT RegEx must start with '^' to match from the start
 let (|Key|_|) = function
-    | Rex "^[a-zA-Z_\$][0-9a-zA-Z_\-\$]*" x -> Some x
+    | Rex rexKey x -> Some x
     | _ -> None
 
 let (|Int|_|) = function
-    | Rex "^[0-9]+" (i,r) -> Some(Convert.ToInt32(toString i),r)
+    | Rex rexInt (i,r) -> Some(Convert.ToInt32(toString i),r)
     | _ -> None
 
 // number <- (float / integer)
 let (|Number|_|) = function
-    | Rex "^(-)?[0-9]*(?:\.[0-9]*)?" x -> Some x
-    | Rex "^[0-9]+" x -> Some x
+    | Rex rexFloat x -> Some x
+    | Rex rexInt   x -> Some x
     | _ -> None
 
 // array <- ( lb ( ({Nd}+) / identifier) rb ) array_part?
