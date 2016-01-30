@@ -70,6 +70,7 @@ and Part =
     | NamedBody of string
     | End of Identifier
     | Eol
+    | Null
 
 and BodyDict = Map<string, Body> 
 and Params   = Map<string, Value> 
@@ -270,7 +271,6 @@ type Context =
                                         None
 
       member c.TryFindSegment o = function
-        | Index(i) -> o.TryFindIndex i
         | Name(n)  -> match o.TryFindProp n with
                       | Some(o) ->  match o with
                                     | :? Value as v -> match v with 
@@ -279,6 +279,7 @@ type Context =
                                                        | _ -> failwith "unexpected"
                                     | _ -> Some(o)
                       | _ -> None
+        | Index(i) -> o.TryFindIndex i
 
     member c.Get (id:Identifier) : obj Option =      
         let cur, path = match id with
@@ -400,8 +401,10 @@ let (|ArrayOrPart|_|) chars =
 
 // path <- "." ArrayOrPart* / key? ArrayOrPart+ 
 let (|Path|_|) = function    
-    | '.' :: ArrayOrPart(a) ->  Some a
-    | ArrayOrPart(a) ->  Some a
+    | '.' :: ArrayOrPart(p,r) ->    match p with
+                                    | [Name(n)] -> Some([Name("." + n)], r)
+                                    | _         -> Some(p,r)
+    | ArrayOrPart(a)        ->  Some a
     | '.' :: r              ->  Some([Name(".")], r)
     | chars                 ->  let k,r = match chars with // optional key
                                           | Key(k,r) -> Some <| Name(toString(k)), r
@@ -413,7 +416,9 @@ let (|Path|_|) = function
                                 | _                -> None
 // identifier <- path / key
 let (|Ident|_|) = function
-     | Path(p,r) -> Some(Path(p),r)
+     | Path(p,r) -> match p with 
+                    | [Name(n)] when n.Length > 1 -> Some(Key(n), r) 
+                    | _         -> Some(Path(p),r)
      | Key(k,r)  -> Some(Key(toString(k)),r)
      | _ -> None
 
@@ -526,6 +531,7 @@ let rec (|Part|_|) = function
                             | _ -> 
                                 let rec loop acc ch =  
                                     match ch with
+                                    | []         -> ([], Null, [])
                                     | Part(p,r2) -> match p with
                                                     | End(i)       -> (acc, End(i), r2)
                                                     | NamedBody(k) -> (acc, NamedBody(k), r2)
@@ -533,17 +539,19 @@ let rec (|Part|_|) = function
                                     | _          -> failwith "unexpected"
 
                                 let bodyacc, endp, r = loop [] r
-
+                                let body = bodyacc |> List.rev |> compress
+                                
                                 let rec loop2 acc ch p =  
                                     match p with
                                     | End(i) -> if i <> id then failwithf "unexpected end %A ... %A" id i else (acc, ch)
                                     | NamedBody(n)  ->  let b1, end2, r = loop [] r
                                                         let body = b1 |> List.rev |> compress
                                                         loop2 ((n, body) :: acc) r end2
+                                    | Null          ->  ([], [])
                                     | _             ->  failwith "really?" //(acc,ch)
                                 
                                 let bodies,r = (loop2 [] r endp)        
-                                let body = bodyacc |> List.rev |> compress
+                                
                                 match st with
                                 | SectionType.Helper -> let name = id.ToString()
                                                         let logic = match name with
@@ -576,6 +584,7 @@ let rec (|Part|_|) = function
 
                     | _ -> None
     // THE ORDERING OF THE FOLLOWING RULES IS IMPORTANT
+    | '\r' :: '\n' :: chars 
     | '\n' :: chars -> Some <| (Eol, chars)
     | BeforeOneOf (t,chars) ->  Some <| (Buffer(toString t), chars)
     | _ -> None
@@ -584,9 +593,9 @@ let parse text =
     let chars = text |> List.ofSeq
     let rec loop acc ch =  
         match ch with
+        | []           -> List.rev acc
         | Part(p,rest) -> loop (p :: acc) rest
-        | [] -> List.rev acc
-        | x -> List.rev (Buffer(toString x) :: acc)
+        | x            -> List.rev (Buffer(toString x) :: acc)
 
     let body = loop [] chars
     compress <| body

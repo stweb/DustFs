@@ -98,37 +98,31 @@ module NewsHelpers =
         | _ -> failwith "bad type"
 
 
-    let versionHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) =
+    let testHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) =
         c.Write("This is a test")
 
 filters.["niceDate"] <- NewsHelpers.niceDate
-helpers.["version"] <- NewsHelpers.versionHelper
+helpers.["test"] <- NewsHelpers.testHelper
 
 // ----------------------------------------------------------------------------
 // Building asynchronous Suave server
 // ----------------------------------------------------------------------------
-let index getFeed : WebPart = fun ctx -> async {
-      
-    Log.info ctx.runtime.logger "News.index" TraceHeader.empty 
-        (sprintf "Getting News %s" ctx.request.url.AbsolutePath)
-
+let index getFeed : WebPart = fun ctx -> async {    
+    Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Getting News %s" ctx.request.url.AbsolutePath)
     // perform in parallel
-    let! _news = Async.StartChild getFeed
-    //let! _weather = Async.StartChild getWeather
-    let! _tmpl = Async.StartChild (parseToCache "index.html")
+    let! aNews = Async.StartChild getFeed
+    let! aTmpl = Async.StartChild (parseToCache "index.html")
 
     // await results
-    let! news = _news
+    let! news = aNews
     #if weather
     let! weather = _weather
     #else
     let weather = []
     #endif
 
-    Log.info ctx.runtime.logger "News.index" TraceHeader.empty 
-        (sprintf "Got News %d" (List.length news))
-
-    let! html = page _tmpl { News = news; Weather = weather } ctx
+    Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Got News %d" (List.length news))
+    let! html = page aTmpl { News = news; Weather = weather } ctx
     return html
 }
 
@@ -146,9 +140,8 @@ let timed (part : WebPart) : WebPart = fun ctx -> async {
     return e
 }
 
-
 // TODO directory is not correct when calling from interactive
-templateDir <- __SOURCE_DIRECTORY__ + """/tmpl/"""
+templateDir <- Path.Combine(__SOURCE_DIRECTORY__ , "tmpl")
 printfn "templates %s" templateDir
 
 open Suave.Operators

@@ -15,10 +15,7 @@ let mutable templateDir = ""
 // parse template from global directory and cache
 let parseToCache name = async {
     let ctx = { Context.defaults with TmplDir = templateDir }
-    try
-      return ctx.ParseCached parse name
-    with
-      e -> return [] // TODO error handling
+    return ctx.ParseCached parse name
 }
 
 // render Dust page asynchronously for Suave
@@ -31,8 +28,12 @@ let page<'T> atmpl (model : 'T) ctx = async {
     let dustctx = { Context.defaults with 
                         TmplDir = templateDir; 
                         W = new StringWriter(sb); 
-                        Current = Some(box model); 
-                        Logger = slog }
+                        Logger = slog 
+                        // pass the Suave request to Dust - box'ed objects to ensure IDictionary<string,obj> compatibility
+                        Global = ([("request", box ctx.request);
+                                   ("host", box System.Environment.MachineName)] |> Map.ofList) 
+                        Current = Some(box model);
+                        }
     
     let! doc = atmpl // get parsed template async and render
     doc |> List.iter(fun p -> render dustctx p)

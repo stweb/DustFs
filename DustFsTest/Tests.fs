@@ -27,11 +27,10 @@ open FsUnit
 
 module R02_CoreTests =
     [<Test>]
-    let ``news templaze`` () =
+    let ``news template`` () =
       let tmpl = System.IO.File.ReadAllText @"c:\Dev\Open\DustFs\DustFsNews\tmpl\index.html"
-      empty
-      |> dust  "dot" tmpl
-      |> ignore
+      let s = empty|> dust  "news" tmpl
+      printfn "%s" s
 
     [<Test>]
     let ``a dot test`` () =
