@@ -7,7 +7,7 @@ open NUnit.Framework.Constraints
 open FsUnit
 open System.IO
 
-#if TODO
+#if !TODO
 
 module T02_CoreTests =
     // should render the template name
@@ -28,32 +28,13 @@ module T02_CoreTests =
                "{#helper foo=\"bar\" boo=\"boo\" template=\"tl/apps/test\"} {/helper}"
       |> expect "apps/test/foo.tl&v=0.1"
 
-    // should test renaming a key
-    [<Test>]
-    [<Ignore "implement renaming">]
-    let ``should test renaming a key`` () =
-      json "{\"root\":\"Subject\",\"person\":{\"name\":\"Larry\",\"age\":45}}"
-      |> dust  "inline param from outer scope"
-               "{#person foo=root}{foo}: {name}, {age}{/person}"
-      |> expect "Subject: Larry, 45"
-
     // should test escape_pragma
     [<Test>]
-    [<Ignore "implement{%esc}">]
-    let ``should test escape_pragma`` () =
+    let ``should test escape pragma`` () =
       json "{\"unsafe\":\"<script>alert(\'Goodbye!\')</script>\"}"
       |> dust  "escape pragma"
                "{%esc:s}\n  {unsafe}{~n}\n  {%esc:h}\n    {unsafe}\n  {/esc}\n{/esc}"
       |> expect "<script>alert(\'Goodbye!\')</script>\n&lt;script&gt;alert(&#39;Goodbye!&#39;)&lt;/script&gt;"
-
-    // . creating a block
-    [<Test>]
-    [<Ignore("TODO implement ad-hoc blocks")>]
-    let ``dot creating a block`` () =
-      json "{\"name\":\"me\"}"
-      |> dust  "use . for creating a block and set params"
-               "{#. test=\"you\"}{name} {test}{/.}"
-      |> expect "me you"
 
     // should functions in context
     [<Test>]
@@ -94,7 +75,7 @@ module T02_CoreTests =
     // context.resolve() taps parameters from the context
     [<Test>]
     [<Ignore "Requires JS Context">]
-    let ``context_resolve() taps parameters from the context`` () =
+    let ``context resolve() taps parameters from the context`` () =
       json "{\"baz\":\"baz\",\"ref\":\"ref\"}"
       |> dust  "context.resolve"
                "{#foo bar=\"{baz} is baz \" literal=\"literal \" func=func chunkFunc=\"{chunkFunc}\" indirectChunkFunc=indirectChunkFunc ref=ref }Fail{/foo}"
@@ -170,230 +151,6 @@ module T06_ArrayIndexAccess =
                "{#loop.array[key.foo].sub}{.}{/loop.array[key.foo].sub}"
       |> expect "1"
 
-
-
-[<Ignore "Implement thenable/promises">]
-module T07_ObjectTestsWithThenable =
-
-    // should reserve an async chunk for a thenable reference
-    [<Test>]
-    let ``should reserve an async chunk for a thenable reference`` () =
-      json "{\"magic\":{}}"
-      |> dust  "thenable reference"
-               "Eventually {magic}!"
-      |> expect "Eventually magic!"
-
-    // undefined
-    [<Test>]
-    let ``undefined`` () =
-      json "{\"rice-krispies\":{}}"
-      |> dust  "thenable escape reference"
-               "{rice-krispies} {rice-krispies|s}"
-      |> expect "Snap, Crackle &amp; Pop Snap, Crackle & Pop"
-
-    // should deep-inspect a thenable reference
-    [<Test>]
-    let ``should deep-inspect a thenable reference`` () =
-      json "{\"magic\":{}}"
-      |> dust  "thenable deep reference"
-               "Eventually {magic.ally.delicious}!"
-      |> expect "Eventually Lucky Charms!"
-
-    // should deep-inspect a thenable reference but move on if it isn't there
-    [<Test>]
-    let ``should deep-inspect a thenable reference but move on if it isn't there`` () =
-      json "{\"magic\":{}}"
-      |> dust  "thenable deep reference that doesn\'t exist"
-               "Eventually {magic.ally.disappeared}!"
-      |> expect "Eventually !"
-
-    // should deep-inspect a thenable reference recursively
-    [<Test>]
-    let ``should deep-inspect a thenable reference recursively`` () =
-      json "{\"magic\":{}}"
-      |> dust  "thenable deep reference... this is just getting silly"
-               "Eventually {magic.ally.delicious}!"
-      |> expect "Eventually Lucky Charms!"
-
-    // should inspect a thenable reference but move on if it fails
-    [<Test>]
-    let ``should inspect a thenable reference but move on if it fails`` () =
-      json "{\"magic\":{}}"
-      |> dust  "thenable reference that fails"
-               "Eventually {magic.ally.delicious}!"
-      |> expect "Eventually !"
-
-    // should deep-inspect a thenable reference but move on if it fails
-    [<Test>]
-    let ``should deep-inspect a thenable reference but move on if it fails`` () =
-      json "{\"magic\":{}}"
-      |> dust  "thenable deep reference that fails"
-               "Eventually {magic.ally.delicious}!"
-      |> expect "Eventually !"
-
-    // should reserve an async section for a thenable
-    [<Test>]
-    let ``should reserve an async section for a thenable`` () =
-      json "{\"promise\":{}}"
-      |> dust  "thenable section"
-               "{#promise}Eventually {magic}!{/promise}"
-      |> expect "Eventually magic!"
-
-    // should iterate over an array resolved from a thenable
-    [<Test>]
-    let ``should iterate over an array resolved from a thenable`` () =
-      json "{\"promise\":{}}"
-      |> dust  "thenable resolves with array into reference"
-               "{promise}"
-      |> expect "foo,bar,baz"
-
-    // should iterate over an array resolved from a thenable
-    [<Test>]
-    let ``should iterate over an array resolved from a thenable 2`` () =
-      json "{\"promise\":{}}"
-      |> dust  "thenable resolves with array into section"
-               "{#promise}{name}{/promise}"
-      |> expect "foobarbaz"
-
-    // Should not render a thenable section with no body
-    [<Test>]
-    let ``Should not render a thenable section with no body`` () =
-      json "{\"promise\":{}}"
-      |> dust  "thenable empty section"
-               "{#promise/}"
-      |> expect ""
-
-    // should reserve an async section for a thenable returned from a function
-    [<Test>]
-    let ``should reserve an async section for a thenable returned from a function`` () =
-      json "{}"
-      |> dust  "thenable section from function"
-               "{#promise}Eventually {magic}!{/promise}"
-      |> expect "Eventually magic!"
-
-    // should reserve an async section for a deep-reference thenable
-    [<Test>]
-    let ``should reserve an async section for a deep-reference thenable`` () =
-      json "{\"magic\":{}}"
-      |> dust  "thenable deep section"
-               "Eventually my {#magic.ally}{delicious}{/magic.ally} will come"
-      |> expect "Eventually my Lucky Charms will come"
-
-    // should reserve an async section for a deep-reference thenable and not blow the stack
-    [<Test>]
-    let ``should reserve an async section for a deep-reference thenable and not blow the stack`` () =
-      json "{\"prince\":\"Prince\",\"magic\":{}}"
-      |> dust  "thenable deep section, traverse outside"
-               "Eventually my {#magic.ally}{prince} {delicious} {charms}{/magic.ally} will come"
-      |> expect "Eventually my Prince Lucky Charms will come"
-
-    // Dust helpers that return thenables are resolved in context
-    [<Test>]
-    let ``Dust helpers that return thenables are resolved in context`` () =
-      empty
-      |> dust  "thenable resolved by global helper"
-               "{@promise resolve=\"helper\"}I am a big {.}!{/promise}"
-      |> expect "I am a big helper!"
-
-    // Dust helpers that return thenables are rejected in context
-    [<Test>]
-    let ``Dust helpers that return thenables are rejected in context`` () =
-      empty
-      |> dust  "thenable rejected by global helper"
-               "{@promise reject=\"error\"}I am a big helper!{:error}I am a big {.}!{/promise}"
-      |> expect "I am a big error!"
-
-    // rejected thenable reference logs
-    [<Test>]
-    let ``rejected thenable reference logs`` () =
-      json "{\"promise\":{}}"
-      |> dust  "thenable error"
-               "{promise}"
-      |> expect "undefined"
-
-    // rejected thenable renders error block
-    [<Test>]
-    let ``rejected thenable renders error block`` () =
-      json "{\"promise\":{}}"
-      |> dust  "thenable error with error block"
-               "{#promise}No magic{:error}{message}{/promise}"
-      |> expect "promise error"
-
-[<Ignore "Implement streams">]
-module T07_ObjectTestsWithStreams =
-
-    // should reserve an async chunk for a stream reference
-    [<Test>]
-    let ``should reserve an async chunk for a stream reference`` () =
-      json "{}"
-      |> dust  "stream"
-               "Stream of {stream}..."
-      |> expect "Stream of consciousness..."
-
-    // should respect filters set on stream references
-    [<Test>]
-    let ``should respect filters set on stream references`` () =
-      json "{}"
-      |> dust  "stream escaping"
-               "{polluted|s} {polluted}"
-      |> expect "<&> &lt;&amp;&gt;"
-
-    // should abort the stream if it raises an error
-    [<Test>]
-    let ``should abort the stream if it raises an error`` () =
-      json "{}"
-      |> dust  "stream error"
-               "{stream}..."
-      |> expect "Everything is..."
-
-    // should reserve an async section for a stream
-    [<Test>]
-    let ``should reserve an async section for a stream`` () =
-      json "{}"
-      |> dust  "stream section"
-               "Pour {#molecule}{atom}{num}{/molecule} in the glass"
-      |> expect "Pour H2O in the glass"
-
-    // should reserve an async chunk for a stream reference and abort if the stream errors
-    [<Test>]
-    let ``should reserve an async chunk for a stream reference and abort if the stream errors`` () =
-      json "{}"
-      |> dust  "stream section error"
-               "Pour {#molecule}{atom}{num}{:error}{message}{/molecule} in the glass"
-      |> expect "Pour H2O... no! in the glass"
-
-    // should render streams found while iterating over an array
-    [<Test>]
-    let ``should render streams found while iterating over an array`` () =
-      json "{\"streams\":[null,null,null]}"
-      |> dust  "array of streams"
-               "{#streams}{.} {/streams}"
-      |> expect "Danube Rhine Seine "
-
-    // should seamlessly mix asynchronous data sources
-    [<Test>]
-    let ``should seamlessly mix asynchronous data sources`` () =
-      json "{\"water\":{}}"
-      |> dust  "promise a stream and stream a promise"
-               "Little Bobby drank and drank, and then he drank some more. But what he thought was {water} was {sulfuric_acid}!"
-      |> expect "Little Bobby drank and drank, and then he drank some more. But what he thought was H2O was H2SO4!"
-
-    // should not treat MongoDB documents as streams
-    [<Test>]
-    let ``should not treat MongoDB documents as streams`` () =
-      json "{\"mongo\":{\"name\":\"Mongo\"}}"
-      |> dust  "MongoDB-like Document is not a stream"
-               "{#mongo}{name}{/mongo}"
-      |> expect "Mongo"
-
-    // stream section with no body should not render
-    [<Test>]
-    let ``stream section with no body should not render`` () =
-      json "{}"
-      |> dust  "Stream section with no body should not render"
-               "{#stream/}"
-      |> expect ""
-
 module T07_NestedPaths =
     // === SUITE ===nested path tests
     // should test the leading dot behavior in local mode
@@ -424,7 +181,7 @@ module T07_NestedPaths =
     // Should find glob.globChild which is in context.global
     [<Test>]
     [<Ignore "TODO Implement global">]
-    let ``Should find glob_globChild which is in context_global`` () =
+    let ``Should find glob globChild which is in context global`` () =
       empty
       // base: { glob: { globChild: "testGlobal"} },        
       |> dust  "check nested ref in global works in global mode"
@@ -434,12 +191,11 @@ module T07_NestedPaths =
     // Should find glob.globChild which is in context.global
     [<Test>]
     [<Ignore "TODO Implement global">]
-    let ``Should find glob_globChild which is in context_global 2`` () =
+    let ``Should find glob globChild which is in context global 2`` () =
       json "{\"data\":{\"A\":{\"name\":\"Al\",\"B\":\"Ben\",\"C\":{\"namex\":\"Charlie\"}},\"C\":{\"namey\":\"Charlie Sr.\"}}}"
       |> dust  "check nested ref not found in global if partial match"
                "{#data}{#A}{C.name}{/A}{/data}"
       |> expect ""
-
 
     // should test resolve correct 'this' when invoking method
     [<Ignore "Requires JavaScript">]
@@ -452,91 +208,22 @@ module T07_NestedPaths =
                "Hello {person.fullName}"
       |> expect "Hello Peter Jones"
 
-    // Should resolve path correctly
-    [<Test>]
-    [<Ignore "implement array index references">]
-    let ``Should resolve index path correctly`` () =
-      json "{\"nulls\":[1,null,null,2],\"names\":[{\"name\":\"Moe\"},{\"name\":\"Curly\"}]}"
-      |> dust  "check null values in section iteration do not break path resolution"
-               "{#nulls}{names[0].name}{/nulls}"
-      |> expect "MoeMoeMoeMoe"
-
-[<Ignore "TODO implement j filters">]
-module T09_Filter =
-
-    // === SUITE ===filter tests
-    // should test the filter tag
-    [<Test>]
-    [<Ignore "requires JavaScript">]
-    let ``should test the filter tag`` () =
-      json "{\"bar\":\"bar\"}"
-//              context:  {
-//                    filter: function(chunk, context, bodies) {
-//                      return chunk.tap(function(data) {
-//                        return data.toUpperCase();
-//                      }).render(bodies.block, context).untap();
-//                    },
-//
-//                    bar: "bar"
-//                  },
-      |> dust  "filter"
-               "{#filter}foo {bar}{/filter}"
-      |> expect "FOO BAR"
-
-    // should escapeJs a string when using the j filter
-    [<Test>]
-    let ``should escapeJs a string when using the j filter`` () =
-      json "{\"obj\":\"<script>\\\\testBS\\\\ \\rtestCR\\r \u2028testLS\u2028 \u2029testPS\u2029 \\ntestNL\\n \\ftestLF\\f \'testSQ\' \\ttestTB\\t /testFS/</script>\"}"
-      |> dust  "escapeJs filter without DQ"
-               "{obj|j|s}"
-      |> expect "<script>\\\\testBS\\\\ \\rtestCR\\r \\u2028testLS\\u2028 \\u2029testPS\\u2029 \\ntestNL\\n \\ftestLF\\f \\\'testSQ\\\' \\ttestTB\\t \\/testFS\\/<\\/script>"
-
-    // should escapeJs a string with double quotes when using the j filter
-    [<Test>]
-    let ``should escapeJs a string with double quotes when using the j filter`` () =
-      json "{\"obj\":\"\\\"testDQ\\\"\"}"
-      |> dust  "escapeJs filter with only DQ"
-               "{obj|j|s}"
-      |> expect "\\\"testDQ\\\""
-
-    // should stringify a JSON literal when using the js filter
-    [<Test>]
-    let ``should stringify a JSON literal when using the js filter`` () =
-      json "{\"obj\":{\"id\":1,\"name\":\"bob\",\"occupation\":\"construction\"}}"
-      |> dust  "escapeJSON filter"
-               "{obj|js|s}"
-      |> expect "{\"id\":1,\"name\":\"bob\",\"occupation\":\"construction\"}"
-
-    // should escape bad characters when using the js filter
-    [<Test>]
-    let ``should escape bad characters when using the js filter`` () =
-      json "{\"obj\":{\"name\":\"<<\u2028testLS \u2029testPS\"}}"
-      |> dust  "escapeJSON filter with bad characters"
-               "{obj|js|s}"
-      |> expect "{\"name\":\"\\u003c\\u003c\\u2028testLS \\u2029testPS\"}"
-
-    // should objectify a JSON string when using the jp filter
-    [<Test>]
-    let ``should objectify a JSON string when using the jp filter`` () =
-      json "{\"obj\":\"{\\\"id\\\":1,\\\"name\\\":\\\"bob\\\",\\\"occupation\\\":\\\"construction\\\"}\"}"
-      |> dust  "JSON.parse filter"
-               "{obj|jp}"
-      |> expect "[object Object]"
-
-    // filters are passed the current context
-    [<Test>]
-    let ``filters are passed the current context`` () =
-      json "{\"woo\":0,\"name\":\"Boo\",\"dust\":{\"woo\":5,\"name\":\"Dust\"}}"
-      |> dust  "filter receives context"
-               "{#dust}{name|woo}{/dust}"
-      |> expect "DUST!!!!!"
-
 module T11_PartialParams =
 
-    // === SUITE ===partial/params tests
-    // should test partials
     [<Test>]
-    let ``should test partials`` () =
+    let ``00 a partial is registered`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dustReg "partial"
+               "Hello {name}! You have {count} new messages."
+      |> expect "Hello Mick! You have 30 new messages."
+
+      empty
+      |> dustReg  "hello_world"
+               "Hello World!"
+      |> expect "Hello World!"
+
+    [<Test>]
+    let ``01 should test partials`` () =
       json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
       |> dust  "partials"
                "{>partial foo=0 /} {>\"hello_world\" foo=1 /} {>\"{ref}\" foo=2 /}"
@@ -544,8 +231,10 @@ module T11_PartialParams =
 
     // should test partial with an asynchronously-resolved template name
     [<Test>]
-    let ``should test partial with an asynchronously-resolved template name`` () =
+    [<Ignore("needs async helper")>]
+    let ``01 should test partial with an asynchronously-resolved template name`` () =
       json "{}"
+      // needs method
       |> dust  "partial with async ref as name"
                "{>\"{ref}\" /}"
       |> expect "Hello World!"
@@ -813,50 +502,6 @@ module T13_InlinePartialBlock =
                "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{obj.name[0]}\"/}"
       |> expect "AAA"
 
-[<Ignore("TODO requires JavaScript in context")>]
-module T14_Lambda =
-
-    // === SUITE ===lambda tests
-    // should test that a non-chunk return value is used for truthiness
-    [<Test>]
-    let ``should test that a non-chunk return value is used for truthiness`` () =
-      json "{\"foo\":{\"foobar\":\"Foo Bar\"}}"
-      |> dust  "test that the scope of the function is correct and that a non-chunk return value is used for truthiness checks"
-               "Hello {#foo}{#bar}{.}{/bar}{/foo} World!"
-      |> expect "Hello Foo Bar World!"
-
-    // should functions that return false are falsy
-    [<Test>]
-    let ``should functions that return false are falsy`` () =
-      json "{}"
-      |> dust  "test that function that do not return chunk and return falsy are treated as falsy"
-               "{#bar}{.}{:else}false{/bar}"
-      |> expect "false"
-
-    // should functions that return 0 are truthy
-    [<Test>]
-    let ``should functions that return 0 are truthy`` () =
-      json "{}"
-      |> dust  "test that function that do not return chunk and return 0 are treated as truthy (in the Dust sense)"
-               "{#bar}{.}{:else}false{/bar}"
-      |> expect "0"
-
-    // should test scope of context function
-    [<Test>]
-    let ``should test scope of context function`` () =
-      json "{\"foo\":{\"foobar\":\"Foo Bar\"}}"
-      |> dust  "test that the scope of the function is correct"
-               "Hello {#foo}{bar}{/foo} World!"
-      |> expect "Hello Foo Bar World!"
-
-    // should test that function returning object is resolved
-    [<Test>]
-    let ``should test that function returning object is resolved`` () =
-      json "{\"foo\":{\"foobar\":\"Foo Bar\"}}"
-      |> dust  "test that function returning object is resolved"
-               "Hello {#foo}{bar}{/foo} World!"
-      |> expect "Hello Foo Bar World!"
-
 module T15_CoreGrammar =
     // === SUITE ===core-grammar tests
     // should ignore extra whitespaces between opening brace plus any of (#,?,@,^,+,%) and the tag identifier
@@ -946,117 +591,7 @@ module T15_CoreGrammar =
                "{<title-a}foo-bar{/title-a}{+\"{foo-title}-{bar-letter}\"/}"
       |> expect "foo-bar"
 
-
-[<Ignore("TODO")>]
-module T16_SyntaxError =
-    // === SUITE ===syntax error tests
-    // should test that the error message shows line and column.
-    [<Test>]
-    let ``should test that the error message shows line and column`` () =
-      json "{\"name\":\"Mick\",\"count\":30}"
-      |> dust  "Dust syntax error"
-               "RRR {##}"
-      |> expect "undefined"
-
-    // should test the errors message for section with error.
-    [<Test>]
-    let ``should test the errors message for section with error`` () =
-      empty
-      |> dust  "Dust syntax error. Error in Section"
-               "{#s}\n{#&2}\n{/s}"
-      |> expect "undefined"
-
-    // should test the errors message for section with a buffer and error inside.
-    [<Test>]
-    let ``should test the errors message for section with a buffer and error inside`` () =
-      empty
-      |> dust  "Dust syntax error. Error in Section with buffer"
-               "{#s}\nthis is the\nbuffer\n{#&2}\na second\nbuffer\n{/s}"
-      |> expect "undefined"
-
-    // should test the errors message for section without end tag shows.
-    [<Test>]
-    let ``should test the errors message for section without end tag shows`` () =
-      empty
-      |> dust  "Dust syntax error. Error in Section without end tag"
-               "{#s}\nthis is the\nbuffer\na second\nbuffer"
-      |> expect "undefined"
-
-    // should test the errors message for partials with a buffer inside.
-    [<Test>]
-    let ``should test the errors message for partials with a buffer inside`` () =
-      empty
-      |> dust  "Dust syntax error. Error in Partial with buffer"
-               "{+header}\nthis is a Partial\nwith Error\neeee{@#@$fdf}\ndefault header \n{/header}"
-      |> expect "undefined"
-
-    // should test the errors message for partial without end tag.
-    [<Test>]
-    let ``should test the errors message for partial without end tag`` () =
-      empty
-      |> dust  "Dust syntax error. Error in Partial without end tag"
-               "{+header}\nthis is the\nbuffer\na second\nbuffer"
-      |> expect "undefined"
-
-    // should test the errors message for Scalar.
-    [<Test>]
-    let ``should test the errors message for Scalar`` () =
-      empty
-      |> dust  "Dust syntax error. Error in Scalar"
-               "{#scalar}\ntrue\n {#@#fger}\n{:else}\nfalse\n{/scalar}"
-      |> expect "undefined"
-
-    // should test the errors message for Scalar.
-    [<Test>]
-    let ``should test the errors message for Scalar 2`` () =
-      empty
-      |> dust  "Dust syntax error. Error in Scalar\'s else"
-               "{#scalar}\ntrue\n{:else}\nfalse\n {#@#fger}\n{/scalar}"
-      |> expect "undefined"
-
-    // should test the errors message for Conditionals.
-    [<Test>]
-    let ``should test the errors message for Conditionals`` () =
-      empty
-      |> dust  "Dust syntax error. Error in Conditional"
-               "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{#@$}</li>{~n}\n{/tags}\n</ul>\n{:else}\nNo Tags!\n{/tags}"
-      |> expect "undefined"
-
-    // should test the errors message for Conditional's else.
-    [<Test>]
-    let ``should test the errors message for Conditionals else`` () =
-      empty
-      |> dust  "Dust syntax error. Error in Conditional\'s else"
-               "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{.}</li>{~n}\n{/tags}\n</ul>\n{:else}\n{#@$}\nNo Tags!\n{/tags}"
-      |> expect "undefined"
-
-    // should test the errors message for Conditional without end tag.
-    [<Test>]
-    let ``should test the errors message for Conditional without end tag`` () =
-      empty
-      |> dust  "Dust syntax error. Error in Conditional without end tag"
-               "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{.}</li>{~n}\n{/tags}\n</ul>\n{:else}\nNo Tags!"
-      |> expect "undefined"
-
-    // should test helper syntax errors being handled gracefully
-    [<Test>]
-    let ``should test helper syntax errors being handled gracefully`` () =
-      json "{}"
-      |> dust  "Helper syntax error. TypeError"
-               "{#hello/}"
-      |> expect "undefined"
-
-    // should test helper syntax errors inside an async block being handled gracefully
-    [<Test>]
-    let ``should test helper syntax errors inside an async block being handled gracefully`` () =
-      json "{}"
-      |> dust  "Helper syntax error. async TypeError"
-               "{#hello/}"
-      |> expect "undefined"
-
-
-
-module R18_WhitespaceOn =
+module T18_WhitespaceOn =
     // === SUITE ===whitespace test
     // whitespace on: whitespace-only template is preserved
     [<Test>]
@@ -1180,8 +715,453 @@ module T20_Helper =
                "{#returnLegacy value=\"You & I\" /}"
       |> expect "You &amp; I"
 
+#endif
+#if TODO
+
+[<Ignore "Implement thenable/promises">]
+module Z07_ObjectTestsWithThenable =
+
+    // should reserve an async chunk for a thenable reference
+    [<Test>]
+    let ``should reserve an async chunk for a thenable reference`` () =
+      json "{\"magic\":{}}"
+      |> dust  "thenable reference"
+               "Eventually {magic}!"
+      |> expect "Eventually magic!"
+
+    // undefined
+    [<Test>]
+    let ``undefined`` () =
+      json "{\"rice-krispies\":{}}"
+      |> dust  "thenable escape reference"
+               "{rice-krispies} {rice-krispies|s}"
+      |> expect "Snap, Crackle &amp; Pop Snap, Crackle & Pop"
+
+    // should deep-inspect a thenable reference
+    [<Test>]
+    let ``should deep-inspect a thenable reference`` () =
+      json "{\"magic\":{}}"
+      |> dust  "thenable deep reference"
+               "Eventually {magic.ally.delicious}!"
+      |> expect "Eventually Lucky Charms!"
+
+    // should deep-inspect a thenable reference but move on if it isn't there
+    [<Test>]
+    let ``should deep-inspect a thenable reference but move on if it isn't there`` () =
+      json "{\"magic\":{}}"
+      |> dust  "thenable deep reference that doesn\'t exist"
+               "Eventually {magic.ally.disappeared}!"
+      |> expect "Eventually !"
+
+    // should deep-inspect a thenable reference recursively
+    [<Test>]
+    let ``should deep-inspect a thenable reference recursively`` () =
+      json "{\"magic\":{}}"
+      |> dust  "thenable deep reference... this is just getting silly"
+               "Eventually {magic.ally.delicious}!"
+      |> expect "Eventually Lucky Charms!"
+
+    // should inspect a thenable reference but move on if it fails
+    [<Test>]
+    let ``should inspect a thenable reference but move on if it fails`` () =
+      json "{\"magic\":{}}"
+      |> dust  "thenable reference that fails"
+               "Eventually {magic.ally.delicious}!"
+      |> expect "Eventually !"
+
+    // should deep-inspect a thenable reference but move on if it fails
+    [<Test>]
+    let ``should deep-inspect a thenable reference but move on if it fails`` () =
+      json "{\"magic\":{}}"
+      |> dust  "thenable deep reference that fails"
+               "Eventually {magic.ally.delicious}!"
+      |> expect "Eventually !"
+
+    // should reserve an async section for a thenable
+    [<Test>]
+    let ``should reserve an async section for a thenable`` () =
+      json "{\"promise\":{}}"
+      |> dust  "thenable section"
+               "{#promise}Eventually {magic}!{/promise}"
+      |> expect "Eventually magic!"
+
+    // should iterate over an array resolved from a thenable
+    [<Test>]
+    let ``should iterate over an array resolved from a thenable`` () =
+      json "{\"promise\":{}}"
+      |> dust  "thenable resolves with array into reference"
+               "{promise}"
+      |> expect "foo,bar,baz"
+
+    // should iterate over an array resolved from a thenable
+    [<Test>]
+    let ``should iterate over an array resolved from a thenable 2`` () =
+      json "{\"promise\":{}}"
+      |> dust  "thenable resolves with array into section"
+               "{#promise}{name}{/promise}"
+      |> expect "foobarbaz"
+
+    // Should not render a thenable section with no body
+    [<Test>]
+    let ``Should not render a thenable section with no body`` () =
+      json "{\"promise\":{}}"
+      |> dust  "thenable empty section"
+               "{#promise/}"
+      |> expect ""
+
+    // should reserve an async section for a thenable returned from a function
+    [<Test>]
+    let ``should reserve an async section for a thenable returned from a function`` () =
+      json "{}"
+      |> dust  "thenable section from function"
+               "{#promise}Eventually {magic}!{/promise}"
+      |> expect "Eventually magic!"
+
+    // should reserve an async section for a deep-reference thenable
+    [<Test>]
+    let ``should reserve an async section for a deep-reference thenable`` () =
+      json "{\"magic\":{}}"
+      |> dust  "thenable deep section"
+               "Eventually my {#magic.ally}{delicious}{/magic.ally} will come"
+      |> expect "Eventually my Lucky Charms will come"
+
+    // should reserve an async section for a deep-reference thenable and not blow the stack
+    [<Test>]
+    let ``should reserve an async section for a deep-reference thenable and not blow the stack`` () =
+      json "{\"prince\":\"Prince\",\"magic\":{}}"
+      |> dust  "thenable deep section, traverse outside"
+               "Eventually my {#magic.ally}{prince} {delicious} {charms}{/magic.ally} will come"
+      |> expect "Eventually my Prince Lucky Charms will come"
+
+    // Dust helpers that return thenables are resolved in context
+    [<Test>]
+    let ``Dust helpers that return thenables are resolved in context`` () =
+      empty
+      |> dust  "thenable resolved by global helper"
+               "{@promise resolve=\"helper\"}I am a big {.}!{/promise}"
+      |> expect "I am a big helper!"
+
+    // Dust helpers that return thenables are rejected in context
+    [<Test>]
+    let ``Dust helpers that return thenables are rejected in context`` () =
+      empty
+      |> dust  "thenable rejected by global helper"
+               "{@promise reject=\"error\"}I am a big helper!{:error}I am a big {.}!{/promise}"
+      |> expect "I am a big error!"
+
+    // rejected thenable reference logs
+    [<Test>]
+    let ``rejected thenable reference logs`` () =
+      json "{\"promise\":{}}"
+      |> dust  "thenable error"
+               "{promise}"
+      |> expect "undefined"
+
+    // rejected thenable renders error block
+    [<Test>]
+    let ``rejected thenable renders error block`` () =
+      json "{\"promise\":{}}"
+      |> dust  "thenable error with error block"
+               "{#promise}No magic{:error}{message}{/promise}"
+      |> expect "promise error"
+
+[<Ignore "Implement streams">]
+module Z07_ObjectTestsWithStreams =
+
+    // should reserve an async chunk for a stream reference
+    [<Test>]
+    let ``should reserve an async chunk for a stream reference`` () =
+      json "{}"
+      |> dust  "stream"
+               "Stream of {stream}..."
+      |> expect "Stream of consciousness..."
+
+    // should respect filters set on stream references
+    [<Test>]
+    let ``should respect filters set on stream references`` () =
+      json "{}"
+      |> dust  "stream escaping"
+               "{polluted|s} {polluted}"
+      |> expect "<&> &lt;&amp;&gt;"
+
+    // should abort the stream if it raises an error
+    [<Test>]
+    let ``should abort the stream if it raises an error`` () =
+      json "{}"
+      |> dust  "stream error"
+               "{stream}..."
+      |> expect "Everything is..."
+
+    // should reserve an async section for a stream
+    [<Test>]
+    let ``should reserve an async section for a stream`` () =
+      json "{}"
+      |> dust  "stream section"
+               "Pour {#molecule}{atom}{num}{/molecule} in the glass"
+      |> expect "Pour H2O in the glass"
+
+    // should reserve an async chunk for a stream reference and abort if the stream errors
+    [<Test>]
+    let ``should reserve an async chunk for a stream reference and abort if the stream errors`` () =
+      json "{}"
+      |> dust  "stream section error"
+               "Pour {#molecule}{atom}{num}{:error}{message}{/molecule} in the glass"
+      |> expect "Pour H2O... no! in the glass"
+
+    // should render streams found while iterating over an array
+    [<Test>]
+    let ``should render streams found while iterating over an array`` () =
+      json "{\"streams\":[null,null,null]}"
+      |> dust  "array of streams"
+               "{#streams}{.} {/streams}"
+      |> expect "Danube Rhine Seine "
+
+    // should seamlessly mix asynchronous data sources
+    [<Test>]
+    let ``should seamlessly mix asynchronous data sources`` () =
+      json "{\"water\":{}}"
+      |> dust  "promise a stream and stream a promise"
+               "Little Bobby drank and drank, and then he drank some more. But what he thought was {water} was {sulfuric_acid}!"
+      |> expect "Little Bobby drank and drank, and then he drank some more. But what he thought was H2O was H2SO4!"
+
+    // should not treat MongoDB documents as streams
+    [<Test>]
+    let ``should not treat MongoDB documents as streams`` () =
+      json "{\"mongo\":{\"name\":\"Mongo\"}}"
+      |> dust  "MongoDB-like Document is not a stream"
+               "{#mongo}{name}{/mongo}"
+      |> expect "Mongo"
+
+    // stream section with no body should not render
+    [<Test>]
+    let ``stream section with no body should not render`` () =
+      json "{}"
+      |> dust  "Stream section with no body should not render"
+               "{#stream/}"
+      |> expect ""
+
+[<Ignore "TODO implement j filters">]
+module Z09_Filter =
+
+    // === SUITE ===filter tests
+    // should test the filter tag
+    [<Test>]
+    [<Ignore "requires JavaScript">]
+    let ``should test the filter tag`` () =
+      json "{\"bar\":\"bar\"}"
+//              context:  {
+//                    filter: function(chunk, context, bodies) {
+//                      return chunk.tap(function(data) {
+//                        return data.toUpperCase();
+//                      }).render(bodies.block, context).untap();
+//                    },
+//
+//                    bar: "bar"
+//                  },
+      |> dust  "filter"
+               "{#filter}foo {bar}{/filter}"
+      |> expect "FOO BAR"
+
+    // should escapeJs a string when using the j filter
+    [<Test>]
+    let ``should escapeJs a string when using the j filter`` () =
+      json "{\"obj\":\"<script>\\\\testBS\\\\ \\rtestCR\\r \u2028testLS\u2028 \u2029testPS\u2029 \\ntestNL\\n \\ftestLF\\f \'testSQ\' \\ttestTB\\t /testFS/</script>\"}"
+      |> dust  "escapeJs filter without DQ"
+               "{obj|j|s}"
+      |> expect "<script>\\\\testBS\\\\ \\rtestCR\\r \\u2028testLS\\u2028 \\u2029testPS\\u2029 \\ntestNL\\n \\ftestLF\\f \\\'testSQ\\\' \\ttestTB\\t \\/testFS\\/<\\/script>"
+
+    // should escapeJs a string with double quotes when using the j filter
+    [<Test>]
+    let ``should escapeJs a string with double quotes when using the j filter`` () =
+      json "{\"obj\":\"\\\"testDQ\\\"\"}"
+      |> dust  "escapeJs filter with only DQ"
+               "{obj|j|s}"
+      |> expect "\\\"testDQ\\\""
+
+    // should stringify a JSON literal when using the js filter
+    [<Test>]
+    let ``should stringify a JSON literal when using the js filter`` () =
+      json "{\"obj\":{\"id\":1,\"name\":\"bob\",\"occupation\":\"construction\"}}"
+      |> dust  "escapeJSON filter"
+               "{obj|js|s}"
+      |> expect "{\"id\":1,\"name\":\"bob\",\"occupation\":\"construction\"}"
+
+    // should escape bad characters when using the js filter
+    [<Test>]
+    let ``should escape bad characters when using the js filter`` () =
+      json "{\"obj\":{\"name\":\"<<\u2028testLS \u2029testPS\"}}"
+      |> dust  "escapeJSON filter with bad characters"
+               "{obj|js|s}"
+      |> expect "{\"name\":\"\\u003c\\u003c\\u2028testLS \\u2029testPS\"}"
+
+    // should objectify a JSON string when using the jp filter
+    [<Test>]
+    let ``should objectify a JSON string when using the jp filter`` () =
+      json "{\"obj\":\"{\\\"id\\\":1,\\\"name\\\":\\\"bob\\\",\\\"occupation\\\":\\\"construction\\\"}\"}"
+      |> dust  "JSON.parse filter"
+               "{obj|jp}"
+      |> expect "[object Object]"
+
+    // filters are passed the current context
+    [<Test>]
+    let ``filters are passed the current context`` () =
+      json "{\"woo\":0,\"name\":\"Boo\",\"dust\":{\"woo\":5,\"name\":\"Dust\"}}"
+      |> dust  "filter receives context"
+               "{#dust}{name|woo}{/dust}"
+      |> expect "DUST!!!!!"
+
+[<Ignore("TODO requires JavaScript in context")>]
+module Z14_Lambda =
+
+    // === SUITE ===lambda tests
+    // should test that a non-chunk return value is used for truthiness
+    [<Test>]
+    let ``should test that a non-chunk return value is used for truthiness`` () =
+      json "{\"foo\":{\"foobar\":\"Foo Bar\"}}"
+      |> dust  "test that the scope of the function is correct and that a non-chunk return value is used for truthiness checks"
+               "Hello {#foo}{#bar}{.}{/bar}{/foo} World!"
+      |> expect "Hello Foo Bar World!"
+
+    // should functions that return false are falsy
+    [<Test>]
+    let ``should functions that return false are falsy`` () =
+      json "{}"
+      |> dust  "test that function that do not return chunk and return falsy are treated as falsy"
+               "{#bar}{.}{:else}false{/bar}"
+      |> expect "false"
+
+    // should functions that return 0 are truthy
+    [<Test>]
+    let ``should functions that return 0 are truthy`` () =
+      json "{}"
+      |> dust  "test that function that do not return chunk and return 0 are treated as truthy (in the Dust sense)"
+               "{#bar}{.}{:else}false{/bar}"
+      |> expect "0"
+
+    // should test scope of context function
+    [<Test>]
+    let ``should test scope of context function`` () =
+      json "{\"foo\":{\"foobar\":\"Foo Bar\"}}"
+      |> dust  "test that the scope of the function is correct"
+               "Hello {#foo}{bar}{/foo} World!"
+      |> expect "Hello Foo Bar World!"
+
+    // should test that function returning object is resolved
+    [<Test>]
+    let ``should test that function returning object is resolved`` () =
+      json "{\"foo\":{\"foobar\":\"Foo Bar\"}}"
+      |> dust  "test that function returning object is resolved"
+               "Hello {#foo}{bar}{/foo} World!"
+      |> expect "Hello Foo Bar World!"
 [<Ignore("TODO")>]
-module T21_Debugger =
+module Z16_SyntaxError =
+    // === SUITE ===syntax error tests
+    // should test that the error message shows line and column.
+    [<Test>]
+    let ``should test that the error message shows line and column`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust  "Dust syntax error"
+               "RRR {##}"
+      |> expect "undefined"
+
+    // should test the errors message for section with error.
+    [<Test>]
+    let ``should test the errors message for section with error`` () =
+      empty
+      |> dust  "Dust syntax error. Error in Section"
+               "{#s}\n{#&2}\n{/s}"
+      |> expect "undefined"
+
+    // should test the errors message for section with a buffer and error inside.
+    [<Test>]
+    let ``should test the errors message for section with a buffer and error inside`` () =
+      empty
+      |> dust  "Dust syntax error. Error in Section with buffer"
+               "{#s}\nthis is the\nbuffer\n{#&2}\na second\nbuffer\n{/s}"
+      |> expect "undefined"
+
+    // should test the errors message for section without end tag shows.
+    [<Test>]
+    let ``should test the errors message for section without end tag shows`` () =
+      empty
+      |> dust  "Dust syntax error. Error in Section without end tag"
+               "{#s}\nthis is the\nbuffer\na second\nbuffer"
+      |> expect "undefined"
+
+    // should test the errors message for partials with a buffer inside.
+    [<Test>]
+    let ``should test the errors message for partials with a buffer inside`` () =
+      empty
+      |> dust  "Dust syntax error. Error in Partial with buffer"
+               "{+header}\nthis is a Partial\nwith Error\neeee{@#@$fdf}\ndefault header \n{/header}"
+      |> expect "undefined"
+
+    // should test the errors message for partial without end tag.
+    [<Test>]
+    let ``should test the errors message for partial without end tag`` () =
+      empty
+      |> dust  "Dust syntax error. Error in Partial without end tag"
+               "{+header}\nthis is the\nbuffer\na second\nbuffer"
+      |> expect "undefined"
+
+    // should test the errors message for Scalar.
+    [<Test>]
+    let ``should test the errors message for Scalar`` () =
+      empty
+      |> dust  "Dust syntax error. Error in Scalar"
+               "{#scalar}\ntrue\n {#@#fger}\n{:else}\nfalse\n{/scalar}"
+      |> expect "undefined"
+
+    // should test the errors message for Scalar.
+    [<Test>]
+    let ``should test the errors message for Scalar 2`` () =
+      empty
+      |> dust  "Dust syntax error. Error in Scalar\'s else"
+               "{#scalar}\ntrue\n{:else}\nfalse\n {#@#fger}\n{/scalar}"
+      |> expect "undefined"
+
+    // should test the errors message for Conditionals.
+    [<Test>]
+    let ``should test the errors message for Conditionals`` () =
+      empty
+      |> dust  "Dust syntax error. Error in Conditional"
+               "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{#@$}</li>{~n}\n{/tags}\n</ul>\n{:else}\nNo Tags!\n{/tags}"
+      |> expect "undefined"
+
+    // should test the errors message for Conditional's else.
+    [<Test>]
+    let ``should test the errors message for Conditionals else`` () =
+      empty
+      |> dust  "Dust syntax error. Error in Conditional\'s else"
+               "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{.}</li>{~n}\n{/tags}\n</ul>\n{:else}\n{#@$}\nNo Tags!\n{/tags}"
+      |> expect "undefined"
+
+    // should test the errors message for Conditional without end tag.
+    [<Test>]
+    let ``should test the errors message for Conditional without end tag`` () =
+      empty
+      |> dust  "Dust syntax error. Error in Conditional without end tag"
+               "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{.}</li>{~n}\n{/tags}\n</ul>\n{:else}\nNo Tags!"
+      |> expect "undefined"
+
+    // should test helper syntax errors being handled gracefully
+    [<Test>]
+    let ``should test helper syntax errors being handled gracefully`` () =
+      json "{}"
+      |> dust  "Helper syntax error. TypeError"
+               "{#hello/}"
+      |> expect "undefined"
+
+    // should test helper syntax errors inside an async block being handled gracefully
+    [<Test>]
+    let ``should test helper syntax errors inside an async block being handled gracefully`` () =
+      json "{}"
+      |> dust  "Helper syntax error. async TypeError"
+               "{#hello/}"
+      |> expect "undefined"
+
+[<Ignore("TODO")>]
+module Z21_Debugger =
     // === SUITE ===debugger tests
     // Should crash the application if a helper is not found
     [<Test>]

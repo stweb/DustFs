@@ -215,7 +215,7 @@ type Context =
                 File.ReadAllText fname |> parse
             else
                 this.Log <| sprintf "file not found: " + fname      
-                []
+                failwithf "NOT FOUND: %s" name
 
         sw.Stop()
         this.Log(System.String.Format("parsed {0} {1:N3} [ms]", name, elapsedMs sw))
@@ -656,14 +656,14 @@ let rec render (c:Context) (part:Part) =
                                         | _ -> failwithf "missing %s" s
 
                             let l, r = get "key", get "value"
-                            renderIf c <| match t with
-                                        | Eq -> l.Equals(r)
-                                        | Ne -> not (l.Equals(r))
-                                        | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
-                                        | Gte-> System.Convert.ToDouble(l) >= System.Convert.ToDouble(r)
-                                        | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
-                                        | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
-                                        | _  -> false
+                            renderIf c     <| match t with
+                                            | Eq -> l.Equals(r)
+                                            | Ne -> not (l.Equals(r))
+                                            | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
+                                            | Gte-> System.Convert.ToDouble(l) >= System.Convert.ToDouble(r)
+                                            | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
+                                            | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
+                                            | _  -> false
         | Condition     ->  renderIf c (c.EvalBool n)
         | NotCondition  ->  renderIf c (not (c.EvalBool n))
         | Scope         ->  let cc = if map.IsEmpty then c else { c with Parent = Some c; Current = Some (map :> obj) }

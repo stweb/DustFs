@@ -5,7 +5,7 @@ open Dust.Test
 open NUnit.Framework
 open FsUnit
 
-#if !TODO
+#if TODO
 
 //module R01_DustFs =       
 //
@@ -74,7 +74,7 @@ module R02_CoreTests =
     [<Test>]
     let ``should test basic text rendering`` () =
       empty
-      |> dust  "hello_world"
+      |> dustReg  "hello_world"
                "Hello World!"
       |> expect "Hello World!"
 
@@ -160,6 +160,22 @@ module R02_CoreTests =
       |> dust  "ignore whitespaces also means ignoring eol"
                "{#authors \nname=\"theAuthors\"\nlastname=\"authorlastname\" \nmaxtext=300}\n{>\"otherTemplate\"/}\n{/authors}"
       |> expect ""
+
+    // should test renaming a key
+    [<Test>]
+    let ``should test renaming a key`` () =
+      json "{\"root\":\"Subject\",\"person\":{\"name\":\"Larry\",\"age\":45}}"
+      |> dust  "inline param from outer scope"
+               "{#person foo=root}{foo}: {name}, {age}{/person}"
+      |> expect "Subject: Larry, 45"
+
+    // . creating a block
+    [<Test>]
+    let ``dot creating a block`` () =
+      json "{\"name\":\"me\"}"
+      |> dust  "use . for creating a block and set params"
+               "{#. test=\"you\"}{name} {test}{/.}"
+      |> expect "me you"
 
 module R03_TruthyFalsy =
 
@@ -570,7 +586,13 @@ module R06_ArrayIndexAccess =
                "{#results}{#info}{$idx}{name}-{$len} {/info}{/results}"
       |> expect "0Steven-2 1Richard-2 "
                       
-
+    // Should resolve path correctly
+    [<Test>]
+    let ``Should resolve index path correctly`` () =
+      json "{\"nulls\":[1,null,null,2],\"names\":[{\"name\":\"Moe\"},{\"name\":\"Curly\"}]}"
+      |> dust  "check null values in section iteration do not break path resolution"
+               "{#nulls}{names[0].name}{/nulls}"
+      |> expect "MoeMoeMoeMoe"
 
 module R07_ObjectTests =
 
