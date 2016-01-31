@@ -494,7 +494,8 @@ let compress body =
 
 //part <- raw / comment / section / partial / special / reference / buffer
 let rec (|Part|_|) = function
-    | '{' :: rest-> match rest with
+    | '{' :: rest-> if Char.IsWhiteSpace rest.Head then failwith "unexpected whitespace"
+                    match rest with
                     | '!' :: Until ['!';'}'] (x,r) -> Some(Comment(toString x), r)
                     | '`' :: Until ['`';'}'] (x,r) -> Some(Buffer(toString x), r)
                     // partial <- ld (">"/"+") ws* (key / inline) context params ws* "/" rd
@@ -535,7 +536,8 @@ let rec (|Part|_|) = function
                         | Until ['}'] (x,r) ->  
                             // printfn "SECTION %A %s %A until %A | %A" (rest.Head) (id.ToString()) rrr x (r |> List.take 3)
                             match x with // is tag closed?
-                            | '/' :: _ -> Some(Section(st, id, ct, pam), r)
+                            | ['/'] -> Some(Section(st, id, ct, pam), r)
+                            | '/' :: _ -> failwith "unexpected whitespace between / and }"
                             | _ -> 
                                 let rec loop acc ch =  
                                     match ch with
@@ -544,7 +546,7 @@ let rec (|Part|_|) = function
                                                     | End(i)       -> (acc, End(i), r2)
                                                     | NamedBody(k) -> (acc, NamedBody(k), r2)
                                                     | _            -> loop (p :: acc) r2
-                                    | _          -> failwith "unexpected"
+                                    | _          -> failwithf "unexpected %s" (toString ch)
 
                                 let bodyacc, endp, r = loop [] r
                                 let body = bodyacc |> List.rev |> compress
