@@ -602,7 +602,7 @@ module R15_CoreGrammar =
       |> expect "MoeLarryCurly"
 
     [<Test>]
-    let ``should test for dash in a referece for exists section`` () =
+    let ``should test for dash in a reference for exists section`` () =
       json "{\"tags-a\":\"tag\"}"
       |> dust   "{?tags-a}tag found!{:else}No Tags!{/tags-a}"
       |> expect "tag found!"

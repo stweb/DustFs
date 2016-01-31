@@ -4,7 +4,7 @@ open Dust.Engine
 open Dust.Test
 open NUnit.Framework
 
-#if TODO
+#if !TODO
 
 module T06_ArrayIndexAccess =
 
@@ -318,52 +318,53 @@ module T13_InlinePartialBlock =
       |> expect "AAA"
 
 module T15_CoreGrammar =
-    [<Test>]
-    [<Ignore "requires JS helper">]
-    let ``should ignore extra whitespaces between opening brace plus any of (#,?,at,^,+,%) and the tag identifier`` () =
 
+    [<SetUp>]
+    let ``setup helper`` () =
       helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
-                                match param.TryFind "boo" with
-                                | Some v -> c.Write (v.ToString()) // TODO
-                                | None -> failwith "missing key"
+                                match param.TryFind "boo", param.TryFind "foo" with
+                                | Some b, Some f -> c.Write b; c.Write " "; c.Write f
+                                | _ -> ()
                             )
+
+    [<Test>]
+    let ``should ignore extra whitespaces between opening brace plus any of (#,?,at,^,+,%) and the tag identifier`` () =
       empty
       |> dust "{# helper foo=\"bar\" boo=\"boo\" } {/helper}"
       |> expect "boo bar"
 
     [<Test>]
-    [<Ignore "requires JS helper">]
+    [<ExpectedException>]
     let ``should show an error for whitespaces between the opening brace and any of (#,?,at,^,+,%)`` () =
       empty
       |> dust   "{ # helper foo=\"bar\" boo=\"boo\" } {/helper}"
-      |> expect "undefined"
+      |> ignore
 
     [<Test>]
-    [<Ignore "requires JS helper">]
     let ``should ignore extra whitespaces between the closing brace plus slash and the tag identifier`` () =
       empty
       |> dust   "{# helper foo=\"bar\" boo=\"boo\"} {/ helper }"
       |> expect "boo bar"
 
     [<Test>]
-    [<Ignore "requires JS helper">]
+    [<ExpectedException>]
     let ``should show an error because whitespaces between the '{' and the forward slash are not allowed in the closing tags`` () =
       empty
       |> dust   "{# helper foo=\"bar\" boo=\"boo\"} { / helper }"
-      |> expect "undefined"
+      |> ignore
 
     [<Test>]
-    [<Ignore "requires JS helper">]
     let ``should ignore extra whitespaces before the self closing tags`` () =
       empty
       |> dust   "{#helper foo=\"bar\" boo=\"boo\" /}"
       |> expect "boo bar"
 
     [<Test>]
+    [<ExpectedException>]
     let ``should show an error for whitespaces between the forward slash and the closing brace in self closing tags`` () =
       empty
       |> dust   "{#helper foo=\"bar\" boo=\"boo\" / }"
-      |> expect "undefined"
+      |> ignore
 
     [<Test>]
     let ``should ignore extra whitespaces between inline params`` () =
@@ -372,10 +373,11 @@ module T15_CoreGrammar =
       |> expect "boo bar"
 
     [<Test>]
+    [<ExpectedException>]
     let ``should show an error for whitespaces between the '{' plus '>' and partial identifier`` () =
       json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
       |> dust   "{ > partial/} {> \"hello_world\"/} {> \"{ref}\"/}"
-      |> expect "undefined"
+      |> ignore
 
     [<Test>]
     let ``should ignore extra whitespacesbefore the forward slash and the closing brace in partials`` () =
@@ -384,7 +386,6 @@ module T15_CoreGrammar =
       |> expect "Hello Jim! You have 42 new messages. Hello World! Hello World!"
 
     [<Test>]
-    [<Ignore("requires Inline parsing and reolution")>]
     let ``should test dash in partial's keys`` () =
       json "{\"foo-title\":\"title\",\"bar-letter\":\"a\"}"
       |> dust   "{<title-a}foo-bar{/title-a}{+\"{foo-title}-{bar-letter}\"/}"

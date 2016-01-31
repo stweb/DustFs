@@ -236,6 +236,10 @@ type Context =
         let _, body = this.ParseCachedAsync parse name |> Async.RunSynchronously
         body
     
+    member this.Write (v:Value)       = match v with
+                                        | VNumber n -> n.ToString(this.Culture) |> this.Write
+                                        | VInline s -> s |> this.Write
+                                        | VIdent i -> i.ToString() |> this.Write
     member this.Write (s:string)      = this.W.Write(s)
     member this.Write (c:char)        = this.W.Write(c)
     // by default always apply the h filter, unless asked to unescape with |s
@@ -639,7 +643,7 @@ let rec render (c:Context) (list:Part list) =
                                             | _ ->  c.WriteFiltered f value
     | Section(st,n,_,pa) -> 
                         match st with 
-                        | Scope ->          failwith "scope must have a body"
+                        | Scope  // scope without body could be a helper
                         | Helper         -> helper (n.ToString()) c Map.empty pa (fun () -> failwith "not available")
                         | LogicHelper(_) -> failwith "LogicHelper should be a SectionBlock" 
                         | _ -> ()
@@ -683,7 +687,9 @@ let rec render (c:Context) (list:Part list) =
                                             | :? bool as b -> renderIf cc b
                                             | null -> renderIf cc false
                                             | o ->  l |> render { cc with Parent = Some cc; Current = Some o }                                                         
-                            | None -> renderIf cc false      // TODO create new current from keyvalue map     
+                            | None ->       match helpers.TryGetValue (n.ToString()) with
+                                            | true, ref -> ref cc Map.empty map (fun () -> failwith "not available")
+                                            | _ ->         renderIf cc false      // TODO create new current from keyvalue map     
         | Block         -> match cache.TryGetValue (n.ToString()) with 
                            | true, (_,b) -> b |> render c // override
                            | _           -> l |> render c // default                        
