@@ -7,7 +7,7 @@ open NUnit.Framework.Constraints
 open FsUnit
 open System.IO
 
-#if !TODO
+#if TODO
 
 module T02_CoreTests =
     // should render the template name

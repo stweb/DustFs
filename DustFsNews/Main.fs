@@ -3,6 +3,10 @@ open Suave
 open Suave.Http
 open Suave.Tcp
 open System.Net
+open Dust.Engine
+
+// warmup parser
+parse "{!Dummy!}" |> ignore
 
 let port = 8083us
 let serverConfig =

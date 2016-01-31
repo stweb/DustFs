@@ -13,9 +13,12 @@ open Suave.Logging
 let mutable templateDir = ""
 
 // parse template from global directory and cache
-let parseToCache name = async {
-    let ctx = { Context.defaults with TmplDir = templateDir }
-    return ctx.ParseCached parse name
+let parseToCache ctx name = async {
+    let slog msg = Log.info ctx.runtime.logger "Dust" TraceHeader.empty 
+                            (sprintf "%s %s" msg ctx.request.url.AbsolutePath)
+
+    let dustctx = { Context.defaults with TmplDir = templateDir; Logger = slog }
+    return dustctx.ParseCached parse name
 }
 
 // render Dust page asynchronously for Suave
@@ -37,7 +40,7 @@ let page<'T> atmpl (model : 'T) ctx = async {
     
     let! doc = atmpl // get parsed template async and render
     doc |> render dustctx
-
+    
     let resp = Response.response HTTP_200 (Encoding.UTF8.GetBytes (sb.ToString())) ctx
     return! resp
 }

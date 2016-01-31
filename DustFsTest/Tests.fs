@@ -5,7 +5,7 @@ open Dust.Test
 open NUnit.Framework
 open FsUnit
 
-#if TODO
+#if !TODO
 
 //module R01_DustFs =       
 //
@@ -26,12 +26,6 @@ open FsUnit
 //        ctx  |> shouldBeSomeS "." // TODO remove colon...
 
 module R02_CoreTests =
-    [<Test>]
-    let ``news template`` () =
-      let tmpl = System.IO.File.ReadAllText @"c:\Dev\Open\DustFs\DustFsNews\tmpl\index.html"
-      let s = empty|> dust  "news" tmpl
-      printfn "%s" s
-
     [<Test>]
     let ``a dot test`` () =
       empty
@@ -57,7 +51,7 @@ module R02_CoreTests =
     let ``text before and after tags`` () =
       empty
       |> dust  "dot"
-               "start\n{tag}end"
+               "start\r\n{tag}end"
       |> expect "startend"      
 
     // javascript-special characters in template names shouldn't break things

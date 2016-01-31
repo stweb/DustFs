@@ -111,7 +111,7 @@ let index getFeed : WebPart = fun ctx -> async {
     Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Getting News %s" ctx.request.url.AbsolutePath)
     // perform in parallel
     let! aNews = Async.StartChild getFeed
-    let! aTmpl = Async.StartChild (parseToCache "index.html")
+    let! aTmpl = Async.StartChild (parseToCache ctx "index.html")
 
     // await results
     let! news = aNews

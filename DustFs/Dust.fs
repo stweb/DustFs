@@ -219,7 +219,7 @@ type Context =
                 File.ReadAllText fname |> parse
             else
                 this.Log <| sprintf "file not found: " + fname      
-                failwithf "NOT FOUND: %s" name
+                []
 
         sw.Stop()
         this.Log(System.String.Format("parsed {0} {1:N3} [ms]", name, elapsedMs sw))
@@ -619,12 +619,13 @@ let rec render (c:Context) (list:Part list) =
     | Special ch     -> c.Write(ch)
     | Buffer text    -> c.Write(text)
     | Partial(k,x,m) -> let n = if k = "{name}" then c.GetStr "name" else k   
-                        match cache.TryGetValue n with
-                        | true, (_, part) -> part 
-                        | _ -> c.ParseCached parse n
-                        |> render { c with Parent = Some c; Current = match x with
-                                                                      | Some i -> c.Get i
-                                                                      | None -> Some(m :> obj) } 
+                        if n <> "" then
+                            match cache.TryGetValue n with
+                            | true, (_, part) -> part 
+                            | _ -> c.ParseCached parse n
+                            |> render { c with Parent = Some c; Current = match x with
+                                                                          | Some i -> c.Get i
+                                                                          | None -> Some(m :> obj) } 
     | Reference(k,f) -> match c.Get k with                     
                         | None -> ()
                         | Some value    ->  match value with
@@ -653,7 +654,7 @@ let rec render (c:Context) (list:Part list) =
                                         | _ -> failwithf "missing %s" s
 
                             let l, r = get "key", get "value"
-                            renderIf c     <| match t with
+                            renderIf c   <| match t with
                                             | Eq -> l.Equals(r)
                                             | Ne -> not (l.Equals(r))
                                             | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
