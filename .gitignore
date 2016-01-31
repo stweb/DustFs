@@ -4,3 +4,4 @@ packages/
 *.suo
 build/
 *.userprefs
+Settings.FSharpLint
