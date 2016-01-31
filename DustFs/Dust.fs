@@ -66,7 +66,7 @@ type Body = Part list
 and Part = 
     | Buffer of string
     | Comment of string
-    | Partial of string * Identifier option * Params
+    | Partial of Value * Identifier option * Params
     | Section of SectionType * Identifier * Identifier option * Params
     | SectionBlock of SectionType * Identifier * Identifier option * Params * Body * BodyDict
     | Special of char
@@ -500,8 +500,8 @@ let rec (|Part|_|) = function
                         //let st = sectionType rest.Head 
                         let r = r |> List.skipWhile Char.IsWhiteSpace 
                         let id,r =  match r with
-                                    | Key   (x,r) -> toString x, r |> List.skipWhile Char.IsWhiteSpace 
-                                    | Inline(x,r) -> toString x, r |> List.skipWhile Char.IsWhiteSpace 
+                                    | Key   (x,r) -> VIdent(Key(toString x)), r |> List.skipWhile Char.IsWhiteSpace 
+                                    | Inline(x,r) -> VInline(toString x), r |> List.skipWhile Char.IsWhiteSpace 
                                     | _ -> failwith "expected (key / inline)"              
                         let ct,r =  match r with
                                     | Context(m,r) -> Some m, r |> List.skipWhile Char.IsWhiteSpace 
@@ -618,7 +618,12 @@ let rec render (c:Context) (list:Part list) =
     //| Comment _      -> c.Write("<!-- " + text + " -->")
     | Special ch     -> c.Write(ch)
     | Buffer text    -> c.Write(text)
-    | Partial(k,x,m) -> let n = if k = "{name}" then c.GetStr "name" else k   
+    | Partial(i,x,m) -> let n = match i with
+                                | VInline(i) -> if i.StartsWith("{") then
+                                                    i.Substring(1, i.Length-2) |> c.GetStr
+                                                else i
+                                | VIdent(i)  -> i.ToString()
+                                | _ -> failwith "unexpected"
                         if n <> "" then
                             match cache.TryGetValue n with
                             | true, (_, part) -> part 
