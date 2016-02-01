@@ -171,7 +171,6 @@ type System.Object with
     match o with
     | :? IEnumerable<obj> as s -> 
             match i with
-            | -2 -> s |> Seq.length :> obj |> Some
             | -1 -> s |> Seq.cast<obj> |> Seq.last   |> Some
             | _  -> s |> Seq.cast<obj> |> Seq.skip i |> Seq.tryHead 
     | _ -> failwith "object without index access"
@@ -271,7 +270,8 @@ type Context =
                                                        | _ -> failwith "unexpected"
                                     | _ -> Some(o)
                       | _ -> None
-        | Index(i) -> o.TryFindIndex i
+        | Index(i) -> if i = -2 then o.TryFindIndex (fst c.Index.Value) 
+                      else o.TryFindIndex i
 
     member c.Get (id:Identifier) : obj Option =      
         let cur, path = match id with

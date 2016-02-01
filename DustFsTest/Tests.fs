@@ -444,6 +444,30 @@ module R06_ArrayIndexAccess =
       |> dust   "{#nulls}{names[0].name}{/nulls}"
       |> expect "MoeMoeMoeMoe"
 
+    [<Test>]
+    let ``should test the array reference access with idx`` () =
+      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
+      |> dust   "{#list4} {name} {number[$idx]} {$idx}{/list4}"
+      |> expect " Dog 1 0 Cat 5 1"
+
+    [<Test>]
+    let ``should test the array reference access with len`` () =
+      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
+      |> dust   "{#list4} {name} {number[$len]}{/list4}"
+      |> expect " Dog 3 Cat 6"
+
+    [<Test>]
+    let ``should test the array reference access with idx and current context`` () =
+      json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"},{\"biz\":\"456\"}]]}"
+      |> dust   "{#list3}{.[$idx].biz}{/list3}"
+      |> expect "123456"
+
+    [<Test>]
+    let ``should test the array reference access with len and current context`` () =
+      json "{\"list3\":[[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}],[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}]]}"
+      |> dust   "{#list3}{.[$len].idx}{/list3}"
+      |> expect "22"
+
 module R07_ObjectTests =
 
     [<Test>]

@@ -10,29 +10,6 @@ module T06_ArrayIndexAccess =
 
     // === SUITE ===array/index-access tests
     // should test the array reference access with idx
-    [<Test>]
-    let ``should test the array reference access with idx`` () =
-      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
-      |> dust   "{#list4} {name} {number[$idx]} {$idx}{/list4}"
-      |> expect " Dog 1 0 Cat 5 1"
-
-    [<Test>]
-    let ``should test the array reference access with len`` () =
-      json "{\"list4\":[{\"name\":\"Dog\",\"number\":[1,2,3]},{\"name\":\"Cat\",\"number\":[4,5,6]}]}"
-      |> dust   "{#list4} {name} {number[$len]}{/list4}"
-      |> expect " Dog 3 Cat 6"
-
-    [<Test>]
-    let ``should test the array reference access with idx and current context`` () =
-      json "{\"list3\":[[{\"biz\":\"123\"}],[{\"biz\":\"345\"},{\"biz\":\"456\"}]]}"
-      |> dust   "{#list3}{.[$idx].biz}{/list3}"
-      |> expect "123456"
-
-    [<Test>]
-    let ``should test the array reference access with len and current context`` () =
-      json "{\"list3\":[[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}],[{\"idx\":\"0\"},{\"idx\":\"1\"},{\"idx\":\"2\"}]]}"
-      |> dust   "{#list3}{.[$len].idx}{/list3}"
-      |> expect "22"
 
     [<Test>]
     let ``should test using a multilevel reference as a key in array access`` () =
@@ -98,19 +75,18 @@ module T11_PartialParams =
       "{+header}default header {/header}Hello {name}! You have {count} new messages."  |> named "partial_with_blocks"                 
       "{+header/}Hello {name}! You have {count} new messages." |> named "partial_with_blocks_and_no_defaults" 
       "{#helper}{/helper}"  |> named "partial_print_name"                  
+      "{>partial_print_name/}" |> named "nested_partial_print_name"
 
     [<Test>]
     let ``should test partial`` () =
       empty
-      |> dustReg "nested_partial_print_name"
-                 "{>partial_print_name/}"
+      |> dust    "{>partial_print_name/}"
       |> expect  ""
 
     [<Test>]
     let ``should test nested partial`` () =
       empty
-      |> dustReg "nested_nested_partial_print_name"
-                 "{>nested_partial_print_name/}"
+      |> dust    "{>nested_partial_print_name/}"
       |> expect  ""
 
 
