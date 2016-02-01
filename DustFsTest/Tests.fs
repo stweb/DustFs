@@ -1,9 +1,10 @@
 ﻿module Tests
 
+open Dust.Engine
 open Dust.Test
 open NUnit.Framework
 
-#if !TODO
+#if TODO
 
 module R01_DustFs =       
     [<Test>]
@@ -577,6 +578,72 @@ module R12_InlineParams =
 
 module R15_CoreGrammar =
 
+    [<SetUp>]
+    let ``setup helper`` () =
+      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
+                                match param.TryFind "boo", param.TryFind "foo" with
+                                | Some b, Some f -> c.Write b; c.Write " "; c.Write f
+                                | _ -> ()
+                            )
+
+    [<Test>]
+    let ``should ignore extra whitespaces between opening brace plus any of (#,?,at,^,+,%) and the tag identifier`` () =
+      empty
+      |> dust "{# helper foo=\"bar\" boo=\"boo\" } {/helper}"
+      |> expect "boo bar"
+
+    [<Test>]
+    [<ExpectedException>]
+    let ``should show an error for whitespaces between the opening brace and any of (#,?,at,^,+,%)`` () =
+      empty
+      |> dust   "{ # helper foo=\"bar\" boo=\"boo\" } {/helper}"
+      |> ignore
+
+    [<Test>]
+    let ``should ignore extra whitespaces between the closing brace plus slash and the tag identifier`` () =
+      empty
+      |> dust   "{# helper foo=\"bar\" boo=\"boo\"} {/ helper }"
+      |> expect "boo bar"
+
+    [<Test>]
+    [<ExpectedException>]
+    let ``should show an error because whitespaces between the '{' and the forward slash are not allowed in the closing tags`` () =
+      empty
+      |> dust   "{# helper foo=\"bar\" boo=\"boo\"} { / helper }"
+      |> ignore
+
+    [<Test>]
+    let ``should ignore extra whitespaces before the self closing tags`` () =
+      empty
+      |> dust   "{#helper foo=\"bar\" boo=\"boo\" /}"
+      |> expect "boo bar"
+
+    [<Test>]
+    [<ExpectedException>]
+    let ``should show an error for whitespaces between the forward slash and the closing brace in self closing tags`` () =
+      empty
+      |> dust   "{#helper foo=\"bar\" boo=\"boo\" / }"
+      |> ignore
+
+    [<Test>]
+    let ``should ignore extra whitespaces between inline params`` () =
+      empty
+      |> dust   "{#helper foo=\"bar\"   boo=\"boo\"/}"
+      |> expect "boo bar"
+
+    [<Test>]
+    [<ExpectedException>]
+    let ``should show an error for whitespaces between the '{' plus '>' and partial identifier`` () =
+      json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
+      |> dust   "{ > partial/} {> \"hello_world\"/} {> \"{ref}\"/}"
+      |> ignore
+
+    [<Test>]
+    let ``should ignore extra whitespacesbefore the forward slash and the closing brace in partials`` () =
+      json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
+      |> dust   "{>partial /} {>\"hello_world\" /} {>\"{ref}\" /}"
+      |> expect "Hello Jim! You have 42 new messages. Hello World! Hello World!"
+
     [<Test>]
     let ``should ignore carriage return or tab in inline param values`` () =
       empty
@@ -705,18 +772,16 @@ module R16_SyntaxError =
       |> ignore
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test helper syntax errors being handled gracefully`` () =
       empty
       |> dust   "{#hello/}"
-      |> ignore
+      |> expect ""
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test helper syntax errors inside an async block being handled gracefully`` () =
       empty
       |> dust   "{#hello/}"
-      |> ignore
+      |> expect ""
 
 module R17_Misc =
 

@@ -147,48 +147,37 @@ let (|Whitespace|_|) ch =
     | true -> Some(ch)
     | _ -> None
 
-
 // extension method to use objects like a Map, works with ExpandoObjects
-type System.Object with    // TODO if key.StartsWith(".") then let cur = true key = key.substr(1)
+type System.Object with
 
   member o.TryFindProp (key:string) = 
     match o with
     | null -> None
     | :? IDictionary<string,string> as d -> match d.ContainsKey key with
-                                            | true -> optional (d.Item(key) |> unquote :> obj)
-                                            | _ -> None
+                                            | true  -> optional (d.Item(key) |> unquote :> obj)
+                                            | _     -> None
     | :? IDictionary<string,obj> as d ->    match d.ContainsKey key with
-                                            | true -> optional (d.Item(key))
-                                            | _ -> None
+                                            | true  -> optional (d.Item(key))
+                                            | _     -> None
     | :? IDictionary<string,Value> as d ->  match d.TryGetValue key with
                                             | true, VInline(s) -> Some (s :> obj)
                                             | true, v          -> Some (v :> obj)
-                                            | _ -> None
-    | _  ->     let t = o.GetType()
-                let p = t.GetProperty(key)
-                match p with
-                | null -> None
-                | _    -> optional (p.GetValue(o))
-
+                                            | _     -> None
+    | _  ->                                 let p = o.GetType().GetProperty(key)
+                                            match p with
+                                            | null  -> None
+                                            | _     -> optional (p.GetValue(o))
   member o.TryFindIndex (i:int) = 
     match o with
-    | :? IEnumerable<obj> as s -> s |> Seq.cast<obj> |> Seq.skip i |> Seq.tryHead 
+    | :? IEnumerable<obj> as s -> 
+            match i with
+            | -2 -> s |> Seq.length :> obj |> Some
+            | -1 -> s |> Seq.cast<obj> |> Seq.last   |> Some
+            | _  -> s |> Seq.cast<obj> |> Seq.skip i |> Seq.tryHead 
     | _ -> failwith "object without index access"
 
-//  member o.Get path = 
-//    match path with
-//    | [] -> None
-//    | [h] -> o.TryFindProp h
-//    | h :: tail ->  let xo = o.TryFindProp h
-//                    if xo.IsSome then xo.Value.Get tail else None
-//
-//  member o.TryFind (key:string) = // TODO if key.StartsWith(".") then let cur = true key = key.substr(1)
-//    let path = key.Split('.') |> Array.toList;
-//    o.Get path
-
 type Context = 
-    {   
-        // Data context
+    {   // Data context
         Parent:     Context option      // replaces Stack.Tail in orginal impl via chained Parents
         Current:    obj option          // replaces Stack.Head in orginal impl / "this" in data context
         Global:     obj                 // global data
@@ -197,6 +186,7 @@ type Context =
         // execution data
         W:          TextWriter          // write used to render output
         TmplDir:    string              // the template source directory
+        TmplName:   string
         Logger:     string -> unit      // a logger
         // Options:    Whitespace
     }
@@ -205,7 +195,7 @@ type Context =
         | Some(ix,len) -> sprintf "%A %A %d/%d" x.Parent x.Current ix len
         | None         -> sprintf "%A %A"       x.Parent x.Current 
 
-    static member defaults = { TmplDir = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
+    static member defaults = { TmplDir = ""; TmplName = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
                                Current = None; Index = None; Parent = None; Logger = fun s -> () }    
 
     member this.LoadAndParse parse name = async {
@@ -246,9 +236,9 @@ type Context =
     member this.WriteFiltered (f:Filters) (v:obj) = 
                                         let mutable o = 
                                             match v with
+                                            | :? decimal as d           ->  box <| d.ToString(this.Culture)
                                             | :? IEnumerable<obj> as ie ->  let arr = ie |> Seq.cast<obj> |> Seq.map( fun o -> Convert.ToString(o))
                                                                             String.Join(",", arr) :> obj
-                                            | :? decimal as d -> box <| d.ToString(this.Culture)
                                             | _ -> v
 
                                         if Seq.isEmpty f && o :? string then
@@ -270,15 +260,9 @@ type Context =
                                         | Some(o) -> o.ToString()
                                         | None    -> ""
 
-    member this.Log msg = this.Logger msg
-    member this.Unresolved scope key =
-#if DEBUG
-                                        names.Add(key) |> ignore
-                                        this.Log (sprintf "   ? %s in %A" key scope)
-#endif  
-                                        None
+    member this.Log msg               = this.Logger msg
 
-      member c.TryFindSegment o = function
+    member c.TryFindSegment o = function
         | Name(n)  -> match o.TryFindProp n with
                       | Some(o) ->  match o with
                                     | :? Value as v -> match v with 
@@ -293,8 +277,10 @@ type Context =
         let cur, path = match id with
                         | Key(k)  -> let cur = k.StartsWith "." 
                                      let k2 = if cur then k.Substring 1 else k
-                                     if k2.Contains "." then failwith "TODO split at dot"
-                                     (cur, [Name(k2)])
+                                     if k2.Contains "." then 
+                                        (cur, k2.Split('.') |> List.ofArray |> List.map (fun x -> Name(x)) )
+                                     else
+                                        (cur, [Name(k2)])
                         | Path(p) -> false, p
         c.GetPath cur path
 
@@ -344,9 +330,7 @@ type Context =
 type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit        
 let helpers = new ConcurrentDictionary<string, Helper>()
 
-let nullHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) =
-    ()
-
+let nullHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) = ()
 helpers.[""] <- nullHelper
 
 // --------------------------------------------------------------------------------------
@@ -363,7 +347,7 @@ let parseFilters (strarr:seq<string>) =
 // inline <- '\"' '\"' / '\"' literal '\"'/ '\"' inline_part+ '\"'
 // TODO inline_part <- special / reference / literal 
 let (|Inline|_|) = function
-    | Quoted(x) -> Some x // TODO
+    | Quoted(x) -> Some x // TODO? literal vs inline_part
     | _         -> None    
 
 // key <- (({Ll} / {Lu} / [_$]) ({Nd} / {Ll} / {Lu} / [_$-])*)
@@ -385,7 +369,10 @@ let (|Number|_|) = function
 // array <- ( lb ( ({Nd}+) / identifier) rb ) array_part?
 let (|ArrayIdx|_|) = function
     | '[' :: Int(i, ']' :: r) -> Some(i, r)
-    // | '[' :: Ident(i, ']' :: r) -> failwith "TODO"
+    | '[' :: Until [']' ] (x,r) -> match (toString x) with
+                                   | "$idx" -> Some(-2, r)
+                                   | "$len" -> Some(-1, r)
+                                   | s  -> failwithf "TODO [%s]" s
     | _ -> None    
 
 // array_part <- ("." key)+ (array)?
@@ -412,16 +399,16 @@ let (|Path|_|) = function
     | '.' :: ArrayOrPart(p,r) ->    match p with
                                     | [Name(n)] -> Some([Name("." + n)], r)
                                     | _         -> Some(p,r)
-    | ArrayOrPart(a)        ->  Some a
-    | '.' :: r              ->  Some([Name(".")], r)
-    | chars                 ->  let k,r = match chars with // optional key
-                                          | Key(k,r) -> Some <| Name(toString(k)), r
-                                          | _        -> None, chars
-                                match r with
-                                | ArrayOrPart(a,r) -> match k with 
-                                                      | Some(k) -> Some(k :: a,r)
-                                                      | _       -> Some(a,r)
-                                | _                -> None
+    | ArrayOrPart(a)        ->      Some a
+    | '.' :: r              ->      Some([Name(".")], r)
+    | chars                 ->      let k,r = match chars with // optional key
+                                              | Key(k,r) -> Some <| Name(toString(k)), r
+                                              | _        -> None, chars
+                                    match r with
+                                    | ArrayOrPart(a,r) -> match k with 
+                                                          | Some(k) -> Some(k :: a,r)
+                                                          | _       -> Some(a,r)
+                                    | _                -> None
 // identifier <- path / key
 let (|Ident|_|) = function
      | Path(p,r) -> match p with 
@@ -474,9 +461,7 @@ let folder (acc:Part list) (elem:Part) =
         | Buffer(a) :: tail, Special s -> elem :: Buffer(a.TrimEnd([|'\t'; '\n'; '\r'|])) :: tail
         | Special s :: _, Eol          -> acc // ignores Eol after special
         | Eol       :: _, Buffer(b)    -> Buffer(b.TrimStart([|' '; '\t'|])) :: acc
-        | Buffer(a) :: tail, Buffer(b) -> //let b1 = b.TrimStart([|' '; '\t'|]) // ensure one space is kept, TODO verify
-                                          //let b2 = if b1.Length = 0 then " " else b1
-                                          let a2 = a.TrimEnd([|'\t'; '\n'; '\r'|]);
+        | Buffer(a) :: tail, Buffer(b) -> let a2 = a.TrimEnd([|'\t'; '\n'; '\r'|]);
                                           if a2.Length < a.Length
                                           then Buffer(a2 + b.TrimStart([|' '; '\t'|])) :: tail
                                           else Buffer(a + b) :: tail
@@ -590,7 +575,7 @@ let rec (|Part|_|) = function
                     | ':' :: Key(k,Until ['}'] (_,r)) -> Some(NamedBody(toString k), r) 
                     // reference <- ld identifier filters rd
                     | Ident(i, Until ['}'] (f,r)) -> let fs = (f |> toString).Split('|') |> parseFilters 
-                                                     Some(Reference(i, fs), r) // TODO filters
+                                                     Some(Reference(i, fs), r)
 
                     | _ -> None
     // THE ORDERING OF THE FOLLOWING RULES IS IMPORTANT
@@ -625,18 +610,18 @@ let rec render (c:Context) (list:Part list) =
     | Special ch     -> c.Write(ch)
     | Buffer text    -> c.Write(text)
     | Partial(i,x,m) -> let n = match i with
-                                | VInline(i) -> if i.StartsWith("{") then
-                                                    i.Substring(1, i.Length-2) |> c.GetStr
+                                | VInline(i) -> if i.StartsWith("{") then i.Substring(1, i.Length-2) |> c.GetStr
                                                 else i
                                 | VIdent(i)  -> i.ToString()
                                 | _ -> failwith "unexpected"
                         if n <> "" then
-                            match cache.TryGetValue n with
-                            | true, (_, part) -> part 
-                            | _ -> c.ParseCached parse n
-                            |> render { c with Parent = Some c; Current = match x with
-                                                                          | Some i -> c.Get i
-                                                                          | None -> Some(m :> obj) } 
+                                match cache.TryGetValue n with
+                                | true, (_, part) -> part 
+                                | _ -> c.ParseCached parse n
+                                |> render { c with Parent = Some c; TmplName = n;
+                                                   Current = match x with
+                                                             | Some i -> c.Get i
+                                                             | None -> Some(m :> obj) } 
     | Reference(k,f) -> match c.Get k with                     
                         | None -> ()
                         | Some value    ->  match value with
@@ -655,6 +640,8 @@ let rec render (c:Context) (list:Part list) =
                                     | Some body -> body |> render cc
                                     | None -> ()                            
         match st with 
+        | Condition     ->  renderIf c (c.EvalBool n)
+        | NotCondition  ->  renderIf c (not (c.EvalBool n))
         | Helper         -> helper (n.ToString()) c bodies map (fun () -> l |> render c)
         | LogicHelper(t) -> let get s = match map.TryFind s with
                                         | Some(VInline(x)) -> box x
@@ -673,8 +660,6 @@ let rec render (c:Context) (list:Part list) =
                                             | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
                                             | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
                                             | _  -> false
-        | Condition     ->  renderIf c (c.EvalBool n)
-        | NotCondition  ->  renderIf c (not (c.EvalBool n))
         | Scope         ->  let cc = if map.IsEmpty then c else { c with Parent = Some c; Current = Some (map :> obj) }
                             match c.Get n with                     
                             | Some(valu) -> match valu with
@@ -691,10 +676,11 @@ let rec render (c:Context) (list:Part list) =
                                             | o ->  l |> render { cc with Parent = Some cc; Current = Some o }                                                         
                             | None ->       match helpers.TryGetValue (n.ToString()) with
                                             | true, ref -> ref cc Map.empty map (fun () -> failwith "not available")
-                                            | _ ->         renderIf cc false      // TODO create new current from keyvalue map     
-        | Block         -> match cache.TryGetValue (n.ToString()) with 
-                           | true, (_,b) -> b |> render c // override
-                           | _           -> l |> render c // default                        
+                                            | _ ->         renderIf cc false
+        | Block         ->  let name = n.ToString()
+                            match cache.TryGetValue name with 
+                            | true, (_,b) -> b |> render {c with TmplName = name} // override
+                            | _           -> l |> render c // default                        
         // Deprecated | Escaped       -> renderList (n :: scope) l  
         | _ -> failwith <| sprintf "unexpected %A" st
     | _ -> ()

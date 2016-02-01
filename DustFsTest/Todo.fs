@@ -90,15 +90,29 @@ module T11_PartialParams =
 
     [<SetUp>]
     let ``setup partials`` () =
-      json "{\"name\":\"Mick\",\"count\":30}"
-      |> dustReg "partial"
-                 "Hello {name}! You have {count} new messages."
-      |> expect  "Hello Mick! You have 30 new messages."
+      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
+                                c.Write c.TmplName
+                            )
+      "Hello {name}! You have {count} new messages." |> named "partial" 
+      "Hello World!" |> named "hello_world"         
+      "{+header}default header {/header}Hello {name}! You have {count} new messages."  |> named "partial_with_blocks"                 
+      "{+header/}Hello {name}! You have {count} new messages." |> named "partial_with_blocks_and_no_defaults" 
+      "{#helper}{/helper}"  |> named "partial_print_name"                  
 
+    [<Test>]
+    let ``should test partial`` () =
       empty
-      |> dustReg "hello_world"
-                 "Hello World!"
-      |> expect  "Hello World!"
+      |> dustReg "nested_partial_print_name"
+                 "{>partial_print_name/}"
+      |> expect  ""
+
+    [<Test>]
+    let ``should test nested partial`` () =
+      empty
+      |> dustReg "nested_nested_partial_print_name"
+                 "{>nested_partial_print_name/}"
+      |> expect  ""
+
 
     [<Test>]
     let ``should test partials`` () =
@@ -232,18 +246,41 @@ module T11_PartialParams =
       |> expect "partial_print_name"
 
     [<Test>]
+    [<Ignore "needs helper">]
+//{ "loadTemplate": function(chunk, context, bodies, params)
+//    {
+//        var source = context.resolve(params.source),
+//            name = context.resolve(params.name);
+//        dust.loadSource(dust.compile(source, name));
+//        return chunk.write('');
+//    },
+//    "printTemplateName": function(chunk, context, bodies, params)
+//    {
+//        return chunk.write(context.getTemplateName());
+//    },
     let ``should print the current template name with some additional output`` () =
       json "{\"parentTemplate\":\"parent\",\"parentSource\":\"{?undefinedVar}{:else}{>\\\"content\\\"/}{/undefinedVar}\",\"contentTemplate\":\"content\",\"contentSource\":\"templateName: {#printTemplateName}{/printTemplateName} output: additional output\"}"
       |> dust   "{#loadTemplate name=\"{contentTemplate}\" source=\"{contentSource|s}\"}{/loadTemplate}\n{#loadTemplate name=\"{parentTemplate}\" source=\"{parentSource|s}\"}{/loadTemplate}\n{>\"{parentTemplate}\"/} | additional parent output"
       |> expect "templateName: content output: additional output | additional parent output"
 
     [<Test>]
+    [<Ignore "needs helper">]
     let ``should render the helper with missing global context`` () =
+//{ "helper": function(chunk, context, bodies, params)
+//    {
+//        var newContext = dust.makeBase({});
+//        return chunk.partial(params.template, newContext, newContext, {});
+//    }
       empty
       |> dust   "{#helper template=\"partial\"}{/helper}"
       |> expect "Hello ! You have  new messages."
 
     [<Test>]
+    [<Ignore "needs helper">]
+//              loadPartialTl : function(chunk, context, bodies, params) {
+//            dust.loadSource(dust.compile('{.value}{.value.childValue.anotherChild}{name.nested}{$idx} ', 'partialTl'));
+//            return chunk;
+//          }
     let ``Should gracefully handle stepping into context that does not exist`` () =
       empty
       |> dust   "{#loadPartialTl}{/loadPartialTl}\n{>partialTl:contextDoesNotExist/}"
@@ -319,73 +356,8 @@ module T13_InlinePartialBlock =
 
 module T15_CoreGrammar =
 
-    [<SetUp>]
-    let ``setup helper`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
-                                match param.TryFind "boo", param.TryFind "foo" with
-                                | Some b, Some f -> c.Write b; c.Write " "; c.Write f
-                                | _ -> ()
-                            )
-
     [<Test>]
-    let ``should ignore extra whitespaces between opening brace plus any of (#,?,at,^,+,%) and the tag identifier`` () =
-      empty
-      |> dust "{# helper foo=\"bar\" boo=\"boo\" } {/helper}"
-      |> expect "boo bar"
-
-    [<Test>]
-    [<ExpectedException>]
-    let ``should show an error for whitespaces between the opening brace and any of (#,?,at,^,+,%)`` () =
-      empty
-      |> dust   "{ # helper foo=\"bar\" boo=\"boo\" } {/helper}"
-      |> ignore
-
-    [<Test>]
-    let ``should ignore extra whitespaces between the closing brace plus slash and the tag identifier`` () =
-      empty
-      |> dust   "{# helper foo=\"bar\" boo=\"boo\"} {/ helper }"
-      |> expect "boo bar"
-
-    [<Test>]
-    [<ExpectedException>]
-    let ``should show an error because whitespaces between the '{' and the forward slash are not allowed in the closing tags`` () =
-      empty
-      |> dust   "{# helper foo=\"bar\" boo=\"boo\"} { / helper }"
-      |> ignore
-
-    [<Test>]
-    let ``should ignore extra whitespaces before the self closing tags`` () =
-      empty
-      |> dust   "{#helper foo=\"bar\" boo=\"boo\" /}"
-      |> expect "boo bar"
-
-    [<Test>]
-    [<ExpectedException>]
-    let ``should show an error for whitespaces between the forward slash and the closing brace in self closing tags`` () =
-      empty
-      |> dust   "{#helper foo=\"bar\" boo=\"boo\" / }"
-      |> ignore
-
-    [<Test>]
-    let ``should ignore extra whitespaces between inline params`` () =
-      empty
-      |> dust   "{#helper foo=\"bar\"   boo=\"boo\"/}"
-      |> expect "boo bar"
-
-    [<Test>]
-    [<ExpectedException>]
-    let ``should show an error for whitespaces between the '{' plus '>' and partial identifier`` () =
-      json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
-      |> dust   "{ > partial/} {> \"hello_world\"/} {> \"{ref}\"/}"
-      |> ignore
-
-    [<Test>]
-    let ``should ignore extra whitespacesbefore the forward slash and the closing brace in partials`` () =
-      json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
-      |> dust   "{>partial /} {>\"hello_world\" /} {>\"{ref}\" /}"
-      |> expect "Hello Jim! You have 42 new messages. Hello World! Hello World!"
-
-    [<Test>]
+    [<Ignore "TODO">]
     let ``should test dash in partial's keys`` () =
       json "{\"foo-title\":\"title\",\"bar-letter\":\"a\"}"
       |> dust   "{<title-a}foo-bar{/title-a}{+\"{foo-title}-{bar-letter}\"/}"

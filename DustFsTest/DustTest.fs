@@ -21,19 +21,26 @@ let js code =
 let json s =
     JsonConvert.DeserializeObject<ExpandoObject>(s, new ExpandoObjectConverter()) :> obj;
 
-let dustExec body data =
+let dustExec body name data =
     let sb = System.Text.StringBuilder()
-    let ctx = { Context.defaults with W = new StringWriter(sb); TmplDir = __SOURCE_DIRECTORY__ + """\null\""" ; Current = Some data }
+    let ctx = { Context.defaults with W = new StringWriter(sb);
+                                    TmplDir = __SOURCE_DIRECTORY__ + """\null\""";
+                                    TmplName = name;
+                                    Current = Some data }
     body |> render ctx
     sb.ToString() //.Replace("\r\n", "\n")
 
 let dust source data =
-    dustExec (parse source) data    
+    dustExec (parse source) "" data    
 
 let dustReg name source data =
     let body = parse source
     cache.[name] <- (DateTime.Now, body)
-    dustExec body data    
+    dustExec body name data    
+
+let named name source =
+    let body = parse source
+    cache.[name] <- (DateTime.Now, body)
 
 let shouldEqual (x: 'a) (y: 'a) = 
     Assert.AreEqual(x, y, sprintf "Expected: %A\nActual: %A" x y)
