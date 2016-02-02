@@ -4,7 +4,7 @@ open Dust.Engine
 open Dust.Test
 open NUnit.Framework
 
-#if TODO
+#if !TODO
 
 module R01_DustFs =       
     [<Test>]
@@ -586,6 +586,108 @@ module R10_Partial =
                  "{>nested_partial_print_name/}"
       |> expect  ""
 
+module R11_PartialParams =
+
+    [<SetUp>]
+    let ``setup partials`` () =
+      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
+                                c.Write c.TmplName
+                            )
+      "Hello {name}! You have {count} new messages." |> named "partial" 
+      "Hello World!" |> named "hello_world"         
+      "{+header}default header {/header}Hello {name}! You have {count} new messages."  |> named "partial_with_blocks"                 
+      "{+header/}Hello {name}! You have {count} new messages." |> named "partial_with_blocks_and_no_defaults" 
+      "{#helper}{/helper}"  |> named "partial_print_name"                  
+      "{>partial_print_name/}" |> named "nested_partial_print_name"
+
+    [<Test>]
+    let ``should test partial`` () =
+      empty
+      |> dust    "{>partial_print_name/}"
+      |> expect  "partial_print_name"
+
+    [<Test>]
+    let ``should test nested partial`` () =
+      empty
+      |> dust    "{>nested_partial_print_name/}"
+      |> expect  "partial_print_name"
+
+
+    [<Test>]
+    let ``should test partials`` () =
+      json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
+      |> dust   //"partials"
+                "{>partial foo=0 /} {>\"hello_world\" foo=1 /} {>\"{ref}\" foo=2 /}"
+      |> expect "Hello Jim! You have 42 new messages. Hello World! Hello World!"
+
+    [<Test>]
+    let ``should test partial with blocks, with no default values for blocks, but override default values with inline partials`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust   "{>partial_with_blocks_and_no_defaults/}{<header}override header {/header}"
+      |> expect "override header Hello Mick! You have 30 new messages."
+
+    [<Test>]
+    let ``should test partial with blocks, override default values with inline partials`` () =
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust   "{>partial_with_blocks/}{<header}my header {/header}"
+      |> expect "my header Hello Mick! You have 30 new messages."
+
+    [<Test>]
+    let ``should test partial with inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust   "{>partial name=n count=\"{c}\"/}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    [<Test>]
+    let ``should test partial with inline params tree walk up`` () =
+      json "{\"n\":\"Mick\",\"x\":30,\"a\":{\"b\":{\"c\":{\"d\":{\"e\":\"1\"}}}}}"
+      |> dust   "{#a}{#b}{#c}{#d}{>partial name=n count=\"{x}\"/}{/d}{/c}{/b}{/a}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    [<Test>]
+    let ``should test partial with dynamic name and a context`` () =
+      json "{\"partialName\":\"partial\",\"me\":{\"name\":\"Mick\",\"count\":30}}"
+      |> dust   "{>\"{partialName}\":me /}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    [<Test>]
+    let ``should test partial with dynamic name and a context 2`` () =
+      json "{\"partialName\":\"partial\",\"me\":{\"name\":\"Mick\",\"count\":30}}"
+      |> dust   "{>\"{partialName}\" name=me.name count=me.count /}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    [<Test>]
+    let ``should test partial with blocks, override default values for blocks and inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust   "{>partial_with_blocks name=n count=\"{c}\"/}{<header}my header {/header}"
+      |> expect "my header Hello Mick! You have 30 new messages."
+
+    [<Test>]
+    let ``should test partial blocks and no defaults, override default values for blocks and inline params`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust   "{>partial_with_blocks_and_no_defaults name=n count=\"{c}\"/}{<header}my header {/header}"
+      |> expect "my header Hello Mick! You have 30 new messages."
+
+    [<Test>]
+    let ``should test partial with no blocks, ignore the override inline partials`` () =
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust   "{>partial name=n count=\"{c}\"/}{<header}my header {/header}"
+      |> expect "Hello Mick! You have 30 new messages."
+
+    [<Test>]
+    let ``should print the current template name`` () =
+      empty
+      |> dust   "{>partial_print_name/}"
+      |> expect "partial_print_name"
+
+
+    [<Test>]
+    let ``should print the current template name 2`` () =
+      empty
+      |> dust   "{>nested_partial_print_name/}"
+      |> expect "partial_print_name"
+
+
 module R12_InlineParams =
 
     [<Test>]
@@ -599,6 +701,13 @@ module R12_InlineParams =
       json "{\"foo\":true}"
       |> dust   "{#foo bar=-1.1}{bar}{/foo}"
       |> expect "-1.1"
+
+    [<Test>]
+    let ``Inline params that evaluate to a dust function should evaluate their body`` () =
+      json "{\"section\":true,\"b\":\"world\"}"
+      |> dust   "{#section a=\"{b}\"}{#a}Hello, {.}!{/a}{/section}"
+      |> expect "Hello, world!"
+
 
 module R15_CoreGrammar =
 

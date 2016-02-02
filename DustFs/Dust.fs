@@ -160,7 +160,7 @@ type System.Object with
                                             | true  -> optional (d.Item(key))
                                             | _     -> None
     | :? IDictionary<string,Value> as d ->  match d.TryGetValue key with
-                                            | true, VInline(s) -> Some (s :> obj)
+                                            //| true, VInline(s) -> Some (s :> obj)
                                             | true, v          -> Some (v :> obj)
                                             | _     -> None
     | _  ->                                 let p = o.GetType().GetProperty(key)
@@ -261,13 +261,17 @@ type Context =
 
     member this.Log msg               = this.Logger msg
 
+    member c.Interpolate (s:string) =
+        if s.StartsWith("{") then s.Substring(1, s.Length-2) |> c.GetStr
+        else s
+
     member c.TryFindSegment o = function
         | Name(n)  -> match o.TryFindProp n with
                       | Some(o) ->  match o with
                                     | :? Value as v -> match v with 
                                                        | VIdent(i) -> c.Get i
                                                        | VNumber(n) -> Some(box n)
-                                                       | _ -> failwith "unexpected"
+                                                       | VInline(s) -> Some(box <| c.Interpolate s)
                                     | _ -> Some(o)
                       | _ -> None
         | Index(i) -> if i = -2 then o.TryFindIndex (fst c.Index.Value) 
@@ -634,7 +638,7 @@ let rec render (c:Context) (list:Part list) =
                         | Helper         -> helper (n.ToString()) c Map.empty pa (fun () -> failwith "not available")
                         | LogicHelper(_) -> failwith "LogicHelper should be a SectionBlock" 
                         | _ -> ()
-    | SectionBlock(st,n,_,map,l,bodies) -> 
+    | SectionBlock(st,n,co,map,l,bodies) -> 
         let renderIf cc cond = if cond then l |> render cc
                                else match bodies.TryFind "else" with
                                     | Some body -> body |> render cc
@@ -660,7 +664,8 @@ let rec render (c:Context) (list:Part list) =
                                             | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
                                             | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
                                             | _  -> false
-        | Scope         ->  let cc = if map.IsEmpty then c else { c with Parent = Some c; Current = Some (map :> obj) }
+        | Scope         ->  let cc = if map.IsEmpty then c // TODO apply COntext
+                                                    else { c with Parent = Some c; Current = Some (map :> obj) }
                             match c.Get n with                     
                             | Some(valu) -> match valu with
                                             // Dust's default behavior is to enumerate over the array elem, passing each object in the array to the block.

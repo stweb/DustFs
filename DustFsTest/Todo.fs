@@ -77,25 +77,6 @@ module T11_PartialParams =
       "{#helper}{/helper}"  |> named "partial_print_name"                  
       "{>partial_print_name/}" |> named "nested_partial_print_name"
 
-    [<Test>]
-    let ``should test partial`` () =
-      empty
-      |> dust    "{>partial_print_name/}"
-      |> expect  ""
-
-    [<Test>]
-    let ``should test nested partial`` () =
-      empty
-      |> dust    "{>nested_partial_print_name/}"
-      |> expect  ""
-
-
-    [<Test>]
-    let ``should test partials`` () =
-      json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
-      |> dust   //"partials"
-                "{>partial foo=0 /} {>\"hello_world\" foo=1 /} {>\"{ref}\" foo=2 /}"
-      |> expect "Hello Jim! You have 42 new messages. Hello World! Hello World!"
 
     [<Test>]
     [<Ignore("needs async helper")>]
@@ -105,39 +86,9 @@ module T11_PartialParams =
       |> expect "Hello World!"
 
     [<Test>]
-    let ``should test partial with context`` () =
-      json "{\"profile\":{\"name\":\"Mick\",\"count\":30}}"
-      |> dust   "{>partial:.profile/}"
-      |> expect "Hello Mick! You have 30 new messages."
-
-    [<Test>]
     let ``should test partial with blocks, with no default values for blocks`` () =
       json "{\"name\":\"Mick\",\"count\":30}"
       |> dust   "{>partial_with_blocks_and_no_defaults/}"
-      |> expect "Hello Mick! You have 30 new messages."
-
-    [<Test>]
-    let ``should test partial with blocks, with no default values for blocks, but override default values with inline partials`` () =
-      json "{\"name\":\"Mick\",\"count\":30}"
-      |> dust   "{>partial_with_blocks_and_no_defaults/}{<header}override header {/header}"
-      |> expect "override header Hello Mick! You have 30 new messages."
-
-    [<Test>]
-    let ``should test partial with blocks, override default values with inline partials`` () =
-      json "{\"name\":\"Mick\",\"count\":30}"
-      |> dust   "{>partial_with_blocks/}{<header}my header {/header}"
-      |> expect "my header Hello Mick! You have 30 new messages."
-
-    [<Test>]
-    let ``should test partial with inline params`` () =
-      json "{\"n\":\"Mick\",\"c\":30}"
-      |> dust   "{>partial name=n count=\"{c}\"/}"
-      |> expect "Hello Mick! You have 30 new messages."
-
-    [<Test>]
-    let ``should test partial with inline params tree walk up`` () =
-      json "{\"n\":\"Mick\",\"x\":30,\"a\":{\"b\":{\"c\":{\"d\":{\"e\":\"1\"}}}}}"
-      |> dust   "{#a}{#b}{#c}{#d}{>partial name=n count=\"{x}\"/}{/d}{/c}{/b}{/a}"
       |> expect "Hello Mick! You have 30 new messages."
 
     [<Test>]
@@ -158,17 +109,6 @@ module T11_PartialParams =
       |> dust   "{>partial:profile name=\"Joe\" count=\"99\"/}"
       |> expect "Hello Joe! You have 30 new messages."
 
-    [<Test>]
-    let ``should test partial with dynamic name and a context`` () =
-      json "{\"partialName\":\"partial\",\"me\":{\"name\":\"Mick\",\"count\":30}}"
-      |> dust   "{>\"{partialName}\":me /}"
-      |> expect "Hello Mick! You have 30 new messages."
-
-    [<Test>]
-    let ``should test partial with dynamic name and a context 2`` () =
-      json "{\"partialName\":\"partial\",\"me\":{\"name\":\"Mick\",\"count\":30}}"
-      |> dust   "{>\"{partialName}\" name=me.name count=me.count /}"
-      |> expect "Hello Mick! You have 30 new messages."
 
     // should preserve partials backwards compatibility with compilers pre-2.7
 //    [<Test>]
@@ -185,42 +125,13 @@ module T11_PartialParams =
       |> dust   "{>partial_with_blocks name=n count=\"{c}\"/}"
       |> expect "default header Hello Mick! You have 30 new messages."
 
-    [<Test>]
-    let ``should test partial with blocks, override default values for blocks and inline params`` () =
-      json "{\"n\":\"Mick\",\"c\":30}"
-      |> dust   "{>partial_with_blocks name=n count=\"{c}\"/}{<header}my header {/header}"
-      |> expect "my header Hello Mick! You have 30 new messages."
-
-    [<Test>]
-    let ``should test partial blocks and no defaults, override default values for blocks and inline params`` () =
-      json "{\"n\":\"Mick\",\"c\":30}"
-      |> dust   "{>partial_with_blocks_and_no_defaults name=n count=\"{c}\"/}{<header}my header {/header}"
-      |> expect "my header Hello Mick! You have 30 new messages."
-
-    [<Test>]
-    let ``should test partial with no blocks, ignore the override inline partials`` () =
-      json "{\"n\":\"Mick\",\"c\":30}"
-      |> dust   "{>partial name=n count=\"{c}\"/}{<header}my header {/header}"
-      |> expect "Hello Mick! You have 30 new messages."
-
-    [<Test>]
-    let ``should print the current template name`` () =
-      empty
-      |> dust   "{>partial_print_name/}"
-      |> expect "partial_print_name"
-
-    [<Test>]
+    [<Test>] // TODO handle quoted name
     let ``should print the current dynamic template name`` () =
       json "{\"partial_print_name\":\"partial prints the current template name\"}"
       |> dust   "{>\"{partial_print_name}\"/}"
       |> expect "partial_print_name"
 
-    [<Test>]
-    let ``should print the current template name 2`` () =
-      empty
-      |> dust   "{>nested_partial_print_name/}"
-      |> expect "partial_print_name"
-
+ 
     [<Test>]
     [<Ignore "needs helper">]
 //{ "loadTemplate": function(chunk, context, bodies, params)
@@ -264,10 +175,17 @@ module T11_PartialParams =
 
 module T12_InlineParams =
 
+    [<SetUp>]
+    let ``setup partials`` () =
+      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
+                                match  param.TryFind "foo" with
+                                | Some foo -> c.Write foo
+                                | _ -> ()
+                            )
+
     // === SUITE ===inline params tests
     // should test inner params
     [<Test>]
-    [<Ignore("requires JS & Block handlers")>]
     let ``should test inner params`` () =
       empty
       // context:  {  helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },
@@ -275,7 +193,6 @@ module T12_InlineParams =
       |> expect "bar"
 
     [<Test>]
-    [<Ignore("requires JS & Block handlers")>]
     let ``Block handlers syntax should support integer number parameters`` () =
       empty
       // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },
@@ -283,7 +200,6 @@ module T12_InlineParams =
       |> expect "10"
 
     [<Test>]
-    [<Ignore("requires JS & Block handlers")>]
     let ``Block handlers syntax should support decimal number parameters`` () =
       empty
       // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },       
@@ -291,18 +207,12 @@ module T12_InlineParams =
       |> expect "3.14159"
 
     [<Test>]
-    [<Ignore("requires JS & Block handlers")>]
     let ``should test parameters with dashes`` () =
       empty
       // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params['data-foo']); } },
       |> dust   "{#helper data-foo=\"dashes\" /}"
       |> expect "dashes"
 
-    [<Test>]
-    let ``Inline params that evaluate to a dust function should evaluate their body`` () =
-      json "{\"section\":true,\"b\":\"world\"}"
-      |> dust   "{#section a=\"{b}\"}{#a}Hello, {.}!{/a}{/section}"
-      |> expect "Hello, world!"
 
 module T13_InlinePartialBlock =
 
@@ -432,6 +342,7 @@ module T20_Helper =
       |> expect "You &amp; I"
 
 #endif
+
 #if TODO
 
 [<Ignore "requires JS helper">]
