@@ -173,47 +173,6 @@ module T11_PartialParams =
       |> dust   "{#loadPartialTl}{/loadPartialTl}\n{>partialTl:contextDoesNotExist/}"
       |> expect " "
 
-module T12_InlineParams =
-
-    [<SetUp>]
-    let ``setup partials`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
-                                match  param.TryFind "foo" with
-                                | Some foo -> c.Write foo
-                                | _ -> ()
-                            )
-
-    // === SUITE ===inline params tests
-    // should test inner params
-    [<Test>]
-    let ``should test inner params`` () =
-      empty
-      // context:  {  helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },
-      |> dust   "{#helper foo=\"bar\"/}"
-      |> expect "bar"
-
-    [<Test>]
-    let ``Block handlers syntax should support integer number parameters`` () =
-      empty
-      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },
-      |> dust   "{#helper foo=10 /}"
-      |> expect "10"
-
-    [<Test>]
-    let ``Block handlers syntax should support decimal number parameters`` () =
-      empty
-      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },       
-      |> dust   "{#helper foo=3.14159 /}"
-      |> expect "3.14159"
-
-    [<Test>]
-    let ``should test parameters with dashes`` () =
-      empty
-      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params['data-foo']); } },
-      |> dust   "{#helper data-foo=\"dashes\" /}"
-      |> expect "dashes"
-
-
 module T13_InlinePartialBlock =
 
     [<Test>]

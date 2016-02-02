@@ -427,10 +427,10 @@ let (|Param|_|) = function
                             match r with
                             | Inline (x,r) -> Some <| ((key, VInline(toString x)), r)
                             | Ident  (m,r) -> Some <| ((key, VIdent(m)), r)
-                            | Int    (i,r) -> Some <| ((key, VNumber(decimal i)), r)
                             | Number (x,r) -> match Decimal.TryParse(toString x, NumberStyles.Any, CultureInfo.InvariantCulture) with
                                               | true, n -> Some <| ((key, VNumber(n)), r)
                                               | _       -> failwith "bad number"
+                            | Int    (i,r) -> Some <| ((key, VNumber(decimal i)), r) // Int must follow Number in matching!
                             | _ -> None
     | _ -> None
 
