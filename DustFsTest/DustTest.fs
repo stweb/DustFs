@@ -15,28 +15,29 @@ open Newtonsoft.Json.Converters
 let empty = 
     new ExpandoObject()
 
-let js code =
-    empty // TODO
-
 let json s =
     JsonConvert.DeserializeObject<ExpandoObject>(s, new ExpandoObjectConverter()) :> obj;
 
-let dustExec body name data =
+let dustExec body name data glob =
     let sb = System.Text.StringBuilder()
     let ctx = { Context.defaults with W = new StringWriter(sb);
                                     TmplDir = __SOURCE_DIRECTORY__ + """\null\""";
                                     TmplName = name;
-                                    Current = Some data }
+                                    Current = Some data;
+                                    Global = glob }
     body |> render ctx
-    sb.ToString() //.Replace("\r\n", "\n")
+    sb.ToString()
 
 let dust source data =
-    dustExec (parse source) "" data    
+    dustExec (parse source) "" data null
+
+let dustG source glob data =
+    dustExec (parse source) "" data (json glob)
 
 let dustReg name source data =
     let body = parse source
     cache.[name] <- (DateTime.Now, body)
-    dustExec body name data    
+    dustExec body name data null
 
 let named name source =
     let body = parse source

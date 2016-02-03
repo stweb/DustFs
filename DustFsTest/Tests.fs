@@ -538,6 +538,36 @@ module R07_NestedPaths =
       |> dust   "{#list}{a.b}{/list}"
       |> expect "BBB"
 
+    [<Test>]
+    let ``should test access global despite explicit context`` () =
+      json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
+      |> dustG   "{#data.A:B}Aname{name}{glob.globChild}{/data.A}" """{ glob: { globChild: "testGlobal"} }"""
+      |> expect "AnameAltestGlobal" 
+
+    [<Test>]
+    let ``Should check nested ref in global works in global mode`` () =
+      empty
+      |> dustG "{glob.globChild}" """{ glob: { globChild: "testGlobal"} }"""
+      |> expect "testGlobal"
+
+    [<Test>]
+    let ``Should check nested ref not found in global if partial match`` () =
+      json "{\"data\":{\"A\":{\"name\":\"Al\",\"B\":\"Ben\",\"C\":{\"namex\":\"Charlie\"}},\"C\":{\"namey\":\"Charlie Sr.\"}}}"
+      |> dustG  "{#data}{#A}{C.name}{/A}{/data}" """{ C: {name: "Big Charlie"} }"""
+      |> expect ""
+
+    [<Test>]
+    let ``should test the leading dot behavior in local mode`` () =
+      json "{\"name\":\"List of people\",\"age\":\"8 hours\",\"people\":[{\"name\":\"Alice\"},{\"name\":\"Bob\",\"age\":42}]}"
+      |> dust   "{#people}{.name} is {?.age}{.age} years old.{:else}not telling us their age.{/age}{/people}"
+      |> expect "Alice is not telling us their age.Bob is 42 years old."
+
+    [<Test>] // TODO set cur = true inside explicit # -> how?
+    let ``should test explicit context blocks looking further up stack`` () =
+      json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
+      |> dust   "{#data.A:B}Aname{name}{data.C.name}{/data.A}"
+      |> expect "AnameAl"
+
 module R10_Partial =
 
     [<Test>]

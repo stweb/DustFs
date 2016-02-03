@@ -4,7 +4,7 @@ open Dust.Engine
 open Dust.Test
 open NUnit.Framework
 
-#if !TODO
+#if TODO
 
 module T06_ArrayIndexAccess =
 
@@ -20,39 +20,6 @@ module T06_ArrayIndexAccess =
 module T07_NestedPaths =
     // === SUITE ===nested path tests
     // should test the leading dot behavior in local mode
-    [<Test>]
-    let ``should test the leading dot behavior in local mode`` () =
-      json "{\"name\":\"List of people\",\"age\":\"8 hours\",\"people\":[{\"name\":\"Alice\"},{\"name\":\"Bob\",\"age\":42}]}"
-      |> dust   "{#people}{.name} is {?.age}{.age} years old.{:else}not telling us their age.{/age}{/people}"
-      |> expect "Alice is not telling us their age.Bob is 42 years old."
-
-    [<Test>] // TODO set cur = true inside explicit # -> how?
-    let ``should test explicit context blocks looking further up stack`` () =
-      json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
-      |> dust   "{#data.A:B}Aname{name}{data.C.name}{/data.A}"
-      |> expect "AnameAl"
-
-    [<Test>]
-    [<Ignore "TODO Implement global">]
-    let ``should test access global despite explicit context`` () =
-      json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
-      |> dust   "{#data.A:B}Aname{name}{glob.globChild}{/data.A}"
-      |> expect "AnameAltestGlobal"
-
-    [<Test>]
-    [<Ignore "TODO Implement global">]
-    let ``Should check nested ref in global works in global mode`` () =
-      empty
-      // base: { glob: { globChild: "testGlobal"} },        
-      |> dust   "{glob.globChild}"
-      |> expect "testGlobal"
-
-    [<Test>]
-    [<Ignore "TODO Implement global">]
-    let ``Should check nested ref not found in global if partial match`` () =
-      json "{\"data\":{\"A\":{\"name\":\"Al\",\"B\":\"Ben\",\"C\":{\"namex\":\"Charlie\"}},\"C\":{\"namey\":\"Charlie Sr.\"}}}"
-      |> dust   "{#data}{#A}{C.name}{/A}{/data}"
-      |> expect ""
 
     [<Ignore "Requires JavaScript">]
     [<Test>]
