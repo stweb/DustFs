@@ -52,11 +52,6 @@ module T11_PartialParams =
       |> dust   "{>\"{ref}\" /}"
       |> expect "Hello World!"
 
-    [<Test>]
-    let ``should test partial with blocks, with no default values for blocks`` () =
-      json "{\"name\":\"Mick\",\"count\":30}"
-      |> dust   "{>partial_with_blocks_and_no_defaults/}"
-      |> expect "Hello Mick! You have 30 new messages."
 
     [<Test>]
     let ``should test partial with inline params and context`` () =
@@ -86,11 +81,7 @@ module T11_PartialParams =
 //               "{#oldPartial/}"
 //      |> expect "Hello Mick! You have 30 new messages."
 
-    [<Test>]
-    let ``should test partial with blocks and inline params`` () =
-      json "{\"n\":\"Mick\",\"c\":30}"
-      |> dust   "{>partial_with_blocks name=n count=\"{c}\"/}"
-      |> expect "default header Hello Mick! You have 30 new messages."
+
 
     [<Test>] // TODO handle quoted name
     let ``should print the current dynamic template name`` () =

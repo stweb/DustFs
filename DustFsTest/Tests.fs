@@ -642,7 +642,6 @@ module R11_PartialParams =
       |> dust    "{>nested_partial_print_name/}"
       |> expect  "partial_print_name"
 
-
     [<Test>]
     let ``should test partials`` () =
       json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
@@ -710,13 +709,25 @@ module R11_PartialParams =
       |> dust   "{>partial_print_name/}"
       |> expect "partial_print_name"
 
-
     [<Test>]
     let ``should print the current template name 2`` () =
       empty
       |> dust   "{>nested_partial_print_name/}"
       |> expect "partial_print_name"
 
+    [<Test>]
+    let ``should test partial with blocks and inline params`` () =
+      cache.TryRemove "header" |> ignore
+      json "{\"n\":\"Mick\",\"c\":30}"
+      |> dust   "{>partial_with_blocks name=n count=\"{c}\"/}"
+      |> expect "default header Hello Mick! You have 30 new messages."
+
+    [<Test>]
+    let ``should test partial with blocks, with no default values for blocks`` () =
+      cache.TryRemove "header" |> ignore
+      json "{\"name\":\"Mick\",\"count\":30}"
+      |> dust   "{>partial_with_blocks_and_no_defaults/}"
+      |> expect "Hello Mick! You have 30 new messages."
 
 module R12_InlineParams =
 

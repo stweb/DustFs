@@ -563,7 +563,7 @@ let rec (|Part|_|) = function
                                                             Some(Section(LogicHelper(logic), id, ct, pam), r)
                                 | SectionType.Inline -> let key = id.ToString()
                                                         if key.Length > 0 && body.Length > 0 then
-                                                            cache.[key] <- (DateTime.Now, body) // defines inline part
+                                                            cache.[key] <- (DateTime.Now, body) // defines inline part TODO must not be cached globally!
                                                         Some(Comment(""), r) // returns nothing, cannot be NONE!
                                 | _ ->                  Some(SectionBlock(st, id, ct, pam, body, Map.ofList bodies), r)
                         | _ -> failwith "syntax error"
