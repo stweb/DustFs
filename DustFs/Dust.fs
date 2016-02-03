@@ -639,7 +639,7 @@ let rec render (c:Context) (list:Part list) =
                         | Helper         -> helper (n.ToString()) c Map.empty pa (fun () -> failwith "not available")
                         | LogicHelper(_) -> failwith "LogicHelper should be a SectionBlock"
                         | _ -> ()
-    | SectionBlock(st,n,co,map,l,bodies) ->
+    | SectionBlock(st,n,x,map,l,bodies) ->
         let renderIf cc cond = if cond then l |> render cc
                                else match bodies.TryFind "else" with
                                     | Some body -> body |> render cc
@@ -665,8 +665,9 @@ let rec render (c:Context) (list:Part list) =
                                             | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
                                             | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
                                             | _  -> false
-        | Scope         ->  let cc = if map.IsEmpty then c // TODO apply COntext
-                                                    else { c with Parent = Some c; Current = Some (map :> obj) }
+        | Scope         ->  let cc =  match x with // if a new context x is specified, then rebase WITHOUT parent
+                                            | Some i -> { c with Parent = None;   Current = c.Get i }
+                                            | None   -> { c with Parent = Some c; Current = Some(map :> obj) }                               
                             match c.Get n with
                             | Some(valu) -> match valu with
                                             // Dust's default behavior is to enumerate over the array elem, passing each object in the array to the block.
