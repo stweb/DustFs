@@ -124,7 +124,7 @@ module R02_CoreTests =
       |> expect "me you"
 
     [<Test>]    
-    [<Ignore "Fix recursion">]
+    // note context ":." gets resolved to ctx.rebase(ctx.getPath(cur=true, [])) in node.js
     let ``should test recursion`` () =
       json "{\"name\":\"1\",\"kids\":[{\"name\":\"1.1\",\"kids\":[{\"name\":\"1.1.1\"}]}]}"
       |> dustReg "recursion" "{name}{~n}{#kids}{>recursion:./}{/kids}"        

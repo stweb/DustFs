@@ -285,7 +285,9 @@ type Context =
                                         (cur, k2.Split('.') |> List.ofArray |> List.map (fun x -> Name(x)) )
                                      else
                                         (cur, [Name(k2)])
-                        | Path(p) -> false, p
+                        | Path(p) -> match p with
+                                     | [Name(".")]  -> true, p
+                                     | _            -> false, p
         c.GetPath cur path
 
     member c.GetPath (cur:bool) (p:Segment list) : obj Option =
@@ -338,7 +340,6 @@ let nullHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit 
 helpers.[""] <- nullHelper
 
 // --------------------------------------------------------------------------------------
-
 let parseFilters (strarr:seq<string>) =
     seq {
         for f in Seq.skip 1 strarr do
@@ -619,13 +620,13 @@ let rec render (c:Context) (list:Part list) =
                                 | VIdent(i)  -> i.ToString()
                                 | _ -> failwith "unexpected"
                         if n <> "" then
+                                let cc = match x with // if a new context x is specified, then rebase WITHOUT parent
+                                         | Some i -> { c with Parent = None;   TmplName = n; Current = c.Get i }
+                                         | None   -> { c with Parent = Some c; TmplName = n; Current = Some(m :> obj) }                               
                                 match cache.TryGetValue n with
                                 | true, (_, part) -> part
                                 | _ -> c.ParseCached parse n
-                                |> render { c with Parent = Some c; TmplName = n;
-                                                   Current = match x with
-                                                             | Some i -> c.Get i
-                                                             | None -> Some(m :> obj) }
+                                |> render cc
     | Reference(k,f) -> match c.Get k with
                         | None -> ()
                         | Some value    ->  match value with
