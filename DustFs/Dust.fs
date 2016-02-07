@@ -129,7 +129,7 @@ let rec parseUntil closing acc = function
 let (|Until|_|) closing chars =
     parseUntil closing [] chars
 
-let (|BeforeOneOf|_|) chars = // [ '\n', '{' ]
+let (|BeforeEolOrTag|_|) chars = // [ '\n', '{' ]
     let rec loop acc = function
         | '{'  :: rest -> if acc <> [] then Some(List.rev acc, '{'  :: rest) else None
         | '\n' :: rest -> if acc <> [] then Some(List.rev acc, '\n' :: rest) else None
@@ -484,7 +484,7 @@ let compress body =
 
 //part <- raw / comment / section / partial / special / reference / buffer
 let rec (|Part|_|) = function
-    | '{' :: rest-> if Char.IsWhiteSpace rest.Head then failwith "unexpected whitespace"
+    | '{' :: rest-> // fails with CSS if Char.IsWhiteSpace rest.Head then failwithf "unexpected whitespace %s" (toString rest)
                     match rest with
                     | '!' :: Until ['!';'}'] (x,r) -> Some(Comment(toString x), r)
                     | '`' :: Until ['`';'}'] (x,r) -> Some(Buffer(toString x), r)
@@ -536,7 +536,7 @@ let rec (|Part|_|) = function
                                                     | End(i)       -> (acc, End(i), r2)
                                                     | NamedBody(k) -> (acc, NamedBody(k), r2)
                                                     | _            -> loop (p :: acc) r2
-                                    | _          -> failwithf "unexpected %s" (toString ch)
+                                    | _          -> Buffer(toString ch) :: acc, Null, []
 
                                 let bodyacc, endp, r = loop [] r
                                 let body = bodyacc |> List.rev |> compress
@@ -582,11 +582,11 @@ let rec (|Part|_|) = function
                     | Ident(i, Until ['}'] (f,r)) -> let fs = (f |> toString).Split('|') |> parseFilters
                                                      Some(Reference(i, fs), r)
 
-                    | _ -> None
+                    | _ ->  Some <| (Buffer "{", rest)
     // THE ORDERING OF THE FOLLOWING RULES IS IMPORTANT
     | '\r' :: '\n' :: chars
     | '\n' :: chars -> Some <| (Eol, chars)
-    | BeforeOneOf (t,chars) ->  Some <| (Buffer(toString t), chars)
+    | BeforeEolOrTag (t,chars) ->  Some <| (Buffer(toString t), chars)
     | _ -> None
 
 let parse text =
