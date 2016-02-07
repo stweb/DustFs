@@ -228,7 +228,7 @@ type Context =
     member this.Write (v:Value)       = match v with
                                         | VNumber n -> n.ToString(this.Culture) |> this.Write
                                         | VInline s -> s |> this.Write
-                                        | VIdent i -> i.ToString() |> this.Write
+                                        | VIdent  i -> match this.Get i with | Some v -> this.WriteFiltered [] v | None -> ()
     member this.Write (s:string)      = this.W.Write(s)
     member this.Write (c:char)        = this.W.Write(c)
     // by default always apply the h filter, unless asked to unescape with |s
