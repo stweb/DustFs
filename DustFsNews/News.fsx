@@ -107,7 +107,7 @@ helpers.["test"] <- NewsHelpers.testHelper
 // ----------------------------------------------------------------------------
 // Building asynchronous Suave server
 // ----------------------------------------------------------------------------
-let index getFeed : WebPart = fun ctx -> async {    
+let index getFeed : WebPart = fun ctx -> async {
     Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Getting News %s" ctx.request.url.AbsolutePath)
     // perform in parallel
     let! aNews = Async.StartChild getFeed

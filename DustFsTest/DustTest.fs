@@ -1,16 +1,17 @@
 ﻿module Dust.Test
  
-open NUnit.Framework
 open FsUnit
 open Dust.Engine
 open System
 open System.IO
-open System.Collections.Generic
+open System.Collections.Concurrent
 open System.Dynamic
 open Newtonsoft.Json
 open Newtonsoft.Json.Converters
 
 // test DSL
+
+let helpers = new ConcurrentDictionary<string, Helper>()
 
 let empty = 
     new ExpandoObject()
@@ -20,12 +21,14 @@ let json s =
 
 let dustExec body name data glob =    
     let sb = System.Text.StringBuilder()
-    let ctx = { Context.defaults with W = new StringWriter(sb);
-                                    TmplDir = __SOURCE_DIRECTORY__ + """\null\""";
-                                    TmplName = name;
-                                    Current = Some data;
-                                    Global = glob }
-    body |> render ctx
+    let ctx = { Context.defaults with 
+                    W = new StringWriter(sb)
+                    TmplDir = __SOURCE_DIRECTORY__ + """\null\"""
+                    TmplName = name
+                    Current = Some data
+                    Global = glob
+                    Helpers = helpers }
+    body |> ctx.Render
     sb.ToString()
 
 let dust source data =

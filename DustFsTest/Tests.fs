@@ -8,6 +8,48 @@ open NUnit.Framework
 
 module R01_DustFs =       
     [<Test>]
+    let ``parsing`` () =
+        let test s =
+            let p = match s |> List.ofSeq with
+                    | Path(p,r) -> p
+                    | _ -> failwith "Not a path"
+
+            printfn "%s -> %A" s p
+
+        test ".root" 
+//        test ".one.two.three"
+//        test ".[0]"
+//        test "." 
+
+    [<Test>]
+    let ``ignore CSS`` () =
+      empty
+      |> dust  """<style>
+{#properties.style}
+
+body {
+  #test: {page.background_color}!important;
+  background-image: none!important;
+  color: {page.font_color}!important;
+  font-family: {page.font_family|s}!important;
+  font-size: {page.font_size|s}!important;
+  line-height: {page.line_height|s};
+  margin: {page.margin};
+}
+
+{/properties.style}
+</style>
+""" |> ignore
+
+    [<Test>]
+    let ``helper block`` () =
+      empty
+      |> dust  """{@page_container}
+  {+page_content/}
+  {>_page_footer/}
+{/page_container}""" |> ignore
+
+    [<Test>]
     let ``a dot test`` () =
       empty
       |> dust  "{.}"
@@ -93,6 +135,7 @@ module R02_CoreTests =
       |> expect "<script>alert(\'Hello!\')</script>\n&lt;script&gt;alert(&#39;Goodbye!&#39;)&lt;/script&gt;"
 
     [<Test>]
+    // broken because . gets lost while parsing {.root} should be ctx.getPath(true, ["root"])
     let ``should test force a key`` () =
       json "{\"root\":\"Subject\",\"person\":{\"name\":\"Larry\",\"age\":45}}"
       |> dust  "{#person}{.root}: {name}, {age}{/person}"
@@ -811,6 +854,7 @@ module R15_CoreGrammar =
 
     [<Test>]
     [<ExpectedException>]
+    [<Ignore "test removed due CSS conflicts in favor of stricter parsing -> returns buffer">]
     let ``should show an error for whitespaces between the opening brace and any of (#,?,at,^,+,%)`` () =
       empty
       |> dust   "{ # helper foo=\"bar\" boo=\"boo\" } {/helper}"
@@ -850,6 +894,7 @@ module R15_CoreGrammar =
 
     [<Test>]
     [<ExpectedException>]
+    [<Ignore "test removed due CSS conflicts in favor of stricter parsing -> returns buffer">]
     let ``should show an error for whitespaces between the '{' plus '>' and partial identifier`` () =
       json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
       |> dust   "{ > partial/} {> \"hello_world\"/} {> \"{ref}\"/}"

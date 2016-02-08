@@ -147,198 +147,6 @@ let (|Whitespace|_|) ch =
     | true -> Some(ch)
     | _ -> None
 
-// extension method to use objects like a Map, works with ExpandoObjects
-type System.Object with
-
-  member o.TryFindProp (key:string) =
-    match o with
-    | null -> None
-    | :? IDictionary<string,string> as d -> match d.ContainsKey key with
-                                            | true  -> optional (d.Item(key) |> unquote :> obj)
-                                            | _     -> None
-    | :? IDictionary<string,obj> as d ->    match d.ContainsKey key with
-                                            | true  -> optional (d.Item(key))
-                                            | _     -> None
-    | :? IDictionary<string,Value> as d ->  match d.TryGetValue key with
-                                            //| true, VInline(s) -> Some (s :> obj)
-                                            | true, v          -> Some (v :> obj)
-                                            | _     -> None
-    | _  ->                                 let p = o.GetType().GetProperty(key)
-                                            match p with
-                                            | null  -> None
-                                            | _     -> optional (p.GetValue(o))
-  member o.TryFindIndex (i:int) =
-    match o with
-    | :? IEnumerable<obj> as s ->
-            match i with
-            | -1 -> s |> Seq.cast<obj> |> Seq.last   |> Some
-            | _  -> s |> Seq.cast<obj> |> Seq.skip i |> Seq.tryHead
-    | _ -> failwith "object without index access"
-
-type Context =
-    {   // Data context
-        Parent:     Context option      // replaces Stack.Tail in orginal impl via chained Parents
-        Current:    obj option          // replaces Stack.Head in orginal impl / "this" in data context
-        Global:     obj                 // global data
-        Index:      (int * int) option  // inside #array
-        Culture:    CultureInfo         // used for formatting of values
-        // execution data
-        W:          TextWriter          // write used to render output
-        TmplDir:    string              // the template source directory
-        TmplName:   string
-        Logger:     string -> unit      // a logger
-        // Options:    Whitespace
-    }
-    override x.ToString() =
-        match x.Index with
-        | Some(ix,len) -> sprintf "%A %A %d/%d" x.Parent x.Current ix len
-        | None         -> sprintf "%A %A"       x.Parent x.Current
-
-    static member defaults = { TmplDir = ""; TmplName = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
-                               Current = None; Index = None; Parent = None; Logger = fun s -> () }
-
-    member this.LoadAndParse parse name = async {
-        let sw = System.Diagnostics.Stopwatch()
-        sw.Start()
-
-        let fname = Path.Combine(this.TmplDir, name )
-        let writeTime = File.GetLastWriteTime(fname)
-        let body =
-            if File.Exists fname then
-                File.ReadAllText fname |> parse
-            else
-                this.Log <| sprintf "file not found: " + fname
-                []
-
-        sw.Stop()
-        this.Log(System.String.Format("parsed {0} {1:N3} [ms]", name, elapsedMs sw))
-        return (writeTime, body)
-    }
-
-    member this.ParseCachedAsync parse =
-        this.LoadAndParse parse |> asyncMemoize (fun name (lastWrite, _) ->
-                                                    let path = Path.Combine(this.TmplDir, name )
-                                                    let date = File.GetLastWriteTime(path)
-                                                    this.Log(System.String.Format("check {0} {1} <?= {2}", path, date, lastWrite))
-                                                    date <= lastWrite )
-    member this.ParseCached parse name =
-        let _, body = this.ParseCachedAsync parse name |> Async.RunSynchronously
-        body
-
-    member this.Write (v:Value)       = match v with
-                                        | VNumber n -> n.ToString(this.Culture) |> this.Write
-                                        | VInline s -> s |> this.Write
-                                        | VIdent  i -> match this.Get i with | Some v -> this.WriteFiltered [] v | None -> ()
-    member this.Write (s:string)      = this.W.Write(s)
-    member this.Write (c:char)        = this.W.Write(c)
-    // by default always apply the h filter, unless asked to unescape with |s
-    member this.WriteFiltered (f:Filters) (v:obj) =
-                                        let mutable o =
-                                            match v with
-                                            | :? decimal as d           ->  box <| d.ToString(this.Culture)
-                                            | :? IEnumerable<obj> as ie ->  let arr = ie |> Seq.cast<obj> |> Seq.map( fun o -> Convert.ToString(o))
-                                                                            String.Join(",", arr) :> obj
-                                            | _ -> v
-
-                                        if Seq.isEmpty f && o :? string then
-                                            o <- System.Net.WebUtility.HtmlEncode(o :?> string) :> obj
-                                        else for x in f do o <- x o
-                                        this.W.Write(o)
-//    member this.WriteI (s:string)     = this.W.Write(rexStr.Replace(s, (fun m ->    let tag = m.ToString();
-//                                                                                    let key = tag.Substring(1, tag.Length-2)
-//                                                                                    match this.GetKey(key) with
-//                                                                                    | Some(v) -> v.ToString()
-//                                                                                    | None    -> tag.ToUpper() )))
-//    member this.WriteI2(s:string)     = this.W.Write(rexStr2.Replace(s, (fun m ->   let tag = m.ToString();
-//                                                                                    let key = tag.Substring(1, tag.Length-2)
-//                                                                                    match this.GetKey(key) with
-//                                                                                    | Some(v) -> v.ToString()
-//                                                                                    | None    -> tag.ToUpper() )))
-//    member this.GetKey(key:string)    = this.Data.TryFind key
-    member this.GetStr(key:string)    = match this.Get (Key key) with
-                                        | Some(o) -> o.ToString()
-                                        | None    -> ""
-
-    member this.Log msg               = this.Logger msg
-
-    member c.Interpolate (s:string) =
-        if s.StartsWith("{") then s.Substring(1, s.Length-2) |> c.GetStr
-        else s
-
-    member c.TryFindSegment o = function
-        | Name(n)  -> match o.TryFindProp n with
-                      | Some(o) ->  match o with
-                                    | :? Value as v -> match v with
-                                                       | VIdent(i) -> c.Get i
-                                                       | VNumber(n) -> Some(box n)
-                                                       | VInline(s) -> Some(box <| c.Interpolate s)
-                                    | _ -> Some(o)
-                      | _ -> None
-        | Index(i) -> if i = -2 then o.TryFindIndex (fst c.Index.Value)
-                      else o.TryFindIndex i
-
-    member c.Get (id:Identifier) : obj Option =
-        let cur, path = match id with
-                        | Key(k)  -> let cur = k.StartsWith "."
-                                     let k2 = if cur then k.Substring 1 else k
-                                     if k2.Contains "." then
-                                        (cur, k2.Split('.') |> List.ofArray |> List.map (fun x -> Name(x)) )
-                                     else
-                                        (cur, [Name(k2)])
-                        | Path(p) -> match p with
-                                     | [Name(".")]  -> true, p
-                                     | _            -> false, p
-        c.GetPath cur path
-
-    member c.GetPath (cur:bool) (p:Segment list) : obj Option =
-        let rec searchUpStack ctx =
-            let value = match ctx.Current with | Some obj -> c.TryFindSegment obj p.Head | _ -> None
-            match value, ctx.Parent with
-            | None, Some(p) -> searchUpStack p
-            | _             -> value
-
-        let rec resolve o (path:Segment list) =
-            match path.Tail, c.TryFindSegment o path.Head with
-            | [], None -> None
-            | _ , None -> failwith "bad path"
-            | [], x -> x
-            | _ , Some o2 -> resolve o2 path.Tail
-
-        match p with
-        | [Name("$idx")] -> if c.Index.IsSome then Some(box <| fst c.Index.Value) else None
-        | [Name("$len")] -> if c.Index.IsSome then Some(box <| snd c.Index.Value) else None
-        | [Name(".")]    -> c.Current
-        | _ ->
-            let ctx,v = match cur, p with
-                        | true, [_] ->  c, None // fixed to current context
-                        | false, _  ->  let result = searchUpStack c // Search up the stack for the first value
-                                        match result with // Try looking in the global context if we haven't found anything yet
-                                        | Some _ -> c, result
-                                        | None   -> c, (c.TryFindSegment c.Global p.Head)
-                        | _         ->  failwith "TODO ResolvePath ?"
-            match v, p.Tail with
-            | Some _ , [] -> v
-            | Some o , _  -> resolve o p.Tail
-            | None   , _  -> match ctx.Current with | Some obj -> c.TryFindSegment obj p.Head | _ -> None
-
-    member c.EvalBool cond =
-        match c.Get cond with
-        | None ->   false // failwith ("undefined condition: " + cond)
-        | Some o -> match o with
-                    | null -> false
-                    | :? bool as b -> b
-                    | :? IEnumerable<obj> as ie ->  let en = ie.GetEnumerator()
-                                                    en.MoveNext()
-                    | _ ->  let s = o.ToString()
-                            let result = s.Equals("true") || not (System.String.IsNullOrEmpty(s))
-                            result
-
-type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit
-let helpers = new ConcurrentDictionary<string, Helper>()
-
-let nullHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) = ()
-helpers.[""] <- nullHelper
-
 // --------------------------------------------------------------------------------------
 let parseFilters (strarr:seq<string>) =
     seq {
@@ -377,7 +185,7 @@ let (|ArrayIdx|_|) = function
     | '[' :: Until [']' ] (x,r) -> match (toString x) with
                                    | "$idx" -> Some(-2, r)
                                    | "$len" -> Some(-1, r)
-                                   | s  -> failwithf "TODO [%s]" s
+                                   | s  -> failwithf "not implemented: [%s]" s
     | _ -> None
 
 // array_part <- ("." key)+ (array)?
@@ -437,12 +245,12 @@ let (|Param|_|) = function
 
 // params <- (ws+ key "=" (number / identifier / inline) )*
 let (|Params|_|) chars =
-    let ch1 = chars |> List.skipWhile Char.IsWhiteSpace
     let rec loop acc = function
-        | Param(p,rest) -> loop (p :: acc) (rest |> List.skipWhile Char.IsWhiteSpace)
+        | Param(p,rest) ->  let rest2 = rest |> List.skipWhile Char.IsWhiteSpace
+                            loop (p :: acc) (rest2)
         | rest when acc.Length > 0 -> Some(List.rev acc, rest)
         | _ -> None
-    loop [] ch1
+    chars |> List.skipWhile Char.IsWhiteSpace |> loop []
 
 // context <- (":" identifier)?
 let (|Context|_|) = function
@@ -462,7 +270,6 @@ let sectionType = function
 
 let folder (acc:Part list) (elem:Part) =
         match acc, elem with // replaces acc.Head when followed by elem
-        //| Buffer(a) :: tail, Eol       -> Buffer(a+"\n") :: tail
         | Buffer(a) :: tail, Special s -> elem :: Buffer(a.TrimEnd([|'\t'; '\n'; '\r'|])) :: tail
         | Special s :: _, Eol          -> acc // ignores Eol after special
         | Eol       :: _, Buffer(b)    -> Buffer(b.TrimStart([|' '; '\t'|])) :: acc
@@ -473,6 +280,7 @@ let folder (acc:Part list) (elem:Part) =
         | _                            -> elem :: acc
 
 let compress body =
+#if !WHITESPACE
     let tmp =
         body
         |> List.filter (fun p -> match p with | Comment(_) -> false | _ -> true )
@@ -481,33 +289,52 @@ let compress body =
     match tmp with
     | Buffer(a) :: tail -> List.rev <| Buffer(a.TrimEnd([|'\t'; '\n'; '\r'|])) :: tail
     | _                 -> List.rev <| tmp
+#else
+    body
+#endif
+
+// partial <- ld (">"/"+") ws* (key / inline) context params ws* "/" rd
+let (|PartialTag|_|) (r:char list) = 
+    let hd = r.Head
+    match r with
+    | '>' :: r
+    | '+' :: r ->
+        let r = r |> List.skipWhile Char.IsWhiteSpace
+        let id,r =  match r with
+                    | Key   (x,r) -> VIdent(Key(toString x)), r |> List.skipWhile Char.IsWhiteSpace
+                    | Inline(x,r) -> VInline(toString x), r |> List.skipWhile Char.IsWhiteSpace
+                    | _ -> failwith "expected (key / inline)"
+        let ct,r =  match r with
+                    | Context(m,r) -> Some m, r |> List.skipWhile Char.IsWhiteSpace
+                    | _ -> None, r
+        let pa,r2=  match r with
+                    | Params(p,r) -> p, r |> List.skipWhile Char.IsWhiteSpace
+                    | _ -> [], r |> List.skipWhile Char.IsWhiteSpace
+
+        ////if ws <> [] then failwithf "unexpected whitespace before %s" (toString rest)
+        match r2 with
+        | '}' :: _ when hd = '>' -> failwith "expected self-closed tag"
+        | '/' :: '}' :: r2 -> Some(Partial(id, ct, Map.ofList pa), r2)
+        | _ -> None
+    | _ -> None
+
+// collect leading whitespace
+let rec collectws acc = function
+    | c :: rest when Char.IsWhiteSpace c -> collectws (c :: acc) rest
+    | rest -> (acc |> List.rev, rest)
 
 //part <- raw / comment / section / partial / special / reference / buffer
 let rec (|Part|_|) = function
-    | '{' :: rest-> // fails with CSS if Char.IsWhiteSpace rest.Head then failwithf "unexpected whitespace %s" (toString rest)
+    | '{' :: rest-> //// let ws,rest = rest |> collectws [] // ws needed for error handling below
+    
+                    // fails with CSS if Char.IsWhiteSpace rest.Head then failwithf "unexpected whitespace %s" (toString rest)
                     match rest with
                     | '!' :: Until ['!';'}'] (x,r) -> Some(Comment(toString x), r)
                     | '`' :: Until ['`';'}'] (x,r) -> Some(Buffer(toString x), r)
-                    // partial <- ld (">"/"+") ws* (key / inline) context params ws* "/" rd
-                    | '>' :: Until ['/';'}'] (r,r2)
-                    | '>' :: Until ['}'] (r,r2)
-                    | '+' :: Until ['/';'}'] (r,r2) ->
-                        //let st = sectionType rest.Head
-                        let r = r |> List.skipWhile Char.IsWhiteSpace
-                        let id,r =  match r with
-                                    | Key   (x,r) -> VIdent(Key(toString x)), r |> List.skipWhile Char.IsWhiteSpace
-                                    | Inline(x,r) -> VInline(toString x), r |> List.skipWhile Char.IsWhiteSpace
-                                    | _ -> failwith "expected (key / inline)"
-                        let ct,r =  match r with
-                                    | Context(m,r) -> Some m, r |> List.skipWhile Char.IsWhiteSpace
-                                    | _ -> None, r
-                        let pa,r =  match r with
-                                    | Params(p,r) -> p, r |> List.skipWhile Char.IsWhiteSpace
-                                    | _ -> [], r
-
-                        Some(Partial(id, ct, Map.ofList pa), r2)
+                    | PartialTag(p,r) -> Some(p,r) 
                     // sec_tag_start <- ld [#?^<@%] ws* identifier context params
                     | '#' :: r | '?' :: r | '^' :: r | '<' :: r  | '@' :: r | '%' :: r | '+' :: r ->
+
                         let st = sectionType rest.Head
                         let r = r |> List.skipWhile Char.IsWhiteSpace
                         let id,r =  match r with
@@ -524,9 +351,9 @@ let rec (|Part|_|) = function
 
                         match r with
                         | Until ['}'] (x,r) ->
-                            // printfn "SECTION %A %s %A until %A | %A" (rest.Head) (id.ToString()) rrr x (r |> List.take 3)
                             match x with // is tag closed?
-                            | ['/'] -> Some(Section(st, id, ct, pam), r)
+                            | ['/'] ->  //// if ws <> [] then failwithf "unexpected whitespace before %s" (toString rest)
+                                        Some(Section(st, id, ct, pam), r)
                             | '/' :: _ -> failwith "unexpected whitespace between / and }"
                             | _ ->
                                 let rec loop acc ch =
@@ -539,28 +366,26 @@ let rec (|Part|_|) = function
                                     | _          -> Buffer(toString ch) :: acc, Null, []
 
                                 let bodyacc, endp, r = loop [] r
+                                if endp = Null then failwithf "missing end tag for %A" id
                                 let body = bodyacc |> List.rev |> compress
 
                                 let rec loop2 acc ch p =
                                     match p with
-                                    | End(i) -> if i <> id then failwithf "unexpected end %A ... %A" id i else (acc, ch)
+                                    | End(i)        -> if i <> id then failwithf "unexpected end %A ... %A" id i else (acc, ch)
                                     | NamedBody(n)  ->  let b1, end2, r = loop [] r
                                                         let body = b1 |> List.rev |> compress
                                                         loop2 ((n, body) :: acc) r end2
-                                    | Null          ->  ([], [])
-                                    | _             ->  failwith "really?" //(acc,ch)
-
+                                    | _             ->  failwith "unexpected" 
                                 let bodies,r = (loop2 [] r endp)
 
+                                //// if ws <> [] then failwithf "unexpected whitespace before %s" (toString rest)
                                 match st with
                                 | SectionType.Helper -> let name = id.ToString()
                                                         let logic = match name with
                                                                     | "eq" -> Eq | "ne" -> Ne | "lt" -> Lt | "lte" -> Lte | "gt" -> Gt | "gte" -> Gte
                                                                     | _ -> Custom
-                                                        if logic = Custom then
-                                                            Some(Section(Helper, id, ct, pam), r)
-                                                        else
-                                                            Some(Section(LogicHelper(logic), id, ct, pam), r)
+                                                        let part = if logic = Custom then Helper else LogicHelper(logic)
+                                                        Some(SectionBlock(part, id, ct, pam, body, Map.ofList bodies), r)
                                 | SectionType.Inline -> let key = id.ToString()
                                                         if key.Length > 0 && body.Length > 0 then
                                                             cache.[key] <- (DateTime.Now, body) // defines inline part TODO must not be cached globally!
@@ -572,6 +397,8 @@ let rec (|Part|_|) = function
                                                     Some(Special(ch), r)
                     // end_tag <- ld "/" ws* identifier ws* rd
                     | '/' :: Until ['}'] (x,r) ->
+                        //// if ws <> [] then failwithf "unexpected whitespace before %s" (toString rest)
+
                         let chars = x |> List.skipWhile Char.IsWhiteSpace
                         match chars with
                         | Ident(i,_) -> Some(End(i), r)
@@ -600,97 +427,288 @@ let parse text =
     let body = loop [] chars
     compress <| body
 
-// render template parts with provided context & scope
-let rec render (c:Context) (list:Part list) =
+// extension method to use objects like a Map, works with ExpandoObjects
+type System.Object with
 
-  let helper name =
-        match helpers.TryGetValue name with
+  member o.TryFindProp (key:string) =
+    match o with
+    | null -> None
+    | :? IDictionary<string,string> as d -> match d.ContainsKey key with
+                                            | true  -> optional (d.Item(key) |> unquote :> obj)
+                                            | _     -> None
+    | :? IDictionary<string,obj> as d ->    match d.ContainsKey key with
+                                            | true  -> optional (d.Item(key))
+                                            | _     -> None
+    | :? IDictionary<string,Value> as d ->  match d.TryGetValue key with
+                                            | true, v          -> Some (v :> obj)
+                                            | _     -> None
+    | _  ->                                 let p = o.GetType().GetProperty(key)
+                                            match p with
+                                            | null  -> None
+                                            | _     -> optional (p.GetValue(o))
+  member o.TryFindIndex (i:int) =
+    match o with
+    | :? IEnumerable<obj> as s ->
+            match i with
+            | -1 -> s |> Seq.cast<obj> |> Seq.last   |> Some
+            | _  -> s |> Seq.cast<obj> |> Seq.skip i |> Seq.tryHead
+    | _ -> failwith "object without index access"
+
+type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit
+and Context =
+    {   // Data context
+        Parent:     Context option      // replaces Stack.Tail in orginal impl via chained Parents
+        Current:    obj option          // replaces Stack.Head in orginal impl / "this" in data context
+        Global:     obj                 // global data
+        Index:      (int * int) option  // inside #array
+        Culture:    CultureInfo         // used for formatting of values
+        // execution data
+        W:          TextWriter          // write used to render output
+        TmplDir:    string              // the template source directory
+        TmplName:   string
+        Logger:     string -> unit      // a logger
+        Helpers:    ConcurrentDictionary<string, Helper>
+        // Options:    Whitespace
+    }
+    override x.ToString() =
+        match x.Index with
+        | Some(ix,len) -> sprintf "%A %A %d/%d" x.Parent x.Current ix len
+        | None         -> sprintf "%A %A"       x.Parent x.Current
+
+    static member defaults = { TmplDir = ""; TmplName = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
+                               Helpers = new ConcurrentDictionary<string, Helper>();
+                               Current = None; Index = None; Parent = None; Logger = fun s -> (); }
+
+    member this.LoadAndParse parse name = async {
+        let sw = System.Diagnostics.Stopwatch()
+        sw.Start()
+
+        let fname = Path.Combine(this.TmplDir, name )
+        let writeTime = File.GetLastWriteTime(fname)
+        let body =
+            if File.Exists fname then
+                File.ReadAllText fname |> parse
+            else
+                this.Log <| sprintf "file not found: " + fname
+                []
+
+        sw.Stop()
+        this.Log(System.String.Format("parsed {0} {1:N3} [ms]", name, elapsedMs sw))
+        return (writeTime, body)
+    }
+
+    member this.ParseCachedAsync parse =
+        this.LoadAndParse parse |> asyncMemoize (fun name (lastWrite, _) ->
+                                                    let path = Path.Combine(this.TmplDir, name )
+                                                    let date = File.GetLastWriteTime(path)
+                                                    this.Log(System.String.Format("check {0} {1} <?= {2}", path, date, lastWrite))
+                                                    date <= lastWrite )
+    member this.ParseCached parse name =
+        let _, body = this.ParseCachedAsync parse name |> Async.RunSynchronously
+        body
+
+    member this.Write (v:Value)       = match v with
+                                        | VNumber n -> n.ToString(this.Culture) |> this.Write
+                                        | VInline s -> s |> this.Write
+                                        | VIdent  i -> match this.Get i with | Some v -> this.WriteFiltered [] v | None -> ()
+    member this.Write (s:string)      = this.W.Write(s)
+    member this.Write (c:char)        = this.W.Write(c)
+    // by default always apply the h filter, unless asked to unescape with |s
+    member this.WriteFiltered (f:Filters) (v:obj) =
+                                        let mutable o =
+                                            match v with
+                                            | :? decimal as d           ->  box <| d.ToString(this.Culture)
+                                            | :? IEnumerable<obj> as ie ->  let arr = ie |> Seq.cast<obj> |> Seq.map( fun o -> Convert.ToString(o))
+                                                                            String.Join(",", arr) :> obj
+                                            | _ -> v
+
+                                        if Seq.isEmpty f && o :? string then
+                                            o <- System.Net.WebUtility.HtmlEncode(o :?> string) :> obj
+                                        else for x in f do o <- x o
+                                        this.W.Write(o)
+    // write with interpolation of {data}
+    member this.WriteI (s:string)     = this.W.Write(rexStr.Replace(s, (fun m ->    let tag = m.ToString();
+                                                                                    let key = tag.Substring(1, tag.Length-2)
+                                                                                    match this.Get (Key(key)) with
+                                                                                    | Some(v) -> v.ToString()
+                                                                                    | None    -> tag.ToUpper() )))
+    member this.WriteI2(s:string)     = this.W.Write(rexStr2.Replace(s, (fun m ->   let tag = m.ToString();
+                                                                                    let key = tag.Substring(1, tag.Length-2)
+                                                                                    match this.Get (Key(key)) with
+                                                                                    | Some(v) -> v.ToString()
+                                                                                    | None    -> tag.ToUpper() )))
+    member this.GetStr(key:string)    = match this.Get (Key key) with
+                                        | Some(o) -> o.ToString()
+                                        | None    -> ""
+    member this.Log msg               = this.Logger msg
+
+    member c.Interpolate (s:string) =
+        if s.StartsWith("{") then s.Substring(1, s.Length-2) |> c.GetStr
+        else s
+
+    member c.TryFindSegment o = function
+        | Name(n)  -> match o.TryFindProp n with
+                      | Some(o) ->  match o with
+                                    | :? Value as v -> match v with
+                                                       | VIdent(i) -> c.Get i
+                                                       | VNumber(n) -> Some(box n)
+                                                       | VInline(s) -> Some(box <| c.Interpolate s)
+                                    | _ -> Some(o)
+                      | _ -> None
+        | Index(i) -> if i = -2 then o.TryFindIndex (fst c.Index.Value)
+                      else o.TryFindIndex i
+
+    member c.Get (id:Identifier) : obj Option =
+        let cur, path = match id with
+                        | Identifier.Key(k)  -> let cur = k.StartsWith "."
+                                                let k2 = if cur then k.Substring 1 else k
+                                                if k2.Contains "." then
+                                                (cur, k2.Split('.') |> List.ofArray |> List.map (fun x -> Name(x)) )
+                                                else
+                                                (cur, [Name(k2)])
+                        | Identifier.Path(p) -> match p with
+                                                | [Name(".")]  -> true, p
+                                                | _            -> false, p
+        c.GetPath cur path
+
+    member c.GetPath (cur:bool) (p:Segment list) : obj Option =
+        let rec searchUpStack ctx =
+            let value = match ctx.Current with | Some obj -> c.TryFindSegment obj p.Head | _ -> None
+            match value, ctx.Parent with
+            | None, Some(p) -> searchUpStack p
+            | _             -> value
+
+        let rec resolve o (path:Segment list) =
+            match path.Tail, c.TryFindSegment o path.Head with
+            | [], None -> None
+            | _ , None -> failwith "bad path"
+            | [], x -> x
+            | _ , Some o2 -> resolve o2 path.Tail
+
+        match p with
+        | [Name("$idx")] -> if c.Index.IsSome then Some(box <| fst c.Index.Value) else None
+        | [Name("$len")] -> if c.Index.IsSome then Some(box <| snd c.Index.Value) else None
+        | [Name(".")]    -> c.Current
+        | _ ->
+            let ctx,v = match cur, p with
+                        | true, [_] ->  c, None // fixed to current context
+                        | false, _  ->  let result = searchUpStack c // Search up the stack for the first value
+                                        match result with // Try looking in the global context if we haven't found anything yet
+                                        | Some _ -> c, result
+                                        | None   -> c, (c.TryFindSegment c.Global p.Head)
+                        | _         ->  failwith "unexpected"
+            match v, p.Tail with
+            | Some _ , [] -> v
+            | Some o , _  -> resolve o p.Tail
+            | None   , _  -> match ctx.Current with | Some obj -> c.TryFindSegment obj p.Head | _ -> None
+
+    member c.EvalBool cond =
+        match c.Get cond with
+        | None ->   false
+        | Some o -> match o with
+                    | null -> false
+                    | :? bool as b -> b
+                    | :? IEnumerable<obj> as ie ->  let en = ie.GetEnumerator()
+                                                    en.MoveNext()
+                    | _ ->  let s = o.ToString()
+                            let result = s.Equals("true") || not (System.String.IsNullOrEmpty(s))
+                            result
+
+    member c.GetHelper name =
+        let nullHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) = ()
+
+        match c.Helpers.TryGetValue name with
         | true, ref -> ref
         | _ ->  c.Log <| sprintf "missing helper: %s" name
-                helpers.[""] // the nullHelper
+                nullHelper // the nullHelper
 
-  for part in list do
-    match part with
-    //| Comment _      -> c.Write("<!-- " + text + " -->")
-    | Special ch     -> c.Write(ch)
-    | Buffer text    -> c.Write(text)
-    | Partial(i,x,m) -> let n = match i with
-                                | VInline(i) -> if i.StartsWith("{") then i.Substring(1, i.Length-2) |> c.GetStr
-                                                else i
-                                | VIdent(i)  -> i.ToString()
-                                | _ -> failwith "unexpected"
-                        if n <> "" then
-                                let cc = match x with // if a new context x is specified, then rebase WITHOUT parent
-                                         | Some i -> { c with Parent = None;   TmplName = n; Current = c.Get i }
-                                         | None   -> { c with Parent = Some c; TmplName = n; Current = Some(m :> obj) }                               
-                                match cache.TryGetValue n with
-                                | true, (_, part) -> part
-                                | _ -> c.ParseCached parse n
-                                |> render cc
-    | Reference(k,f) -> match c.Get k with
-                        | None -> ()
-                        | Some value    ->  match value with
-                                            | null -> ()
-                                            | :? bool as b -> if b then c.WriteFiltered f value
-                                            | _ ->  c.WriteFiltered f value
-    | Section(st,n,_,pa) ->
-                        match st with
-                        | Scope  // scope without body could be a helper
-                        | Helper         -> helper (n.ToString()) c Map.empty pa (fun () -> failwith "not available")
-                        | LogicHelper(_) -> failwith "LogicHelper should be a SectionBlock"
-                        | _ -> ()
-    | SectionBlock(st,n,x,map,l,bodies) ->
-        let renderIf cc cond = if cond then l |> render cc
-                               else match bodies.TryFind "else" with
-                                    | Some body -> body |> render cc
-                                    | None -> ()
-        match st with
-        | Condition     ->  renderIf c (c.EvalBool n)
-        | NotCondition  ->  renderIf c (not (c.EvalBool n))
-        | Helper         -> helper (n.ToString()) c bodies map (fun () -> l |> render c)
-        | LogicHelper(t) -> let get s = match map.TryFind s with
-                                        | Some(VInline(x)) -> box x
-                                        | Some(VNumber(x)) -> box x
-                                        | Some(VIdent(x))  -> match c.Get x with
-                                                                | Some(o) -> box o
-                                                                | None -> failwithf "%s must be defined" s
-                                        | _ -> failwithf "missing %s" s
+    // render template parts with provided context & scope
+    member c.Render (list:Part list) =
+      for part in list do
+        match part with
+        //| Comment _      -> c.Write("<!-- " + text + " -->")
+        | Special ch     -> c.Write(ch)
+        | Buffer text    -> c.Write(text)
+        | Partial(i,x,m) -> let n = match i with
+                                    | VInline(i) -> if i.StartsWith("{") then i.Substring(1, i.Length-2) |> c.GetStr
+                                                    else i
+                                    | VIdent(i)  -> i.ToString()
+                                    | _ -> failwith "unexpected"
+                            if n <> "" then
+                                    let cc = match x with // if a new context x is specified, then rebase WITHOUT parent
+                                             | Some i -> { c with Parent = None;   TmplName = n; Current = c.Get i }
+                                             | None   -> { c with Parent = Some c; TmplName = n; Current = Some(m :> obj) }                               
+                                    match cache.TryGetValue n with
+                                    | true, (_, part) -> part
+                                    | _ -> c.ParseCached parse n
+                                    |> cc.Render
+        | Reference(k,f) -> match c.Get k with
+                            | None -> ()
+                            | Some value    ->  match value with
+                                                | null -> ()
+                                                | :? bool as b -> if b then c.WriteFiltered f value
+                                                | _ ->  c.WriteFiltered f value
+        | Section(st,n,_,pa) ->
+                            match st with
+                            | Scope  // scope without body could be a helper
+                            | Helper         -> c.GetHelper (n.ToString()) c Map.empty pa (fun () -> c.Write "<!-- no body -->")
+                            | LogicHelper(_) -> failwith "LogicHelper should be a SectionBlock"
+                            | _ -> ()
+        | SectionBlock(st,n,x,map,l,bodies) ->
+            let renderIf (cc:Context) cond =   if cond then l |> cc.Render
+                                               else match bodies.TryFind "else" with
+                                                    | Some body -> body |> cc.Render
+                                                    | None -> ()
+            match st with
+            | Condition     ->  renderIf c (c.EvalBool n)
+            | NotCondition  ->  renderIf c (not (c.EvalBool n))
+            | Helper         -> c.GetHelper (n.ToString()) c bodies map (fun () -> l |> c.Render)
+            | LogicHelper(t) -> let get s = match map.TryFind s with
+                                            | Some(VInline(x)) -> box x
+                                            | Some(VNumber(x)) -> box x
+                                            | Some(VIdent(x))  -> match c.Get x with
+                                                                    | Some(o) -> box o
+                                                                    | None -> failwithf "%s must be defined" s
+                                            | _ -> failwithf "missing %s" s
 
-                            let l, r = get "key", get "value"
-                            renderIf c   <| match t with
-                                            | Eq -> l.Equals(r)
-                                            | Ne -> not (l.Equals(r))
-                                            | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
-                                            | Gte-> System.Convert.ToDouble(l) >= System.Convert.ToDouble(r)
-                                            | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
-                                            | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
-                                            | _  -> false
-        | Scope         ->  let cc =  match x with // if a new context x is specified, then rebase WITHOUT parent
-                                            | Some i -> { c with Parent = None;   Current = c.Get i }
-                                            | None   -> { c with Parent = Some c; Current = Some(map :> obj) }                               
-                            match c.Get n with
-                            | Some(valu) -> match valu with
-                                            // Dust's default behavior is to enumerate over the array elem, passing each object in the array to the block.
-                                            // When elem resolves to a value or object instead of an array, Dust sets the current context to the value
-                                            // and renders the block one time.
-                                            | :? IEnumerable<obj> as ie
-                                                 -> let arr = ie |> Seq.cast<obj> |> Seq.toArray
-                                                    let len = arr.Length
-                                                    if len < 1 then renderIf cc false // = skip
-                                                    else arr |> Array.iteri(fun i o -> l |> render { cc with Parent = Some cc; Current = Some o; Index = Some(i,len) } )
-                                            | :? bool as b -> renderIf cc b
-                                            | null -> renderIf cc false
-                                            | o ->  l |> render { cc with Parent = Some cc; Current = Some o }
-                            | None ->       match helpers.TryGetValue (n.ToString()) with
-                                            | true, ref -> ref cc Map.empty map (fun () -> failwith "not available")
-                                            | _ ->         renderIf cc false
-        | Block         ->  let name = n.ToString()
-                            match cache.TryGetValue name with
-                            | true, (_,b) -> b |> render {c with TmplName = name} // override
-                            | _           -> l |> render c // default
-        // Deprecated | Escaped       -> renderList (n :: scope) l
-        | _ -> failwith <| sprintf "unexpected %A" st
-    | _ -> ()
+                                let l, r = get "key", get "value"
+                                renderIf c   <| match t with
+                                                | Eq -> l.Equals(r)
+                                                | Ne -> not (l.Equals(r))
+                                                | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
+                                                | Gte-> System.Convert.ToDouble(l) >= System.Convert.ToDouble(r)
+                                                | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
+                                                | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
+                                                | _  -> false
+            | Scope         ->  let cc =  match x with // if a new context x is specified, then rebase WITHOUT parent
+                                                | Some i -> { c with Parent = None;   Current = c.Get i }
+                                                | None   -> { c with Parent = Some c; Current = Some(map :> obj) }                               
+                                match c.Get n with
+                                | Some(valu) -> match valu with
+                                                // Dust's default behavior is to enumerate over the array elem, passing each object in the array to the block.
+                                                // When elem resolves to a value or object instead of an array, Dust sets the current context to the value
+                                                // and renders the block one time.
+                                                | :? IEnumerable<obj> as ie
+                                                     -> let arr = ie |> Seq.cast<obj> |> Seq.toArray
+                                                        let len = arr.Length
+                                                        if len < 1 then renderIf cc false // = skip
+                                                        else arr |> Array.iteri(fun i o -> l |> { cc with Parent = Some cc; Current = Some o; Index = Some(i,len) }.Render )
+                                                | :? bool as b -> renderIf cc b
+                                                | null -> renderIf cc false
+                                                | o ->  l |> { cc with Parent = Some cc; Current = Some o }.Render
+                                | None ->       match c.Helpers.TryGetValue (n.ToString()) with
+                                                | true, ref -> ref cc Map.empty map (fun () -> failwith "not available")
+                                                | _ ->         renderIf cc false
+            | Block         ->  let name = n.ToString()
+                                match cache.TryGetValue name with
+                                | true, (_,b) -> b |> {c with TmplName = name}.Render // override
+                                | _           -> l |> c.Render // default
+            // Deprecated | Escaped       -> renderList (n :: scope) l
+            | _ -> failwith <| sprintf "unexpected %A" st
+    #if WHITESPACE
+        | Eol -> c.Write '\n'
+    #endif
+        | _ -> ()
 
 (* Dust Built-In Filters - Dust applies the h filter to all references by default,
    ensuring that variables are HTML-escaped. You can undo this autoescaping by appending the s filter.
@@ -709,3 +727,4 @@ module DustFilters =
 
 filters.["s"] <- DustFilters.s
 filters.["h"] <- DustFilters.h
+

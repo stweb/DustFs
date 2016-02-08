@@ -1,6 +1,7 @@
 ﻿module Dust.Suave
 
 open System
+open System.Collections.Concurrent
 open System.Text
 open System.IO
 open Dust.Engine
@@ -11,6 +12,8 @@ open Suave.Logging
 
 // global template directory
 let mutable templateDir = ""
+
+let helpers = new ConcurrentDictionary<string, Helper>()
 
 // parse template from global directory and cache
 let parseToCache ctx name = async {
@@ -36,10 +39,11 @@ let page<'T> atmpl (model : 'T) ctx = async {
                         Global = ([("request", box ctx.request);
                                    ("host", box System.Environment.MachineName)] |> Map.ofList)
                         Current = Some(box model);
+                        Helpers = helpers
                         }
 
     let! doc = atmpl // get parsed template async and render
-    doc |> render dustctx
+    doc |> dustctx.Render
 
     let resp = Response.response HTTP_200 (Encoding.UTF8.GetBytes (sb.ToString())) ctx
     return! resp
