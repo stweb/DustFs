@@ -562,10 +562,8 @@ and Context =
         let cur, path = match id with
                         | Identifier.Key(k)  -> let cur = k.StartsWith "."
                                                 let k2 = if cur then k.Substring 1 else k
-                                                if k2.Contains "." then
-                                                (cur, k2.Split('.') |> List.ofArray |> List.map (fun x -> Name(x)) )
-                                                else
-                                                (cur, [Name(k2)])
+                                                if k2.Contains "." then (cur, k2.Split('.') |> List.ofArray |> List.map (fun x -> Name(x)) )
+                                                                   else (cur, [Name(k2)])
                         | Identifier.Path(p) -> match p with
                                                 | [Name(".")]  -> true, p
                                                 | _            -> false, p
