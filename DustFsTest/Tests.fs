@@ -3,6 +3,7 @@
 open Dust.Engine
 open Dust.Test
 open NUnit.Framework
+open System
 
 #if !TODO
 
@@ -10,34 +11,37 @@ module R01_DustFs =
     [<Test>]
     let ``parsing`` () =
         let test s =
-            let p = match s |> List.ofSeq with
-                    | Path(p,r) -> p
-                    | _ -> failwith "Not a path"
+            let p1 = match s |> List.ofSeq with
+                     | IPath(p,r) -> Some p
+                     | _ -> None
 
-            printfn "%s -> %A" s p
+            let tostr so =
+                match so with
+                | Some(sl) -> String.Join(".", sl |> List.map( fun x -> "´" + x.ToString() + "´" ))
+                | None -> "None"
 
-        test ".root" 
-//        test ".one.two.three"
-//        test ".[0]"
-//        test "." 
+            let s = String.Join(" ; ",s,(tostr p1))
+            printfn "%s" s
+
+        test ". "
+        test "\"bar\""
+        //test "root" // -> None (it is a Key!)
+        test ".[0]"
+        test ".root"
+        test "one.two.three"
+        test ".one.two.three"
 
     [<Test>]
     let ``ignore CSS`` () =
       empty
       |> dust  """<style>
-{#properties.style}
-
+{#style}
 body {
   #test: {page.background_color}!important;
-  background-image: none!important;
   color: {page.font_color}!important;
-  font-family: {page.font_family|s}!important;
-  font-size: {page.font_size|s}!important;
-  line-height: {page.line_height|s};
   margin: {page.margin};
 }
-
-{/properties.style}
+{/style}
 </style>
 """ |> ignore
 
@@ -63,15 +67,15 @@ body {
 
     [<Test>]
     let ``a dot path with index test`` () =
-      empty
+      json "{ C: [\"hi\"] }"
       |> dust  "{.C[0]}"
-      |> expect ""      
+      |> expect "hi"
 
     [<Test>]
     let ``text before and after tags`` () =
       empty
       |> dust  "start\r\n{tag}end"
-      |> expect "startend"      
+      |> expect "startend"
 
     [<Test>]
     let ``javascript-special characters in template names shouldn't break things`` () =
@@ -121,13 +125,13 @@ module R02_CoreTests =
       |> dustReg "child_template"
                "{^xhr}{>base_template/}{:else}{+main/}{/xhr}{<title}Child Title{/title}{<main}Child Content{/main}"
       |> expect "Start\nChild Title\nChild Content\nEnd"
-   
+
     [<Test>]
     let ``should test comments`` () = // (newline between comments is removed)
       empty
       |> dust  "{!\n  Multiline\n  {#foo}{bar}{/foo}\n!}\n{!before!}Hello{!after!}"
       |> expect "Hello"
-   
+
     [<Test>]
     let ``should test escaped characters`` () =
       json "{\"safe\":\"<script>alert(\'Hello!\')</script>\",\"unsafe\":\"<script>alert(\'Goodbye!\')</script>\"}"
@@ -166,11 +170,11 @@ module R02_CoreTests =
       |> dust  "{#. test=\"you\"}{name} {test}{/.}"
       |> expect "me you"
 
-    [<Test>]    
+    [<Test>]
     // note context ":." gets resolved to ctx.rebase(ctx.getPath(cur=true, [])) in node.js
     let ``should test recursion`` () =
       json "{\"name\":\"1\",\"kids\":[{\"name\":\"1.1\",\"kids\":[{\"name\":\"1.1.1\"}]}]}"
-      |> dustReg "recursion" "{name}{~n}{#kids}{>recursion:./}{/kids}"        
+      |> dustReg "recursion" "{name}{~n}{#kids}{>recursion:./}{/kids}"
       |> expect "1\n1.1\n1.1.1\n"
 
 module R03_TruthyFalsy =
@@ -418,7 +422,7 @@ module R06_ArrayIndexAccess =
     [<Test>]
     let ``should test an array`` () =
       json "{\"title\":\"Sir\",\"names\":[{\"name\":\"Moe\"},{\"name\":\"Larry\"},{\"name\":\"Curly\"}]}"
-      |> dust   "{#names}{title} {name}{~n}{/names}"      
+      |> dust   "{#names}{title} {name}{~n}{/names}"
       |> expect "Sir Moe\nSir Larry\nSir Curly\n"
 
     [<Test>]
@@ -462,13 +466,13 @@ module R06_ArrayIndexAccess =
       json "{\"test\":[[1,2,3]]}"
       |> dust   "{#test}{#.}{.}i:{$idx}l:{$len},{/.}{/test}"
       |> expect "1i:0l:3,2i:1l:3,3i:2l:3,"
-      
+
     [<Test>]
     let ``test array reference $idx $len on single element (scalar) case`` () =
       json "{\"name\":\"Just one name\"}"
       |> dust   "{#name}Idx={$idx} Size={$len} {.}{/name}"
       |> expect "Idx= Size= Just one name"
-       
+
     [<Test>]
     let ``test array reference $idx $len section case`` () =
       json "{\"names\":[\"Moe\",\"Larry\",\"Curly\"]}"
@@ -480,7 +484,7 @@ module R06_ArrayIndexAccess =
       json "{\"results\":[{\"info\":{\"name\":\"Steven\"}},{\"info\":{\"name\":\"Richard\"}}]}"
       |> dust   "{#results}{#info}{$idx}{name}-{$len} {/info}{/results}"
       |> expect "0Steven-2 1Richard-2 "
-                      
+
     [<Test>]
     let ``Should resolve index path correctly`` () =
       json "{\"nulls\":[1,null,null,2],\"names\":[{\"name\":\"Moe\"},{\"name\":\"Curly\"}]}"
@@ -585,7 +589,7 @@ module R07_NestedPaths =
     let ``should test access global despite explicit context`` () =
       json "{\"data\":{\"A\":{\"name\":\"Al\",\"list\":[{\"name\":\"Joe\"},{\"name\":\"Mary\"}],\"B\":{\"name\":\"Bob\",\"Blist\":[\"BB1\",\"BB2\"]}},\"C\":{\"name\":\"cname\"}}}"
       |> dustG   "{#data.A:B}Aname{name}{glob.globChild}{/data.A}" """{ glob: { globChild: "testGlobal"} }"""
-      |> expect "AnameAltestGlobal" 
+      |> expect "AnameAltestGlobal"
 
     [<Test>]
     let ``Should check nested ref in global works in global mode`` () =
@@ -666,11 +670,11 @@ module R11_PartialParams =
       helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
                                 c.Write c.TmplName
                             )
-      "Hello {name}! You have {count} new messages." |> named "partial" 
-      "Hello World!" |> named "hello_world"         
-      "{+header}default header {/header}Hello {name}! You have {count} new messages."  |> named "partial_with_blocks"                 
-      "{+header/}Hello {name}! You have {count} new messages." |> named "partial_with_blocks_and_no_defaults" 
-      "{#helper}{/helper}"  |> named "partial_print_name"                  
+      "Hello {name}! You have {count} new messages." |> named "partial"
+      "Hello World!" |> named "hello_world"
+      "{+header}default header {/header}Hello {name}! You have {count} new messages."  |> named "partial_with_blocks"
+      "{+header/}Hello {name}! You have {count} new messages." |> named "partial_with_blocks_and_no_defaults"
+      "{#helper}{/helper}"  |> named "partial_print_name"
       "{>partial_print_name/}" |> named "nested_partial_print_name"
 
     [<Test>]
@@ -819,7 +823,7 @@ module R12_InlineParams =
     [<Test>]
     let ``Block handlers syntax should support decimal number parameters`` () =
       empty
-      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },       
+      // context:  { helper: function(chunk, context, bodies, params) { return chunk.write(params.foo); } },
       |> dust   "{#helper foo=3.14159 /}"
       |> expect "3.14159"
 
@@ -953,9 +957,15 @@ module R15_CoreGrammar =
       empty
       |> dust   "<div data-fancy-json={`\"{rawJsonKey: \'value\'}\"`}>\n</div>"
       |> expect "<div data-fancy-json=\"{rawJsonKey: \'value\'}\"></div>"
-      
+
+    [<Test>]
+    let ``should test dash in partial's keys`` () =
+      json "{\"foo-title\":\"title\",\"bar-letter\":\"a\"}"
+      |> dust   "{<title-a}foo-bar{/title-a}{+\"{foo-title}-{bar-letter}\"/}"
+      |> expect "foo-bar"
+
 module R16_SyntaxError =
-    
+
     [<Test>]
     [<ExpectedException>]
     let ``should test that the error message shows line and column`` () =

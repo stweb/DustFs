@@ -157,14 +157,6 @@ module T13_InlinePartialBlock =
       |> dust   "{<title_A}\nAAA\n{/title_A}\n{<title_B}\nBBB\n{/title_B}\n{+\"{val1}_{obj.name[0]}\"/}"
       |> expect "AAA"
 
-module T15_CoreGrammar =
-
-    [<Test>]
-    [<Ignore "TODO">]
-    let ``should test dash in partial's keys`` () =
-      json "{\"foo-title\":\"title\",\"bar-letter\":\"a\"}"
-      |> dust   "{<title-a}foo-bar{/title-a}{+\"{foo-title}-{bar-letter}\"/}"
-      |> expect "foo-bar"
 
 module T18_WhitespaceOn =
     [<Test>]

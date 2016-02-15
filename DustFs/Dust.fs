@@ -11,8 +11,8 @@ let rexKey   = new Regex("^[a-zA-Z_\$][0-9a-zA-Z_\-\$]*", RegexOptions.Compiled)
 let rexFloat = new Regex("^(-)?[0-9]*(?:\.[0-9]*)?", RegexOptions.Compiled)
 let rexInt   = new Regex("^[0-9]+", RegexOptions.Compiled)
 
-let rexStr   = new Regex("\{[^}]*\}", RegexOptions.Compiled)
-let rexStr2  = new Regex("\[(.*?)\]", RegexOptions.Compiled)
+let rexRefs  = new Regex("\{[^}]*\}", RegexOptions.Compiled)
+let rexRefB  = new Regex("\[(.*?)\]", RegexOptions.Compiled)
 
 type Identifier =
     | Key of string
@@ -28,11 +28,13 @@ with
         | Path(p) -> p
 
 and Segment =
+    | FromCur
     | Name of string
     | Index of int
 with
     override x.ToString() =
         match x with
+        | FromCur -> "°"
         | Name  s -> s
         | Index i -> sprintf "[%d]" i
 
@@ -97,7 +99,7 @@ let private asyncMemoize isValid f =
           return res }
 
 // trim quotes from a string - assumes proper double quoted
-let unquote (s:string) = if s.StartsWith("\"") then s.Substring(1, s.Length-2) else s
+//let unquote (s:string) = if s.StartsWith("\"") then s.Substring(1, s.Length-2) else s
 
 let inline optional o = if o = null then None else Some(o)
 
@@ -173,11 +175,18 @@ let (|Int|_|) = function
     | Rex rexInt (i,r) -> Some(Convert.ToInt32(toString i),r)
     | _ -> None
 
+
+let numOf x r =
+    match Decimal.TryParse(toString x, NumberStyles.Any, CultureInfo.InvariantCulture) with
+              | true, n -> Some (n, r)
+              | _       -> None
+
 // number <- (float / integer)
 let (|Number|_|) = function
-    | Rex rexFloat x -> Some x
-    | Rex rexInt   x -> Some x
+    | Rex rexFloat (x,r) -> numOf x r
+    | Rex rexInt   (x,r) -> numOf x r
     | _ -> None
+                           
 
 // array <- ( lb ( ({Nd}+) / identifier) rb ) array_part?
 let (|ArrayIdx|_|) = function
@@ -207,26 +216,30 @@ let (|ArrayOrPart|_|) chars =
         | _ -> None
     loop [] chars
 
-// path <- "." ArrayOrPart* / key? ArrayOrPart+
-let (|Path|_|) = function
-    | '.' :: ArrayOrPart(p,r) ->    match p with
-                                    | [Name(n)] -> Some([Name("." + n)], r)
-                                    | _         -> Some(p,r)
-    | ArrayOrPart(a)        ->      Some a
-    | '.' :: r              ->      Some([Name(".")], r)
-    | chars                 ->      let k,r = match chars with // optional key
-                                              | Key(k,r) -> Some <| Name(toString(k)), r
-                                              | _        -> None, chars
-                                    match r with
-                                    | ArrayOrPart(a,r) -> match k with
-                                                          | Some(k) -> Some(k :: a,r)
-                                                          | _       -> Some(a,r)
-                                    | _                -> None
+// path <- key? ArrayOrPart+
+//       / "." ArrayOrPart*
+let (|IPath|_|) chars =
+    let k,r = match chars with // optional key
+                | Key(k,r) -> Some <| Name(toString(k)), r
+                | _        -> None, chars
+
+    let l,r = match r with
+                | ArrayOrPart(a,r) -> a,r
+                | '.' :: ArrayOrPart(a,r) when k = None -> a,r
+                | _ -> [],r
+
+    match k, l, chars.Head with
+    | None,  [], '.' -> Some([FromCur], chars.Tail)
+    | None,   _, '.' -> Some(FromCur :: l, r)
+    | None,  [_], _  -> Some(l, r)
+    | Some(k), _, _  -> Some(k :: l,r)
+    | _              -> None
+
 // identifier <- path / key
 let (|Ident|_|) = function
-     | Path(p,r) -> match p with
-                    | [Name(n)] when n.Length > 1 -> Some(Key(n), r)
-                    | _         -> Some(Path(p),r)
+     | IPath(p,r) -> match p with
+                     | [Name(n)] when n.Length > 1 -> Some(Key(n), r)
+                     | _         -> Some(Path(p),r)
      | Key(k,r)  -> Some(Key(toString(k)),r)
      | _ -> None
 
@@ -234,12 +247,10 @@ let (|Ident|_|) = function
 let (|Param|_|) = function
     | Key (k, '=' :: r) ->  let key = toString k
                             match r with
-                            | Inline (x,r) -> Some <| ((key, VInline(toString x)), r)
-                            | Ident  (m,r) -> Some <| ((key, VIdent(m)), r)
-                            | Number (x,r) -> match Decimal.TryParse(toString x, NumberStyles.Any, CultureInfo.InvariantCulture) with
-                                              | true, n -> Some <| ((key, VNumber(n)), r)
-                                              | _       -> failwith "bad number"
+                            | Number (n,r) -> Some <| ((key, VNumber(n)), r)
                             | Int    (i,r) -> Some <| ((key, VNumber(decimal i)), r) // Int must follow Number in matching!
+                            | Ident  (m,r) -> Some <| ((key, VIdent(m)), r)
+                            | Inline (x,r) -> Some <| ((key, VInline(toString x)), r)
                             | _ -> None
     | _ -> None
 
@@ -294,7 +305,7 @@ let compress body =
 #endif
 
 // partial <- ld (">"/"+") ws* (key / inline) context params ws* "/" rd
-let (|PartialTag|_|) (r:char list) = 
+let (|PartialTag|_|) (r:char list) =
     let hd = r.Head
     match r with
     | '>' :: r
@@ -326,12 +337,12 @@ let rec collectws acc = function
 //part <- raw / comment / section / partial / special / reference / buffer
 let rec (|Part|_|) = function
     | '{' :: rest-> //// let ws,rest = rest |> collectws [] // ws needed for error handling below
-    
+
                     // fails with CSS if Char.IsWhiteSpace rest.Head then failwithf "unexpected whitespace %s" (toString rest)
                     match rest with
                     | '!' :: Until ['!';'}'] (x,r) -> Some(Comment(toString x), r)
                     | '`' :: Until ['`';'}'] (x,r) -> Some(Buffer(toString x), r)
-                    | PartialTag(p,r) -> Some(p,r) 
+                    | PartialTag(p,r) -> Some(p,r)
                     // sec_tag_start <- ld [#?^<@%] ws* identifier context params
                     | '#' :: r | '?' :: r | '^' :: r | '<' :: r  | '@' :: r | '%' :: r | '+' :: r ->
 
@@ -350,7 +361,7 @@ let rec (|Part|_|) = function
                         // section <- sec_tag_start ws* rd body bodies end_tag / sec_tag_start ws* "/" rd
 
                         match r with
-                        | Until ['}'] (x,r) ->
+                        | Until ['}'] (x,r) -> // TODO maybe better just skip WS here
                             match x with // is tag closed?
                             | ['/'] ->  //// if ws <> [] then failwithf "unexpected whitespace before %s" (toString rest)
                                         Some(Section(st, id, ct, pam), r)
@@ -366,16 +377,20 @@ let rec (|Part|_|) = function
                                     | _          -> Buffer(toString ch) :: acc, Null, []
 
                                 let bodyacc, endp, r = loop [] r
-                                if endp = Null then failwithf "missing end tag for %A" id
+                                if endp = Null then 
+                                    failwithf "missing end tag for %A" id
                                 let body = bodyacc |> List.rev |> compress
 
                                 let rec loop2 acc ch p =
                                     match p with
-                                    | End(i)        -> if i <> id then failwithf "unexpected end %A ... %A" id i else (acc, ch)
+                                    | End(i)        ->  match id.ToPath(), i.ToPath() with
+                                                        | s,e when s = e -> acc, ch
+                                                        | FromCur :: s,e when s = e -> acc, ch
+                                                        | _ -> failwithf "unexpected end {%s}...{/%s}" (id.ToString()) (i.ToString())                                                             
                                     | NamedBody(n)  ->  let b1, end2, r = loop [] r
                                                         let body = b1 |> List.rev |> compress
                                                         loop2 ((n, body) :: acc) r end2
-                                    | _             ->  failwith "unexpected" 
+                                    | _             ->  failwith "unexpected 1"
                                 let bodies,r = (loop2 [] r endp)
 
                                 //// if ws <> [] then failwithf "unexpected whitespace before %s" (toString rest)
@@ -433,9 +448,9 @@ type System.Object with
   member o.TryFindProp (key:string) =
     match o with
     | null -> None
-    | :? IDictionary<string,string> as d -> match d.ContainsKey key with
-                                            | true  -> optional (d.Item(key) |> unquote :> obj)
-                                            | _     -> None
+//    | :? IDictionary<string,string> as d -> match d.ContainsKey key with
+//                                            | true  -> optional (d.Item(key) |> unquote :> obj)
+//                                            | _     -> None
     | :? IDictionary<string,obj> as d ->    match d.ContainsKey key with
                                             | true  -> optional (d.Item(key))
                                             | _     -> None
@@ -527,24 +542,18 @@ and Context =
                                         else for x in f do o <- x o
                                         this.W.Write(o)
     // write with interpolation of {data}
-    member this.WriteI (s:string)     = this.W.Write(rexStr.Replace(s, (fun m ->    let tag = m.ToString();
-                                                                                    let key = tag.Substring(1, tag.Length-2)
-                                                                                    match this.Get (Key(key)) with
-                                                                                    | Some(v) -> v.ToString()
-                                                                                    | None    -> tag.ToUpper() )))
-    member this.WriteI2(s:string)     = this.W.Write(rexStr2.Replace(s, (fun m ->   let tag = m.ToString();
-                                                                                    let key = tag.Substring(1, tag.Length-2)
-                                                                                    match this.Get (Key(key)) with
-                                                                                    | Some(v) -> v.ToString()
-                                                                                    | None    -> tag.ToUpper() )))
+    member this.RexInterpolate (rex:Regex) (s:string)= 
+                                        rex.Replace(s, (fun m ->    let tag = m.ToString();
+                                                                    match this.Get (Key(tag.Substring(1, tag.Length-2))) with
+                                                                    | Some(v) -> v.ToString()
+                                                                    | None    -> tag
+                                                   )   )    
+    member this.WriteI (s:string)     = s |> this.RexInterpolate rexRefs |> this.W.Write
+    member this.WriteI2(s:string)     = s |> this.RexInterpolate rexRefB |> this.W.Write
     member this.GetStr(key:string)    = match this.Get (Key key) with
                                         | Some(o) -> o.ToString()
                                         | None    -> ""
     member this.Log msg               = this.Logger msg
-
-    member c.Interpolate (s:string) =
-        if s.StartsWith("{") then s.Substring(1, s.Length-2) |> c.GetStr
-        else s
 
     member c.TryFindSegment o = function
         | Name(n)  -> match o.TryFindProp n with
@@ -552,11 +561,12 @@ and Context =
                                     | :? Value as v -> match v with
                                                        | VIdent(i) -> c.Get i
                                                        | VNumber(n) -> Some(box n)
-                                                       | VInline(s) -> Some(box <| c.Interpolate s)
+                                                       | VInline(s) -> Some(s |> c.RexInterpolate rexRefs |> box)
                                     | _ -> Some(o)
                       | _ -> None
         | Index(i) -> if i = -2 then o.TryFindIndex (fst c.Index.Value)
                       else o.TryFindIndex i
+        | _ -> failwith "FromCur unexpected here"
 
     member c.Get (id:Identifier) : obj Option =
         let cur, path = match id with
@@ -565,7 +575,7 @@ and Context =
                                                 if k2.Contains "." then (cur, k2.Split('.') |> List.ofArray |> List.map (fun x -> Name(x)) )
                                                                    else (cur, [Name(k2)])
                         | Identifier.Path(p) -> match p with
-                                                | [Name(".")]  -> true, p
+                                                | FromCur :: p -> true, p
                                                 | _            -> false, p
         c.GetPath cur path
 
@@ -579,26 +589,25 @@ and Context =
         let rec resolve o (path:Segment list) =
             match path.Tail, c.TryFindSegment o path.Head with
             | [], None -> None
-            | _ , None -> failwith "bad path"
+            | _ , None -> None // failwithf "missing data %A" path // strict: indicates a path that cannot be resolved
             | [], x -> x
             | _ , Some o2 -> resolve o2 path.Tail
 
         match p with
         | [Name("$idx")] -> if c.Index.IsSome then Some(box <| fst c.Index.Value) else None
         | [Name("$len")] -> if c.Index.IsSome then Some(box <| snd c.Index.Value) else None
-        | [Name(".")]    -> c.Current
+        | []             -> c.Current
         | _ ->
-            let ctx,v = match cur, p with
-                        | true, [_] ->  c, None // fixed to current context
-                        | false, _  ->  let result = searchUpStack c // Search up the stack for the first value
-                                        match result with // Try looking in the global context if we haven't found anything yet
-                                        | Some _ -> c, result
-                                        | None   -> c, (c.TryFindSegment c.Global p.Head)
-                        | _         ->  failwith "unexpected"
+            let ctx,v = match cur with
+                        | true  ->  c, None // fixed to current context
+                        | false ->  let result = searchUpStack c // Search up the stack for the first value
+                                    match result with // Try looking in the global context if we haven't found anything yet
+                                    | Some _ -> c, result
+                                    | None   -> c, (c.TryFindSegment c.Global p.Head)
             match v, p.Tail with
             | Some _ , [] -> v
             | Some o , _  -> resolve o p.Tail
-            | None   , _  -> match ctx.Current with | Some obj -> c.TryFindSegment obj p.Head | _ -> None
+            | None   , _  -> match ctx.Current with | Some o -> resolve o p | _ -> None
 
     member c.EvalBool cond =
         match c.Get cond with
@@ -628,14 +637,13 @@ and Context =
         | Special ch     -> c.Write(ch)
         | Buffer text    -> c.Write(text)
         | Partial(i,x,m) -> let n = match i with
-                                    | VInline(i) -> if i.StartsWith("{") then i.Substring(1, i.Length-2) |> c.GetStr
-                                                    else i
+                                    | VInline(i) -> i |> c.RexInterpolate rexRefs 
                                     | VIdent(i)  -> i.ToString()
                                     | _ -> failwith "unexpected"
                             if n <> "" then
                                     let cc = match x with // if a new context x is specified, then rebase WITHOUT parent
                                              | Some i -> { c with Parent = None;   TmplName = n; Current = c.Get i }
-                                             | None   -> { c with Parent = Some c; TmplName = n; Current = Some(m :> obj) }                               
+                                             | None   -> { c with Parent = Some c; TmplName = n; Current = Some(m :> obj) }
                                     match cache.TryGetValue n with
                                     | true, (_, part) -> part
                                     | _ -> c.ParseCached parse n
@@ -680,7 +688,7 @@ and Context =
                                                 | _  -> false
             | Scope         ->  let cc =  match x with // if a new context x is specified, then rebase WITHOUT parent
                                                 | Some i -> { c with Parent = None;   Current = c.Get i }
-                                                | None   -> { c with Parent = Some c; Current = Some(map :> obj) }                               
+                                                | None   -> { c with Parent = Some c; Current = Some(map :> obj) }
                                 match c.Get n with
                                 | Some(valu) -> match valu with
                                                 // Dust's default behavior is to enumerate over the array elem, passing each object in the array to the block.
@@ -725,4 +733,3 @@ module DustFilters =
 
 filters.["s"] <- DustFilters.s
 filters.["h"] <- DustFilters.h
-
