@@ -11,6 +11,8 @@
 #I "packages/FAKE/tools/"
 #r "packages/FAKE/tools/FakeLib.dll"
 open Fake
+open Fake.OpenCoverHelper
+open Fake.ProcessHelper
 
 open System
 open System.IO
@@ -22,6 +24,10 @@ open Microsoft.FSharp.Compiler.Interactive.Shell
 // Properties
 let buildDir = "./build/"
 let testDir = "./test/"
+let coverageDir = buildDir + "coverage/"
+
+// Pattern specifying assemblies to be tested using xunit
+let testAssemblies = buildDir @@ "*Test*.dll"
 
 // Targets
 Target "Clean" (fun _ ->
@@ -32,6 +38,48 @@ Target "BuildApp" (fun _ ->
    !! "**/*.fsproj"
      |> MSBuildRelease buildDir "Build"
      |> Log "AppBuild-Output: "
+)
+
+
+// --------------------------------------------------------------------------------------
+// Run the unit tests using test runner
+
+Target "RunTests" (fun _ ->
+    !! testAssemblies 
+    |> NUnit (fun p ->
+        { p with
+            DisableShadowCopy = true
+            TimeOut = TimeSpan.FromMinutes 20.
+            })
+)
+
+// see http://cdroulers.com/blog/2015/05/06/net-code-coverage-with-opencover-and-bamboo/
+Target "RunUnitTests" (fun _ ->
+    let assembliesToTest = (" ", (!! (buildDir + "/*Test*.dll"))) |> System.String.Join
+    CreateDir coverageDir
+    CreateDir testDir
+    let nCoverDir = coverageDir + "ncover/"
+    CreateDir nCoverDir
+    trace "Run OpenCover with NUnit"
+    OpenCover
+        (fun p -> { p with 
+                            ExePath = "./packages/OpenCover/tools/OpenCover.Console.exe"
+                            TestRunnerExePath = "./packages/NUnit.Runners/tools/nunit-console-x86.exe"
+                            Output = coverageDir + "results.xml"
+                            Register = RegisterUser
+                            Filter = "+[*]* -[*.Tests*]*"
+                  })
+        ("/nologo /noshadow /framework=net-4.5.1 /result=" + testDir + "nunit-results.xml /output=" + testDir + "nunit-output.txt " + assembliesToTest)
+
+    trace "Generate OpenCover report"
+    Shell.Exec(@".\packages\ReportGenerator\tools\ReportGenerator.exe ", args = coverageDir + "results.xml " + coverageDir + "html") |> ignore
+
+(*
+    trace "Generate NCover output"
+    let xslDoc = new System.Xml.Xsl.XslCompiledTransform()
+    xslDoc.Load "opencover-to-ncover.xslt"
+    xslDoc.Transform(coverageDir + "results.xml", nCoverDir + "results.xml")
+*)    
 )
 
 // --------------------------------------------------------------------------------------
@@ -171,6 +219,7 @@ Target "deploy" (fun _ ->
 
 // Dependencies
 "BuildApp"
+  ==> "RunTests"    
   ==> "run"
 
 RunTargetOrDefault "run"

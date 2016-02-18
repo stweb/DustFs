@@ -3,6 +3,10 @@ source https://www.nuget.org/api/v2/
 nuget FSharp.Data framework: >= net45
 nuget FsUnit
 nuget Newtonsoft.Json framework: >= net45
+nuget OpenCover
 nuget Suave framework: >= net45
 nuget FSharp.Compiler.Service
 nuget FAKE
+nuget NUnit ~> 2.6.4
+nuget NUnit.Runners ~> 2.6.4
+nuget ReportGenerator

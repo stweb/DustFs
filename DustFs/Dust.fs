@@ -101,8 +101,6 @@ let private asyncMemoize isValid f =
 // trim quotes from a string - assumes proper double quoted
 //let unquote (s:string) = if s.StartsWith("\"") then s.Substring(1, s.Length-2) else s
 
-let inline optional o = if o = null then None else Some(o)
-
 let elapsedMs (sw:System.Diagnostics.Stopwatch) =
     double sw.ElapsedTicks * 1000.0 / double System.Diagnostics.Stopwatch.Frequency
 
@@ -144,11 +142,6 @@ let (|Quoted|_|) = function
     | '\"' :: chars -> chars |> parseUntil ['\"'] []
     | _ -> None
 
-let (|Whitespace|_|) ch =
-    match Char.IsWhiteSpace ch with
-    | true -> Some(ch)
-    | _ -> None
-
 // --------------------------------------------------------------------------------------
 let parseFilters (strarr:seq<string>) =
     seq {
@@ -185,8 +178,7 @@ let numOf x r =
 let (|Number|_|) = function
     | Rex rexFloat (x,r) -> numOf x r
     | Rex rexInt   (x,r) -> numOf x r
-    | _ -> None
-                           
+    | _ -> None                         
 
 // array <- ( lb ( ({Nd}+) / identifier) rb ) array_part?
 let (|ArrayIdx|_|) = function
@@ -231,7 +223,7 @@ let (|IPath|_|) chars =
     match k, l, chars.Head with
     | None,  [], '.' -> Some([FromCur], chars.Tail)
     | None,   _, '.' -> Some(FromCur :: l, r)
-    | None,  [_], _  -> Some(l, r)
+    | None,  [_], _  -> Some(l, r) // TODO check if needed, not test covered
     | Some(k), _, _  -> Some(k :: l,r)
     | _              -> None
 
@@ -240,7 +232,7 @@ let (|Ident|_|) = function
      | IPath(p,r) -> match p with
                      | [Name(n)] when n.Length > 1 -> Some(Key(n), r)
                      | _         -> Some(Path(p),r)
-     | Key(k,r)  -> Some(Key(toString(k)),r)
+     | Key(k,r)  -> Some(Key(toString(k)),r) // not test covered
      | _ -> None
 
 // param <- (key "=" (number / identifier / inline)
@@ -328,11 +320,6 @@ let (|PartialTag|_|) (r:char list) =
         | '/' :: '}' :: r2 -> Some(Partial(id, ct, Map.ofList pa), r2)
         | _ -> None
     | _ -> None
-
-// collect leading whitespace
-let rec collectws acc = function
-    | c :: rest when Char.IsWhiteSpace c -> collectws (c :: acc) rest
-    | rest -> (acc |> List.rev, rest)
 
 //part <- raw / comment / section / partial / special / reference / buffer
 let rec (|Part|_|) = function
@@ -442,15 +429,14 @@ let parse text =
     let body = loop [] chars
     compress <| body
 
+let inline optional o = if o = null then None else Some(o)
+
 // extension method to use objects like a Map, works with ExpandoObjects
 type System.Object with
 
   member o.TryFindProp (key:string) =
     match o with
     | null -> None
-//    | :? IDictionary<string,string> as d -> match d.ContainsKey key with
-//                                            | true  -> optional (d.Item(key) |> unquote :> obj)
-//                                            | _     -> None
     | :? IDictionary<string,obj> as d ->    match d.ContainsKey key with
                                             | true  -> optional (d.Item(key))
                                             | _     -> None
@@ -485,10 +471,6 @@ and Context =
         Helpers:    ConcurrentDictionary<string, Helper>
         // Options:    Whitespace
     }
-    override x.ToString() =
-        match x.Index with
-        | Some(ix,len) -> sprintf "%A %A %d/%d" x.Parent x.Current ix len
-        | None         -> sprintf "%A %A"       x.Parent x.Current
 
     static member defaults = { TmplDir = ""; TmplName = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
                                Helpers = new ConcurrentDictionary<string, Helper>();

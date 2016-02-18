@@ -1,18 +1,27 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 2012
-VisualStudioVersion = 14.0.23107.0
+# Visual Studio 14
+VisualStudioVersion = 14.0.24720.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = ".paket", ".paket", "{1612609B-4A7E-4605-8C2D-C99A0A9275D2}"
 	ProjectSection(SolutionItems) = preProject
 		paket.dependencies = paket.dependencies
 	EndProjectSection
 EndProject
-Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "DustFs", "DustFs\DustFs.fsproj", "{AA511B15-2792-400C-9E57-DE31145CDEE7}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DustFs", "DustFs\DustFs.fsproj", "{AA511B15-2792-400C-9E57-DE31145CDEE7}"
 EndProject
-Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "DustFsNews", "DustFsNews\DustFsNews.fsproj", "{D40C1290-A244-4E10-BC82-85C5D0884FEA}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DustFsNews", "DustFsNews\DustFsNews.fsproj", "{D40C1290-A244-4E10-BC82-85C5D0884FEA}"
 EndProject
-Project("{f2a71f9b-5d33-465a-a702-920d77279786}") = "DustFsTest", "DustFsTest\DustFsTest.fsproj", "{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "DustFsTest", "DustFsTest\DustFsTest.fsproj", "{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution", "Solution", "{E2D6A628-4552-484E-A0D3-FDDA1F77651E}"
+	ProjectSection(SolutionItems) = preProject
+		build.cmd = build.cmd
+		build.fsx = build.fsx
+		build.sh = build.sh
+		LICENSE = LICENSE
+		README.md = README.md
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -24,16 +33,14 @@ Global
 		{AA511B15-2792-400C-9E57-DE31145CDEE7}.Debug|AnyCPU.Build.0 = Debug|Any CPU
 		{AA511B15-2792-400C-9E57-DE31145CDEE7}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{AA511B15-2792-400C-9E57-DE31145CDEE7}.Release|AnyCPU.Build.0 = Release|Any CPU
-		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
-		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Debug|AnyCPU.Build.0 = Debug|Any CPU
-		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Release|AnyCPU.ActiveCfg = Release|Any CPU
-		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Release|AnyCPU.Build.0 = Release|Any CPU
 		{D40C1290-A244-4E10-BC82-85C5D0884FEA}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
 		{D40C1290-A244-4E10-BC82-85C5D0884FEA}.Debug|AnyCPU.Build.0 = Debug|Any CPU
 		{D40C1290-A244-4E10-BC82-85C5D0884FEA}.Release|AnyCPU.ActiveCfg = Release|Any CPU
 		{D40C1290-A244-4E10-BC82-85C5D0884FEA}.Release|AnyCPU.Build.0 = Release|Any CPU
-	EndGlobalSection
-	GlobalSection(NestedProjects) = preSolution
+		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Debug|AnyCPU.ActiveCfg = Debug|Any CPU
+		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Debug|AnyCPU.Build.0 = Debug|Any CPU
+		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Release|AnyCPU.ActiveCfg = Release|Any CPU
+		{B2B1C1F2-FFBF-41B3-807F-005F4799FA15}.Release|AnyCPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
