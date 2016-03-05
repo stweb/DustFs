@@ -81,6 +81,14 @@ and Part =
 and BodyDict = Map<string, Body>
 and Params   = Map<string, Value>
 
+let (?) (p:Params) (name:string) =
+    match p.TryFind name with
+    | Some(v) -> match v with
+                 | VIdent(i)  -> failwith "not supported" // c.Get i
+                 | VNumber(n) -> n.ToString()
+                 | VInline(s) -> s // Some(s |> c.RexInterpolate rexRefs |> box)
+    | _ -> String.Empty
+
 let filters = new ConcurrentDictionary<string, Filter>()
 
 let cache = new ConcurrentDictionary<string, DateTime * Body>()
@@ -456,6 +464,7 @@ type System.Object with
     | _ -> failwith "object without index access"
 
 type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit
+and Wrapper = Context -> Params -> Part list -> unit
 and Context =
     {   // Data context
         Parent:     Context option      // replaces Stack.Tail in orginal impl via chained Parents
@@ -470,39 +479,40 @@ and Context =
         Logger:     string -> unit      // a logger
         Helpers:    ConcurrentDictionary<string, Helper>
         // Options:    Whitespace
+        WrapPart:   Wrapper option
     }
 
     static member defaults = { TmplDir = ""; TmplName = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
-                               Helpers = new ConcurrentDictionary<string, Helper>();
+                               Helpers = new ConcurrentDictionary<string, Helper>(); WrapPart = None;
                                Current = None; Index = None; Parent = None; Logger = fun s -> (); }
 
-    member this.LoadAndParse parse name = async {
-        let sw = System.Diagnostics.Stopwatch()
-        sw.Start()
-
-        let fname = Path.Combine(this.TmplDir, name )
-        let writeTime = File.GetLastWriteTime(fname)
-        let body =
-            if File.Exists fname then
-                File.ReadAllText fname |> parse
-            else
-                this.Log <| sprintf "file not found: " + fname
-                []
-
-        sw.Stop()
-        this.Log(System.String.Format("parsed {0} {1:N3} [ms]", name, elapsedMs sw))
-        return (writeTime, body)
+    member this.ParseCachedAsync (parse:string -> Body) name = async {
+        let path = Path.Combine(this.TmplDir, name)
+        if not (File.Exists path) then
+            this.Log <| sprintf "file not found: " + path
+            return None
+        else
+            let date = File.GetLastWriteTime(path)
+            
+            let isValid name (lastWrite,_) =
+                this.Log(System.String.Format("check {0} {1} <?= {2}", path, date, lastWrite))
+                date <= lastWrite
+            let update name = async {
+                let sw = System.Diagnostics.Stopwatch()
+                sw.Start()
+                let body = File.ReadAllText path |> parse
+                sw.Stop()
+                this.Log(System.String.Format("parsed {0} {1:N3} [ms]", name, elapsedMs sw))
+                return (date, body)
+            }
+            let! res = asyncMemoize isValid update name 
+            return Some res
     }
-
-    member this.ParseCachedAsync parse =
-        this.LoadAndParse parse |> asyncMemoize (fun name (lastWrite, _) ->
-                                                    let path = Path.Combine(this.TmplDir, name )
-                                                    let date = File.GetLastWriteTime(path)
-                                                    this.Log(System.String.Format("check {0} {1} <?= {2}", path, date, lastWrite))
-                                                    date <= lastWrite )
-    member this.ParseCached parse name =
-        let _, body = this.ParseCachedAsync parse name |> Async.RunSynchronously
-        body
+    member this.ParseCached parse name : Body option =
+        let res = this.ParseCachedAsync parse name |> Async.RunSynchronously
+        match res with
+        | Some (_, body) -> Some body
+        | _              -> None
 
     member this.Write (v:Value)       = match v with
                                         | VNumber n -> n.ToString(this.Culture) |> this.Write
@@ -611,6 +621,17 @@ and Context =
         | _ ->  c.Log <| sprintf "missing helper: %s" name
                 nullHelper // the nullHelper
 
+    // wraps the rendered element in start/end tags when defined
+    member c.RenderWrapped (map:Params) (list:Part list) =
+        match c.WrapPart with
+        | Some w -> list |> w c map 
+        | None   -> list |> c.Render
+
+    member c.RenderOpt (bo:Body Option) =
+        match bo with
+        | Some body -> c.Render body
+        | None -> ()
+
     // render template parts with provided context & scope
     member c.Render (list:Part list) =
       for part in list do
@@ -627,9 +648,9 @@ and Context =
                                              | Some i -> { c with Parent = None;   TmplName = n; Current = c.Get i }
                                              | None   -> { c with Parent = Some c; TmplName = n; Current = Some(m :> obj) }
                                     match cache.TryGetValue n with
-                                    | true, (_, part) -> part
+                                    | true, (_, part) -> Some part
                                     | _ -> c.ParseCached parse n
-                                    |> cc.Render
+                                    |> cc.RenderOpt
         | Reference(k,f) -> match c.Get k with
                             | None -> ()
                             | Some value    ->  match value with
@@ -644,9 +665,7 @@ and Context =
                             | _ -> ()
         | SectionBlock(st,n,x,map,l,bodies) ->
             let renderIf (cc:Context) cond =   if cond then l |> cc.Render
-                                               else match bodies.TryFind "else" with
-                                                    | Some body -> body |> cc.Render
-                                                    | None -> ()
+                                               else bodies.TryFind "else" |> cc.RenderOpt
             match st with
             | Condition     ->  renderIf c (c.EvalBool n)
             | NotCondition  ->  renderIf c (not (c.EvalBool n))

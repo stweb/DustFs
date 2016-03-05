@@ -9,9 +9,7 @@ open Dust.Engine
 open Dust.Suave
 open Suave
 open Suave.Logging
-open Suave.Utils
 open Suave.Http
-open Suave.Successful
 
 // ----------------------------------------------------------------------------
 // Domain model for the F# Times homepage
