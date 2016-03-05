@@ -28,7 +28,7 @@ type Weather =
     Night : int }
 
 type Home =
-  { News : seq<News>
+  { News :    Async<obj> // this is an F# promise
     Weather : seq<Weather> }
 
 // ----------------------------------------------------------------------------
@@ -60,9 +60,9 @@ let getWeather = async {
 
 type SpiegelRSS = XmlProvider<"http://www.spiegel.de/schlagzeilen/tops/index.rss">
 
-let getSpiegel = async {
+let getSpiegel ctx = async {
   let! res = SpiegelRSS.AsyncGetSample()
-  return
+  return box
     [ for item in res.Channel.Items |> Seq.take 15 do
         match item.Enclosure with
         | Some thumb -> yield { ThumbUrl = thumb.Url; LinkUrl = item.Link;
@@ -71,9 +71,11 @@ let getSpiegel = async {
 
 type RSS = XmlProvider<"http://feeds.bbci.co.uk/news/rss.xml">
 
-let getNews = async {
+let getNews ctx = async {
+  Log.info ctx.runtime.logger "News.index" TraceHeader.empty "Get News"
   let! res = RSS.AsyncGetSample()
-  return
+  Log.info ctx.runtime.logger "News.index" TraceHeader.empty "Got News"
+  let news =
     [ for item in res.Channel.Items |> Seq.take 15 do
         let thumb = if item.Thumbnails |> Seq.length > 0 then
                         (item.Thumbnails |> Seq.maxBy (fun t -> t.Width)).Url
@@ -82,6 +84,9 @@ let getNews = async {
         yield
           { ThumbUrl = thumb; LinkUrl = item.Link;
             Title = item.Title; Description = item.Description } ] 
+
+  Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Got News %d" (List.length news))
+  return box news  
 }
 
 // ----------------------------------------------------------------------------
@@ -108,19 +113,18 @@ helpers.["test"] <- NewsHelpers.testHelper
 let index getFeed : WebPart = fun ctx -> async {
     Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Getting News %s" ctx.request.url.AbsolutePath)
     // perform in parallel
-    let! aNews = Async.StartChild getFeed
-    let! aTmpl = Async.StartChild (parseToCache ctx "index.html")
+    let! aNews = Async.StartChild <| getFeed ctx
+    let! aTmpl = Async.StartChild <| parseToCache ctx "index.html"
 
-    // await results
-    let! news = aNews
     #if weather
     let! weather = _weather
     #else
     let weather = []
     #endif
 
-    Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Got News %d" (List.length news))
-    let! html = page aTmpl { News = news; Weather = weather } ctx
+    System.Threading.Thread.Sleep(1000)
+
+    let! html = page aTmpl { News = aNews; Weather = weather } ctx
     return html
 }
 

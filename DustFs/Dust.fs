@@ -326,6 +326,7 @@ let (|PartialTag|_|) (r:char list) =
         match r2 with
         | '}' :: _ when hd = '>' -> failwith "expected self-closed tag"
         | '/' :: '}' :: r2 -> Some(Partial(id, ct, Map.ofList pa), r2)
+                              // TODO start parsing the partial async  
         | _ -> None
     | _ -> None
 
@@ -437,7 +438,12 @@ let parse text =
     let body = loop [] chars
     compress <| body
 
-let inline optional o = if o = null then None else Some(o)
+// handles null obj and async results
+let optional (o:obj) = 
+    match o with
+    | null               -> None
+    | :? Async<'t> as a  -> a |> Async.RunSynchronously |> Some
+    | o                  -> Some o
 
 // extension method to use objects like a Map, works with ExpandoObjects
 type System.Object with
