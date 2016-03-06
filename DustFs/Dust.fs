@@ -684,10 +684,12 @@ and Context =
                                                                     | None -> failwithf "%s must be defined" s
                                             | _ -> failwithf "missing %s" s
 
-                                let l, r = get "key", get "value"
+                                let l, rr = get "key", get "value"
+                                let r = try Convert.ChangeType(rr, l.GetType()) // try align types to left side (data type)
+                                        with | e -> rr
                                 renderIf c   <| match t with
-                                                | Eq -> l.Equals(r)
-                                                | Ne -> not (l.Equals(r))
+                                                | Eq -> l = r
+                                                | Ne -> l <> r
                                                 | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
                                                 | Gte-> System.Convert.ToDouble(l) >= System.Convert.ToDouble(r)
                                                 | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)

@@ -381,6 +381,66 @@ module R06_Conditional =
       |> dust   "{#foo}full foo{:else}empty foo{/foo}"
       |> expect "empty foo"
 
+    [<Test>]
+    let ``should test (at)eq logic helper`` () =
+      json "{\"test\": 11}"
+      |> dust   "{@eq key=test value=11}eleven{:else}{test}{/eq}"
+      |> expect "eleven"
+
+    [<Test>]
+    let ``should test (at)eq logic helper with different types`` () =
+      json "{\"test\": \"11\"}"
+      |> dust   "{@eq key=test value=11}eleven{:else}{test}{/eq}"
+      |> expect "eleven"
+
+    [<Test>]
+    let ``should test (at)eq logic helper with strings`` () =
+      json "{\"test\": \"abc\"}"
+      |> dust   "{@eq key=test value=\"abc\"}Alphabet{:else}{test}{/eq}"
+      |> expect "Alphabet"
+
+    [<Test>]
+    let ``should test (at)ne logic helper with strings`` () =
+      json "{\"test\": \"abc\"}"
+      |> dust   "{@ne key=test value=\"def\"}different{:else}{test}{/ne}"
+      |> expect "different"
+
+    [<Test>]
+    let ``should test (at)gt logic helper 11 > 10`` () =
+      json "{\"test\": 11}"
+      |> dust   "{@gt key=test value=10}greater{:else}{test}{/gt}"
+      |> expect "greater"
+
+    [<Test>]
+    let ``should test (at)lt logic helper 11 < 12`` () =
+      json "{\"test\": 11}"
+      |> dust   "{@lt key=test value=12}lower{:else}{test}{/lt}"
+      |> expect "lower"
+
+    [<Test>]
+    let ``should test (at)gte logic helper 11 >= 10`` () =
+      json "{\"test\": 11}"
+      |> dust   "{@gte key=test value=10}greater or equal{:else}{test}{/gte}"
+      |> expect "greater or equal"
+
+    [<Test>]
+    let ``should test (at)lte logic helper 11 <= 12`` () =
+      json "{\"test\": 11}"
+      |> dust   "{@lte key=test value=12}lower or equal{:else}{test}{/lte}"
+      |> expect "lower or equal"
+
+    [<Test>]
+    let ``should test (at)gte logic helper 11 >= 11`` () =
+      json "{\"test\": 11}"
+      |> dust   "{@gte key=test value=11}greater or equal{:else}{test}{/gte}"
+      |> expect "greater or equal"
+
+    [<Test>]
+    let ``should test (at)lte logic helper 11 <= 11`` () =
+      json "{\"test\": 11}"
+      |> dust   "{@lte key=test value=11}lower or equal{:else}{test}{/lte}"
+      |> expect "lower or equal"
+
 module R06_ArrayIndexAccess =
 
     [<Test>]
