@@ -81,14 +81,6 @@ and Part =
 and BodyDict = Map<string, Body>
 and Params   = Map<string, Value>
 
-let (?) (p:Params) (name:string) =
-    match p.TryFind name with
-    | Some(v) -> match v with
-                 | VIdent(i)  -> failwith "not supported" // c.Get i
-                 | VNumber(n) -> n.ToString()
-                 | VInline(s) -> s // Some(s |> c.RexInterpolate rexRefs |> box)
-    | _ -> String.Empty
-
 let filters = new ConcurrentDictionary<string, Filter>()
 
 let cache = new ConcurrentDictionary<string, DateTime * Body>()
@@ -468,6 +460,21 @@ type System.Object with
             | -1 -> s |> Seq.cast<obj> |> Seq.last   |> Some
             | _  -> s |> Seq.cast<obj> |> Seq.skip i |> Seq.tryHead
     | _ -> failwith "object without index access"
+
+let (?) (o:obj) (name:string) =
+    match o with
+    | :? Params as p ->
+        match p.TryFind name with
+        | Some(v) -> match v with
+                     | VIdent(i)  -> failwith "not supported" // c.Get i
+                     | VNumber(n) -> n.ToString()
+                     | VInline(s) -> s // Some(s |> c.RexInterpolate rexRefs |> box)
+        | _ -> String.Empty
+    | _ ->
+        let n2 = name.Replace('_', '-')
+        match o.TryFindProp n2 with
+        | Some(v) -> v.ToString()
+        | _ -> String.Empty
 
 type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit
 and Wrapper = Context -> Params -> Part list -> unit
