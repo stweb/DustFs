@@ -477,11 +477,21 @@ let (?) (o:obj) (name:string) =
         | _ -> String.Empty
 
 type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit
-and Wrapper = Context -> Params -> Part list -> unit
+and Model =
+    {
+        Root:       obj
+        ReadOnly:   bool
+        Id:         string
+        Path:       string
+        LastWrite:  DateTime
+    }
+    static member empty = { Root = null; ReadOnly = true; Id = ""; Path = ""; LastWrite = DateTime.MinValue }
+
 and Context =
     {   // Data context
         Parent:     Context option      // replaces Stack.Tail in orginal impl via chained Parents
         Current:    obj option          // replaces Stack.Head in orginal impl / "this" in data context
+        Model:      Model
         Global:     obj                 // global data
         Index:      (int * int) option  // inside #array
         Culture:    CultureInfo         // used for formatting of values
@@ -492,11 +502,10 @@ and Context =
         Logger:     string -> unit      // a logger
         Helpers:    ConcurrentDictionary<string, Helper>
         // Options:    Whitespace
-        WrapPart:   Wrapper option
     }
 
     static member defaults = { TmplDir = ""; TmplName = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
-                               Helpers = new ConcurrentDictionary<string, Helper>(); WrapPart = None;
+                               Helpers = new ConcurrentDictionary<string, Helper>(); Model = Model.empty;
                                Current = None; Index = None; Parent = None; Logger = fun s -> (); }
 
     member this.ParseCachedAsync (parse:string -> Body) name = async {
@@ -559,6 +568,10 @@ and Context =
                                         | Some(o) -> o.ToString()
                                         | None    -> ""
     member this.Log msg               = this.Logger msg
+
+    member c.GetPartial name =          match cache.TryGetValue name with
+                                        | true, (_, part) -> Some part
+                                        | _ -> c.ParseCached parse name
 
     member c.TryFindSegment o = function
         | Name(n)  -> match o.TryFindProp n with
@@ -633,12 +646,6 @@ and Context =
         | true, ref -> ref
         | _ ->  c.Log <| sprintf "missing helper: %s" name
                 nullHelper // the nullHelper
-
-    // wraps the rendered element in start/end tags when defined
-    member c.RenderWrapped (map:Params) (list:Part list) =
-        match c.WrapPart with
-        | Some w -> list |> w c map 
-        | None   -> list |> c.Render
 
     member c.RenderOpt (bo:Body Option) =
         match bo with
