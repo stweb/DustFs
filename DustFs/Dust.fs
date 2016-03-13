@@ -662,8 +662,8 @@ and Context =
                     | :? bool as b -> b
                     | :? IEnumerable<obj> as ie ->  let en = ie.GetEnumerator()
                                                     en.MoveNext()
-                    | _ ->  let s = o.ToString()
-                            let result = s.Equals("true") || not (System.String.IsNullOrEmpty(s))
+                    | _ ->  let s = o.ToString().ToLower();                            
+                            let result = not(s.Equals "false") && (s.Equals("true") || not (System.String.IsNullOrEmpty(s)))
                             result
 
     member c.GetHelper name =
