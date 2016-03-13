@@ -461,20 +461,47 @@ type System.Object with
             | _  -> s |> Seq.cast<obj> |> Seq.skip i |> Seq.tryHead
     | _ -> failwith "object without index access"
 
-let (?) (o:obj) (name:string) =
-    match o with
-    | :? Params as p ->
-        match p.TryFind name with
-        | Some(v) -> match v with
-                     | VIdent(i)  -> failwith "not supported" // c.Get i
-                     | VNumber(n) -> n.ToString()
-                     | VInline(s) -> s // Some(s |> c.RexInterpolate rexRefs |> box)
-        | _ -> String.Empty
-    | _ ->
-        let n2 = name.Replace('_', '-')
-        match o.TryFindProp n2 with
-        | Some(v) -> v.ToString()
-        | _ -> String.Empty
+open System.Runtime.CompilerServices
+open Microsoft.FSharp.Reflection
+open Microsoft.CSharp.RuntimeBinder
+
+// read dynamic properties
+// see https://gist.github.com/mattpodwysocki/300628
+let (?) (o:obj) (name:string) : 'TargetResult  = 
+    let targetResultType = typeof<'TargetResult>
+
+    let toResult valu =
+        try
+                let res = Convert.ChangeType(valu, targetResultType);
+                unbox(res)
+        with
+        | e->   printfn "%s: %A ? %s  %s" name valu (targetResultType.ToString()) e.Message
+                Unchecked.defaultof<'TargetResult>                
+
+    if not (FSharpType.IsFunction targetResultType)
+    then 
+        match o with
+        | :? Params as p ->
+            match p.TryFind name with
+            | Some(v) -> match v with
+                         | VIdent(_)  -> failwith "not supported" // c.Get i
+                         | VNumber(n) -> toResult n
+                         | VInline(s) -> toResult s
+            | _       -> Unchecked.defaultof<'TargetResult>
+       
+        | :? IDictionary<string,obj> as dict ->
+            match dict.TryGetValue name with
+            | false,   _ -> failwith ("unknown property/key " + name)
+            | true, valu -> match valu with
+                            | :? 'TargetResult -> unbox(valu)
+                            | null ->   Unchecked.defaultof<'TargetResult>
+                            | _ ->      toResult valu       
+        | _ ->  match o.TryFindProp name with
+                | Some(v) -> toResult v
+                | _ ->  let cs = CallSite<Func<CallSite, obj, obj>>.Create(Binder.GetMember(CSharpBinderFlags.None, name, null, [| CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null) |]))
+                        unbox (cs.Target.Invoke(cs, o))
+    else
+        failwith "not implemented"
 
 type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit
 and Model =
