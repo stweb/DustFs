@@ -522,6 +522,7 @@ and Context =
         Global:     obj                 // global data
         Index:      (int * int) option  // inside #array
         Culture:    CultureInfo         // used for formatting of values
+        Partials:   BodyDict            // partials defined within the context lifecycle, not in global cache
         // execution data
         W:          TextWriter          // write used to render output
         TmplDir:    string              // the template source directory
@@ -532,7 +533,7 @@ and Context =
     }
 
     static member defaults = { TmplDir = ""; TmplName = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
-                               Helpers = new ConcurrentDictionary<string, Helper>(); Model = Model.empty;
+                               Helpers = new ConcurrentDictionary<string, Helper>(); Model = Model.empty; Partials = Map.empty
                                Current = None; Index = None; Parent = None; Logger = fun s -> (); }
 
     member this.ParseCachedAsync (parse:string -> Body) name = async {
@@ -596,9 +597,11 @@ and Context =
                                         | None    -> ""
     member this.Log msg               = this.Logger msg
 
-    member c.GetPartial name =          match cache.TryGetValue name with
-                                        | true, (_, part) -> Some part
-                                        | _ -> c.ParseCached parse name
+    member c.GetPartial name          = match c.Partials.TryFind name with
+                                        | None   -> match cache.TryGetValue name with
+                                                    | true, (_, part) -> Some part
+                                                    | _ -> c.ParseCached parse name
+                                        | bo     -> bo
 
     member c.TryFindSegment o = function
         | Name(n)  -> match o.TryFindProp n with
@@ -693,11 +696,8 @@ and Context =
                             if n <> "" then
                                     let cc = match x with // if a new context x is specified, then rebase WITHOUT parent
                                              | Some i -> { c with Parent = None;   TmplName = n; Current = c.Get i }
-                                             | None   -> { c with Parent = Some c; TmplName = n; Current = Some(m :> obj) }
-                                    match cache.TryGetValue n with
-                                    | true, (_, part) -> Some part
-                                    | _ -> c.ParseCached parse n
-                                    |> cc.RenderOpt
+                                             | None   -> { c with Parent = Some c; TmplName = n; Current = Some(m :> obj) }                                   
+                                    c.GetPartial n |> cc.RenderOpt
         | Reference(k,f) -> match c.Get k with
                             | None -> ()
                             | Some value    ->  match value with
