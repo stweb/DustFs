@@ -491,7 +491,7 @@ let (?) (o:obj) (name:string) : 'TargetResult  =
        
         | :? IDictionary<string,obj> as dict ->
             match dict.TryGetValue name with
-            | false,   _ -> failwith ("unknown property/key " + name)
+            | false,   _ -> Unchecked.defaultof<'TargetResult> // failwith ("unknown property/key " + name)
             | true, valu -> match valu with
                             | :? 'TargetResult -> unbox(valu)
                             | null ->   Unchecked.defaultof<'TargetResult>
