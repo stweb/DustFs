@@ -64,10 +64,9 @@ let getSpiegel ctx = async {
   let! res = SpiegelRSS.AsyncGetSample()
   return box
     [ for item in res.Channel.Items |> Seq.take 15 do
-        match item.Enclosure with
-        | Some thumb -> yield { ThumbUrl = thumb.Url; LinkUrl = item.Link;
-                                Title = item.Title; Description = item.Description }
-        | None -> () ] }
+        yield { ThumbUrl = item.Enclosure.Url; LinkUrl = item.Link;
+                Title = item.Title; Description = item.Description } 
+    ] }       
 
 type RSS = XmlProvider<"http://feeds.bbci.co.uk/news/rss.xml">
 
@@ -77,12 +76,8 @@ let getNews ctx = async {
   Log.info ctx.runtime.logger "News.index" TraceHeader.empty "Got News"
   let news =
     [ for item in res.Channel.Items |> Seq.take 15 do
-        let thumb = if item.Thumbnails |> Seq.length > 0 then
-                        (item.Thumbnails |> Seq.maxBy (fun t -> t.Width)).Url
-                    else
-                        "http://placehold.it/144x81" // TODO placeholder
         yield
-          { ThumbUrl = thumb; LinkUrl = item.Link;
+          { ThumbUrl = item.Thumbnail.Url; LinkUrl = item.Link;
             Title = item.Title; Description = item.Description } ] 
 
   Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Got News %d" (List.length news))

@@ -1,0 +1,459 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet title="XSL_formatting" type="text/xsl" href="/shared/bsp/xsl/rss/nolsol.xsl"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+  <channel>
+    <title><![CDATA[BBC News - Home]]></title>
+    <description><![CDATA[BBC News - Home]]></description>
+    <link>http://www.bbc.co.uk/news/</link>
+    <image>
+      <url>http://news.bbcimg.co.uk/nol/shared/img/bbc_news_120x60.gif</url>
+      <title>BBC News - Home</title>
+      <link>http://www.bbc.co.uk/news/</link>
+    </image>
+    <generator>RSS for Node</generator>
+    <lastBuildDate>Sun, 17 Jul 2016 20:13:44 GMT</lastBuildDate>
+    <copyright><![CDATA[Copyright: (C) British Broadcasting Corporation, see http://news.bbc.co.uk/2/hi/help/rss/4498287.stm for terms and conditions of reuse.]]></copyright>
+    <language><![CDATA[en-gb]]></language>
+    <ttl>15</ttl>
+    <item>
+      <title><![CDATA[Five seriously injured in Breighton airfield helicopter crash]]></title>
+      <description><![CDATA[Five people have been seriously injured in a helicopter crash at an airfield in Breighton, East Yorkshire, police say.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-england-36821157</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-england-36821157</guid>
+      <pubDate>Sun, 17 Jul 2016 20:08:11 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/8AEA/production/_90426553_48ccc7c7-a1f1-4954-9a43-5bc5ba7ab6f6.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Cyclist Boardman's mum dies after collision]]></title>
+      <description><![CDATA[Olympic cyclist Chris Boardman's mother Carol dies after a collision with a pick up truck, as she was cycling in north Wales.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-wales-north-east-wales-36819791</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-wales-north-east-wales-36819791</guid>
+      <pubDate>Sun, 17 Jul 2016 19:06:58 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/FC32/production/_90426546_034107691-1.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Boris Johnson plane has to make emergency landing]]></title>
+      <description><![CDATA[A small military aircraft carrying newly-appointed Foreign Secretary Boris Johnson is forced to make an emergency landing on its way to Brussels, following a "technical issue".]]></description>
+      <link>http://www.bbc.co.uk/news/uk-england-36820756</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-england-36820756</guid>
+      <pubDate>Sun, 17 Jul 2016 20:04:46 GMT</pubDate>
+      <media:thumbnail width="533" height="300" url="http://c.files.bbci.co.uk/16B7C/production/_90425039_mediaitem90425038.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Turkey coup arrests hit 6,000 as Erdogan roots out 'virus']]></title>
+      <description><![CDATA[Arrests in Turkey after Friday's failed coup rise to around 6,000, as President Erdogan vows to cleanse state bodies of the "virus" that caused it.]]></description>
+      <link>http://www.bbc.co.uk/news/world-europe-36818401</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-europe-36818401</guid>
+      <pubDate>Sun, 17 Jul 2016 20:12:55 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/B0B0/production/_90423254_mediaitem90423253.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[EU migrants may face 'right to stay' curbs - David Davis]]></title>
+      <description><![CDATA[Migrants who come to the UK before it exits the EU may not be given the right to stay, the new Brexit secretary says.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-politics-36819532</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-politics-36819532</guid>
+      <pubDate>Sun, 17 Jul 2016 13:28:21 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/CADC/production/_90423915_border_pa.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Labour's Owen Smith vows to tackle inequality]]></title>
+      <description><![CDATA[Owen Smith vows to rewrite part of Labour's constitution to put tackling inequality at its heart, as he launches his leadership bid.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-politics-36820419</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-politics-36820419</guid>
+      <pubDate>Sun, 17 Jul 2016 16:24:01 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/8B26/production/_90422653_eagleandsmith.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Sturgeon: Second independence referendum could be next year]]></title>
+      <description><![CDATA[Nicola Sturgeon said she would consider a second referendum on Scottish independence in the first half of next year, if necessary.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-scotland-scotland-politics-36819182</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-scotland-scotland-politics-36819182</guid>
+      <pubDate>Sun, 17 Jul 2016 14:27:07 GMT</pubDate>
+      <media:thumbnail width="1680" height="945" url="http://c.files.bbci.co.uk/361C/production/_90425831_mediaitem90425830.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Nice attack: Driver 'researched route' earlier in week]]></title>
+      <description><![CDATA[The Tunisian man who carried out the lorry attack in the French city of Nice researched his route in the days beforehand, French media reports say.]]></description>
+      <link>http://www.bbc.co.uk/news/world-europe-36818719</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-europe-36818719</guid>
+      <pubDate>Sun, 17 Jul 2016 14:49:51 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/039A/production/_90422900_mediaitem90422899.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[HS2 rail project backed by new transport secretary]]></title>
+      <description><![CDATA[The new transport secretary, Chris Grayling, says he has no plans to scrap the high-speed HS2 rail project.]]></description>
+      <link>http://www.bbc.co.uk/news/business-36820702</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/business-36820702</guid>
+      <pubDate>Sun, 17 Jul 2016 16:34:02 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/8F3E/production/_90307663_hi033765573.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Brexit 'will be horrible for UK economy' - fund manager]]></title>
+      <description><![CDATA[The vote to leave the European Union will have a "horrible" impact on the UK economy, which could "judder to a halt", a leading fund manager warns.]]></description>
+      <link>http://www.bbc.co.uk/news/business-36821574</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/business-36821574</guid>
+      <pubDate>Sun, 17 Jul 2016 19:35:46 GMT</pubDate>
+      <media:thumbnail width="1024" height="576" url="http://c.files.bbci.co.uk/124C8/production/_90425947_gettyimages-491525362.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Davis Cup: Kyle Edmund win seals GB victory over Serbia]]></title>
+      <description><![CDATA[Kyle Edmund beats Serbia's Dusan Lajovic to give Great Britain an unassailable 3-1 lead to take them into the Davis Cup semi-finals.]]></description>
+      <link>http://www.bbc.co.uk/sport/tennis/36820107</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/sport/tennis/36820107</guid>
+      <pubDate>Sun, 17 Jul 2016 18:17:34 GMT</pubDate>
+      <media:thumbnail width="2048" height="1152" url="http://c.files.bbci.co.uk/3680/production/_90425931_hi034105969.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Baton Rouge shooting: Reporter describes scene]]></title>
+      <description><![CDATA[An ABC reporter describes the scene after three police officers were shot dead in the US city of Baton Rouge.]]></description>
+      <link>http://www.bbc.co.uk/news/world-us-canada-36820877</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-us-canada-36820877</guid>
+      <pubDate>Sun, 17 Jul 2016 16:41:18 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/6498/production/_90425752_p041rwgn.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Turkey coup: Soldier attacked by 'baying' crowd]]></title>
+      <description><![CDATA[Footage shows the moment a soldier surrenders and is pulled from his tank by a police officer, after being attacked by a crowd.]]></description>
+      <link>http://www.bbc.co.uk/news/world-europe-36821777</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-europe-36821777</guid>
+      <pubDate>Sun, 17 Jul 2016 19:36:03 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/14B1A/production/_90426748_mediaitem90426393.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Attack in Nice: Muslims describe tensions after lorry attack]]></title>
+      <description><![CDATA[French Muslims in Nice speak about the tensions that have arisen since the beachfront lorry attack on city.]]></description>
+      <link>http://www.bbc.co.uk/news/world-europe-36819048</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-europe-36819048</guid>
+      <pubDate>Sun, 17 Jul 2016 10:07:14 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/A430/production/_90423024_mediaitem90423022.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Labour leadership: Angela Eagle and Owen Smith clash]]></title>
+      <description><![CDATA[Labour leadership challengers Angela Eagle and Owen Smith set out why each of them think they would be the best leader of their party.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-politics-36818538</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-politics-36818538</guid>
+      <pubDate>Sun, 17 Jul 2016 09:18:18 GMT</pubDate>
+      <media:thumbnail width="1024" height="576" url="http://c.files.bbci.co.uk/CDF2/production/_90422725_p041r054.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Wimbledon: Tennis tournament's secret cyber security]]></title>
+      <description><![CDATA[BBC News gained exclusive access to the secrets of the tech experts protecting Wimbledon from cyber attacks.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-36820881</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-36820881</guid>
+      <pubDate>Sun, 17 Jul 2016 17:58:06 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/E3FA/production/_90426385_mediaitem90425757.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Steven Spielberg and Mark Rylance's Big Friendly bromance]]></title>
+      <description><![CDATA[Steven Spielberg and Mark Rylance talk about working together again in the film version of Roald Dahl's The BFG.]]></description>
+      <link>http://www.bbc.co.uk/news/entertainment-arts-36821776</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/entertainment-arts-36821776</guid>
+      <pubDate>Sun, 17 Jul 2016 19:03:18 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/16D2/production/_90424850_mediaitem90426388.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Jeremy Corbyn learns to play Pokemon Go]]></title>
+      <description><![CDATA[BBC reporter Adam Fleming shows the Labour leader Jeremy Corbyn how to play Pokemon Go.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-politics-36820874</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-politics-36820874</guid>
+      <pubDate>Sun, 17 Jul 2016 15:57:12 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/168C0/production/_90425329_p041rrh5.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Bringing the Battle of Hastings to life at Battle Abbey]]></title>
+      <description><![CDATA[Dr Michael Carter explains how English Heritage will mark the 950th anniversary of the Battle of Hastings with a new exhibition at Battle Abbey.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-36819288</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-36819288</guid>
+      <pubDate>Sun, 17 Jul 2016 10:19:57 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/14B6A/production/_90424848_mediaitem90424847.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[BBC News Channel]]></title>
+      <description><![CDATA[Britain's most-watched news channel, delivering breaking news and analysis all day, every day.]]></description>
+      <link>http://www.bbc.co.uk/news/10318089</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/10318089</guid>
+      <pubDate>Wed, 16 Mar 2016 12:34:37 GMT</pubDate>
+      <media:thumbnail width="640" height="360" url="http://news.bbcimg.co.uk/media/images/48351000/gif/_48351569_640x360-news.gif"/>
+    </item>
+    <item>
+      <title><![CDATA[US election: What's the point of a party convention?]]></title>
+      <description><![CDATA[Every four years, US political parties hold conventions to make official whom they've selected to become their nominee for president. But what actually happens there?]]></description>
+      <link>http://www.bbc.co.uk/news/election-us-2016-36799770</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/election-us-2016-36799770</guid>
+      <pubDate>Sat, 16 Jul 2016 23:45:57 GMT</pubDate>
+      <media:thumbnail width="1024" height="576" url="http://c.files.bbci.co.uk/169DF/production/_90393629_p041knpt.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Jacob Zuma painting: Are South Africans 'too free'?]]></title>
+      <description><![CDATA[Is South Africa's constitution too liberal for its people, asks the BBC's Milton Nkosi.]]></description>
+      <link>http://www.bbc.co.uk/news/world-africa-36797442</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-africa-36797442</guid>
+      <pubDate>Sat, 16 Jul 2016 23:34:39 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/146FD/production/_90390738_2016-07-14-photo-00000529.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Hugh Schofield: Attack in Nice brings danger close to home]]></title>
+      <description><![CDATA[The attacker who killed 84 people in Nice proves that no longer do jihadists require careful planning and cash. The danger today is from minor offenders much closer to home.]]></description>
+      <link>http://www.bbc.co.uk/news/world-europe-36815284</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-europe-36815284</guid>
+      <pubDate>Sat, 16 Jul 2016 12:11:29 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/E4D5/production/_90418585_mediaitem90418584.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[New day, new Chancellor, new economic policy? ]]></title>
+      <description><![CDATA[In all the fuss over the EU referendum and new prime minister, it has been easy to forget that the UK's economic policy has changed radically.]]></description>
+      <link>http://www.bbc.co.uk/news/business-36807403</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/business-36807403</guid>
+      <pubDate>Fri, 15 Jul 2016 21:10:53 GMT</pubDate>
+      <media:thumbnail width="1024" height="576" url="http://c.files.bbci.co.uk/13AE2/production/_90401608_gettyimages-547251064.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Iain Watson: Can Jeremy Corbyn win again?]]></title>
+      <description><![CDATA[As the Labour party heads into a leadership battle, the make-up of the party's existing and newest membership comes under intense scrutiny.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-politics-36808062</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-politics-36808062</guid>
+      <pubDate>Fri, 15 Jul 2016 16:18:04 GMT</pubDate>
+      <media:thumbnail width="2048" height="1152" url="http://c.files.bbci.co.uk/9D9E/production/_90405304_mediaitem90405303.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Sonia Sodha: Is the left's big new idea the 'right to be lazy'?]]></title>
+      <description><![CDATA[Why are so many on the left now arguing that the state should pay everyone a universal basic income?]]></description>
+      <link>http://www.bbc.co.uk/news/uk-politics-36782832</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-politics-36782832</guid>
+      <pubDate>Thu, 14 Jul 2016 23:04:27 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/78C5/production/_90371903_istock_73262855_xlarge.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[The importance of the Trident decision]]></title>
+      <description><![CDATA[MPs prepare to debate the future of Britain's nuclear deterrent but is there still a need for a British bomb?]]></description>
+      <link>http://www.bbc.co.uk/news/uk-politics-36804675</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-politics-36804675</guid>
+      <pubDate>Sun, 17 Jul 2016 00:08:02 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/E918/production/_85827695_000228443-1.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Trump's vice-presidential pick: What you need to know]]></title>
+      <description><![CDATA[Donald Trump has picked Indiana governor Mike Pence as his running mate. So who is he, and what can he do for Trump's chances of victory?]]></description>
+      <link>http://www.bbc.co.uk/news/election-us-2016-36808827</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/election-us-2016-36808827</guid>
+      <pubDate>Fri, 15 Jul 2016 21:01:04 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/1354C/production/_90408197_mediaitem90408195.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Why don't Syrian refugees stay in Turkey?]]></title>
+      <description><![CDATA[More than a million migrants crossed the Mediterranean last year to reach Europe - many of them Syrians. We answer readers' questions about why they were prepared to risk their lives.]]></description>
+      <link>http://www.bbc.co.uk/news/magazine-36808038</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/magazine-36808038</guid>
+      <pubDate>Fri, 15 Jul 2016 15:57:53 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/141FE/production/_90403428_qandapromo.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[How food, clothing and homeware bills are likely to rise]]></title>
+      <description><![CDATA[Food, clothing and electrical items are likely to rise in price as a result of Brexit - but bills may not go up until next year]]></description>
+      <link>http://www.bbc.co.uk/news/business-36794302</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/business-36794302</guid>
+      <pubDate>Fri, 15 Jul 2016 21:19:02 GMT</pubDate>
+      <media:thumbnail width="2048" height="1152" url="http://c.files.bbci.co.uk/13415/production/_90396887_p1050329.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Why South Sudan is on the verge of civil war]]></title>
+      <description><![CDATA[Why is South Sudan on the verge of another civil war?]]></description>
+      <link>http://www.bbc.co.uk/news/world-africa-36796193</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-africa-36796193</guid>
+      <pubDate>Fri, 15 Jul 2016 02:35:38 GMT</pubDate>
+      <media:thumbnail width="1024" height="576" url="http://c.files.bbci.co.uk/19C6/production/_90389560_south_sudan.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Line: A guide to Japan's messenger giant]]></title>
+      <description><![CDATA[You might not have heard of Line, but the Japanese equivalent of Whatsapp is set to go public. Here's what you need to know about the company.]]></description>
+      <link>http://www.bbc.co.uk/news/business-36710888</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/business-36710888</guid>
+      <pubDate>Wed, 13 Jul 2016 20:30:35 GMT</pubDate>
+      <media:thumbnail width="1024" height="576" url="http://c.files.bbci.co.uk/1163B/production/_90372217_mediaitem90372216.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Iran nuclear talks: The tempers and tweets which led to a deal]]></title>
+      <description><![CDATA[One year since the historic signing of the Iranian nuclear deal, key negotiators tell BBC Persian about what went on behind the scenes.]]></description>
+      <link>http://www.bbc.co.uk/news/world-middle-east-36773199</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-middle-east-36773199</guid>
+      <pubDate>Wed, 13 Jul 2016 23:25:55 GMT</pubDate>
+      <media:thumbnail width="1024" height="576" url="http://c.files.bbci.co.uk/135FC/production/_90365397_gettyimages-452095110.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Do Corbyn and Blair have something in common?]]></title>
+      <description><![CDATA[Prof Archie Brown says Labour's leadership crisis has its roots in the party's recent past.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-politics-36775102</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-politics-36775102</guid>
+      <pubDate>Thu, 14 Jul 2016 01:13:13 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/916B/production/_90372273_hi034041739.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Entertainment week in Pictures: 9 - 15 July]]></title>
+      <description><![CDATA[A look at some of the events in the world of entertainment and arts over the past week.]]></description>
+      <link>http://www.bbc.co.uk/news/entertainment-arts-36767137</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/entertainment-arts-36767137</guid>
+      <pubDate>Sat, 16 Jul 2016 01:03:54 GMT</pubDate>
+      <media:thumbnail width="1808" height="1017" url="http://c.files.bbci.co.uk/1449C/production/_90400138_mediaitem90400137.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Week in pictures: 9-15 July 2016]]></title>
+      <description><![CDATA[A selection of the best news photographs from around the world, taken over the past week.]]></description>
+      <link>http://www.bbc.co.uk/news/in-pictures-36804966</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/in-pictures-36804966</guid>
+      <pubDate>Fri, 15 Jul 2016 23:48:22 GMT</pubDate>
+      <media:thumbnail width="893" height="502" url="http://c.files.bbci.co.uk/13FF6/production/_90401918_h_52886744.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[World Architecture Festival]]></title>
+      <description><![CDATA[A house with a panoramic view of the ocean in Australia and a happiness centre in Bhutan are among the projects shortlisted for the World Architecture Festival awards]]></description>
+      <link>http://www.bbc.co.uk/news/in-pictures-36747320</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/in-pictures-36747320</guid>
+      <pubDate>Mon, 11 Jul 2016 23:38:38 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/E559/production/_90331785_villa_marittima_9827.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[The Open highlights]]></title>
+      <description><![CDATA[Extended highlights of the final round of the 145th Open Championship from Royal Troon, presented by Hazel Irvine.]]></description>
+      <link>http://www.bbc.co.uk/sport/golf/36702437</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/sport/golf/36702437</guid>
+      <pubDate>Wed, 06 Jul 2016 18:45:06 GMT</pubDate>
+      <media:thumbnail width="640" height="360" url="http://c.files.bbci.co.uk/4620/production/_90425971_mickelson_stenson_pa.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[The Open 2016: Henrik Stenson beats Phil Mickelson to win at Royal Troon]]></title>
+      <description><![CDATA[Henrik Stenson becomes the first Swede to win The Open after an enthralling tussle with Phil Mickelson at Royal Troon.]]></description>
+      <link>http://www.bbc.co.uk/sport/golf/36819673</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/sport/golf/36819673</guid>
+      <pubDate>Sun, 17 Jul 2016 18:58:05 GMT</pubDate>
+      <media:thumbnail width="768" height="432" url="http://c.files.bbci.co.uk/8054/production/_90425823_stenson.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[England v Pakistan: Tourists win Lord's thriller]]></title>
+      <description><![CDATA[England are denied a record Lord's victory by Pakistan, following an inspired bowling display from the tourists.]]></description>
+      <link>http://www.bbc.co.uk/sport/cricket/36820494</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/sport/cricket/36820494</guid>
+      <pubDate>Sun, 17 Jul 2016 17:58:45 GMT</pubDate>
+      <media:thumbnail width="2048" height="1152" url="http://c.files.bbci.co.uk/1214E/production/_90426047_pakistan.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Tour de France: Chris Froome maintains lead as Jarlinson Pantano wins stage 15]]></title>
+      <description><![CDATA[Jarlinson Pantano wins stage 15 of the Tour de France as Great Britain's Chris Froome stays in the yellow jersey.]]></description>
+      <link>http://www.bbc.co.uk/sport/cycling/36819661</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/sport/cycling/36819661</guid>
+      <pubDate>Sun, 17 Jul 2016 17:23:19 GMT</pubDate>
+      <media:thumbnail width="2048" height="1152" url="http://c.files.bbci.co.uk/3928/production/_90423641_pantano_ap.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Sharing secrets ]]></title>
+      <description><![CDATA[The lessons on intelligence-sharing learned after 7/7 may be one reason that the UK has been more fortunate than France in avoiding terror attacks, says the BBC's Peter Taylor.]]></description>
+      <link>http://www.bbc.co.uk/news/magazine-36803542</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/magazine-36803542</guid>
+      <pubDate>Sat, 16 Jul 2016 23:41:05 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/16077/production/_90413209_taxi_afp976promo.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[The copwatchers]]></title>
+      <description><![CDATA[Two years on from the death of Eric Garner, ordinary people in New York are capturing the NYPD on camera.]]></description>
+      <link>http://www.bbc.co.uk/news/magazine-36779022</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/magazine-36779022</guid>
+      <pubDate>Sat, 16 Jul 2016 23:42:24 GMT</pubDate>
+      <media:thumbnail width="1024" height="576" url="http://c.files.bbci.co.uk/C8B0/production/_90367315_kimstill.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Chart smash ]]></title>
+      <description><![CDATA[Fewer records than ever before are making the UK top 40 as fans keep streaming the same songs over and over again. But what does that mean for music and new artists in particular?]]></description>
+      <link>http://www.bbc.co.uk/news/entertainment-arts-36794105</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/entertainment-arts-36794105</guid>
+      <pubDate>Sat, 16 Jul 2016 23:54:39 GMT</pubDate>
+      <media:thumbnail width="1024" height="576" url="http://c.files.bbci.co.uk/120D4/production/_90404937_07291d9a-4a1b-4895-8882-4d3941ec31eb.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[For or against]]></title>
+      <description><![CDATA[Research suggests that a person's views on the death penalty and public whipping are a far better indicator of their views on Brexit than their social class and income.]]></description>
+      <link>http://www.bbc.co.uk/news/magazine-36803544</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/magazine-36803544</guid>
+      <pubDate>Sat, 16 Jul 2016 23:52:16 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/E037/production/_90399375_eu_ref.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Hendrix's hit-maker]]></title>
+      <description><![CDATA[His discovery of a young Jimi Hendrix in a New York coffee house would change the face of music. Twenty years on from Chas Chandler's death, those who knew him look back at his life.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-england-tyne-36674986</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-england-tyne-36674986</guid>
+      <pubDate>Sat, 16 Jul 2016 23:32:08 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/BCA8/production/_90169284_collage.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Your pictures]]></title>
+      <description><![CDATA[Each week, we publish a gallery of readers' pictures on a set theme. This week, we asked for your pictures on the theme of "posters".]]></description>
+      <link>http://www.bbc.co.uk/news/in-pictures-36773706</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/in-pictures-36773706</guid>
+      <pubDate>Fri, 15 Jul 2016 08:49:29 GMT</pubDate>
+      <media:thumbnail width="705" height="397" url="http://c.files.bbci.co.uk/3CC4/production/_90365551_mediaitem90365239.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[War children]]></title>
+      <description><![CDATA[The story of how nearly 4,000 child evacuees arrived after the UK government yielded to public opinion.]]></description>
+      <link>http://www.bbc.co.uk/news/uk-england-35532286</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-england-35532286</guid>
+      <pubDate>Sat, 16 Jul 2016 23:29:13 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/D39B/production/_89817145_habana.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[10 things]]></title>
+      <description><![CDATA[Ducklings are capable of abstract thought, plus more news nuggets.]]></description>
+      <link>http://www.bbc.co.uk/news/magazine-36803068</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/magazine-36803068</guid>
+      <pubDate>Fri, 15 Jul 2016 23:37:44 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/162A5/production/_90398709_ducklings.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Turkey coup attempt: UK Foreign Office relaxes travel advice]]></title>
+      <description><![CDATA[The Foreign Office relaxes travel advice for Britons visiting Turkey following the failed coup, saying the situation "appears to be calming".]]></description>
+      <link>http://www.bbc.co.uk/news/uk-36819571</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/uk-36819571</guid>
+      <pubDate>Sun, 17 Jul 2016 12:08:18 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/A763/production/_90415824_turkey2.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Why did Turkish coup plot fail?]]></title>
+      <description><![CDATA[The Turkish coup attempt was short-lived with several key factors causing it to fail, says the BBC's Paul Kirby.]]></description>
+      <link>http://www.bbc.co.uk/news/world-europe-36814044</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-europe-36814044</guid>
+      <pubDate>Sat, 16 Jul 2016 10:05:59 GMT</pubDate>
+      <media:thumbnail width="768" height="432" url="http://c.files.bbci.co.uk/107F3/production/_90417576_mediaitem90417575.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Who was behind attempted coup?]]></title>
+      <description><![CDATA[As Turkey reels from a failed coup by members of the military, Turkish journalist Ezgi Basaran looks at the possible reasons and actors behind the attempt.]]></description>
+      <link>http://www.bbc.co.uk/news/world-europe-36815476</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-europe-36815476</guid>
+      <pubDate>Sat, 16 Jul 2016 16:35:33 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/67F4/production/_90421662_034084973-1.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Clash on Bosphorus Bridge]]></title>
+      <description><![CDATA[Images of the confrontation on Istanbul's Bosphorus Bridge between soldiers trying to overthrow the government, and a group of supporters of Turkish President Recep Erdogan.]]></description>
+      <link>http://www.bbc.co.uk/news/world-europe-36816605</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-europe-36816605</guid>
+      <pubDate>Sat, 16 Jul 2016 17:33:40 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/797E/production/_90420113_mediaitem90420059.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[How Turkish media were raided during coup attempt]]></title>
+      <description><![CDATA[How two broadcasters and a newspaper in Turkey were taken over by a faction of the armed forces trying to seize control of the country.]]></description>
+      <link>http://www.bbc.co.uk/news/world-europe-36814084</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-europe-36814084</guid>
+      <pubDate>Sat, 16 Jul 2016 11:30:43 GMT</pubDate>
+      <media:thumbnail width="976" height="549" url="http://c.files.bbci.co.uk/13467/production/_90415987_cnnturkraid.jpg"/>
+    </item>
+    <item>
+      <title><![CDATA[Aftermath in pictures]]></title>
+      <description><![CDATA[Images from the morning after a failed coup attempt in Turkey, which the government says has left more than 160 people dead and lead to the arrest of nearly 3,000 soldiers.]]></description>
+      <link>http://www.bbc.co.uk/news/world-europe-36815758</link>
+      <guid isPermaLink="true">http://www.bbc.co.uk/news/world-europe-36815758</guid>
+      <pubDate>Sat, 16 Jul 2016 19:17:57 GMT</pubDate>
+      <media:thumbnail width="768" height="432" url="http://c.files.bbci.co.uk/751D/production/_90418992_mediaitem90418991.jpg"/>
+    </item>
+  </channel>
+</rss>
