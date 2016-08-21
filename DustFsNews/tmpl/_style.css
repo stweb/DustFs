@@ -29,6 +29,7 @@ p {
 .news img {
     margin-top:10px;
     margin-bottom:20px;
+    height: 90px;
 }
 .weather p {
     margin:0;

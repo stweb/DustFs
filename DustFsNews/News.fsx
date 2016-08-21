@@ -58,15 +58,48 @@ let getWeather = async {
 // Getting News from RSS feed and formatting it
 // ----------------------------------------------------------------------------
 
-type SpiegelRSS = XmlProvider<"http://www.spiegel.de/schlagzeilen/tops/index.rss">
+type SpiegelRSS = XmlProvider<"""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<rss xmlns:content="http://purl.org/rss/1.0/modules/content/" version="2.0">
+<channel>
+<title>SPIEGEL ONLINE</title>
+<link>http://www.spiegel.de</link>
+<description>Deutschlands führende Nachrichtenseite.</description>
+<language>de</language>
+<pubDate>Sun, 21 Aug 2016 14:29:00 +0200</pubDate>
+<lastBuildDate>Sun, 21 Aug 2016 14:29:00 +0200</lastBuildDate>
+<image>
+<title>SPIEGEL ONLINE</title>
+<link>http://www.spiegel.de</link>
+<url>http://www.spiegel.de/static/sys/logo_120x61.gif</url>
+</image>
+<item>
+<title>Test</title>
+<link>http://www.spiegel.de/politik/</link>
+<description>Lorem ipsum.</description>
+<pubDate>Sun, 21 Aug 2016 12:47:00 +0200</pubDate>
+<guid>http://www.spiegel.de/politik/</guid>
+<content:encoded><![CDATA[]]></content:encoded>
+<enclosure type="image/jpeg" url="http://www.spiegel.de/images/dummy.jpg"/>
+</item>
+<item>
+<title>Test 2</title>
+<link>http://www.spiegel.de/politik/</link>
+<description>Lorem ipsum.</description>
+<pubDate>Sun, 21 Aug 2016 12:47:00 +0200</pubDate>
+<guid>http://www.spiegel.de/politik/</guid>
+<content:encoded><![CDATA[]]></content:encoded>
+</item>
+</channel>
+</rss>""">
 
 let getSpiegel ctx = async {
-  let! res = SpiegelRSS.AsyncGetSample()
+  let! res = SpiegelRSS.AsyncLoad("http://www.spiegel.de/schlagzeilen/tops/index.rss")
   return box
     [ for item in res.Channel.Items |> Seq.take 15 do
-        yield { ThumbUrl = item.Enclosure.Url; LinkUrl = item.Link;
-                Title = item.Title; Description = item.Description } 
-    ] }       
+        match item.Enclosure with
+        | Some thumb -> yield { ThumbUrl = thumb.Url; LinkUrl = item.Link;
+                                Title = item.Title; Description = item.Description }
+        | None -> () ] }
 
 type RSS = XmlProvider<"http://feeds.bbci.co.uk/news/rss.xml">
 
