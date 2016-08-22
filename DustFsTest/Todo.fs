@@ -34,7 +34,7 @@ module T11_PartialParams =
 
     [<SetUp>]
     let ``setup partials`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
+      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue)  ->
                                 c.Write c.TmplName
                             )
       "Hello {name}! You have {count} new messages." |> named "partial" 

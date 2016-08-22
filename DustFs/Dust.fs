@@ -471,20 +471,26 @@ let (?) (o:obj) (name:string) : 'TargetResult  =
     let targetResultType = typeof<'TargetResult>
 
     let toResult valu =
-        try
+        if targetResultType.IsAssignableFrom(valu.GetType()) then unbox valu
+        else
+            if typeof<Identifier>.IsAssignableFrom(valu.GetType()) then
+              unbox (valu.ToString())
+            else
+              try
                 let res = Convert.ChangeType(valu, targetResultType);
                 unbox(res)
-        with
-        | e->   printfn "%s: %A ? %s  %s" name valu (targetResultType.ToString()) e.Message
+              with | e->   
+                printfn "%s: %A ? %s  %s" name valu (targetResultType.ToString()) e.Message
                 Unchecked.defaultof<'TargetResult>                
 
     if not (FSharpType.IsFunction targetResultType)
     then 
         match o with
+        | null -> Unchecked.defaultof<'TargetResult>
         | :? Params as p ->
             match p.TryFind name with
             | Some(v) -> match v with
-                         | VIdent(_)  -> failwith "not supported" // c.Get i
+                         | VIdent(i)  -> toResult i
                          | VNumber(n) -> toResult n
                          | VInline(s) -> toResult s
             | _       -> Unchecked.defaultof<'TargetResult>
@@ -503,7 +509,7 @@ let (?) (o:obj) (name:string) : 'TargetResult  =
     else
         failwith "not implemented"
 
-type Helper = Context -> BodyDict -> KeyValue -> (unit -> unit) -> unit
+type Helper = Context -> BodyDict -> KeyValue -> unit
 and Model =
     {
         Root:       obj
@@ -519,6 +525,7 @@ and Context =
         Parent:     Context option      // replaces Stack.Tail in orginal impl via chained Parents
         Current:    obj option          // replaces Stack.Head in orginal impl / "this" in data context
         Model:      Model
+        Local:      KeyValue            // local extra data, currently used for @select only - TODO 
         Global:     obj                 // global data
         Index:      (int * int) option  // inside #array
         Culture:    CultureInfo         // used for formatting of values
@@ -528,13 +535,13 @@ and Context =
         TmplDir:    string              // the template source directory
         TmplName:   string
         Logger:     string -> unit      // a logger
-        Helpers:    ConcurrentDictionary<string, Helper>
+        Helpers:    IDictionary<string, Helper>
         // Options:    Whitespace
     }
 
     static member defaults = { TmplDir = ""; TmplName = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
-                               Helpers = new ConcurrentDictionary<string, Helper>(); Model = Model.empty; Partials = Map.empty
-                               Current = None; Index = None; Parent = None; Logger = fun s -> (); }
+                               Helpers = new ConcurrentDictionary<string, Helper>(); Model = Model.empty; Local = Map.empty; Partials = Map.empty
+                               Current = None; Index = None; Parent = None; Logger = fun s -> () }
 
     member this.ParseCachedAsync (parse:string -> Body) name = async {
         let path = Path.Combine(this.TmplDir, name)
@@ -585,8 +592,9 @@ and Context =
                                         this.W.Write(o)
     // write with interpolation of {data}
     member this.RexInterpolate (rex:Regex) (s:string)= 
-                                        rex.Replace(s, (fun m ->    let tag = m.ToString();
-                                                                    match this.Get (Key(tag.Substring(1, tag.Length-2))) with
+                                        rex.Replace(s, (fun m ->    let str = m.ToString()
+                                                                    let tag = str.Substring(1, str.Length-2).TrimStart('_');                                                
+                                                                    match this.Get (Key(tag)) with
                                                                     | Some(v) -> v.ToString()
                                                                     | None    -> tag
                                                    )   )    
@@ -626,6 +634,11 @@ and Context =
                                                 | FromCur :: p -> true, p
                                                 | _            -> false, p
         c.GetPath cur path
+
+    member c.Resolve (id:Identifier) =
+        match c.Get id with
+        | Some(x) -> x.ToString()
+        | None -> null
 
     member c.GetPath (cur:bool) (p:Segment list) : obj Option =
         let rec searchUpStack ctx =
@@ -670,11 +683,11 @@ and Context =
                             result
 
     member c.GetHelper name =
-        let nullHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) = ()
+        let nullHelper (c:Context) (bodies:BodyDict) (param:KeyValue) = ()
 
         match c.Helpers.TryGetValue name with
         | true, ref -> ref
-        | _ ->  c.Log <| sprintf "missing helper: %s" name
+        | _ ->  c.Log <| sprintf "missing helper: %s in %s" name c.TmplName
                 nullHelper // the nullHelper
 
     member c.RenderOpt (bo:Body Option) =
@@ -707,23 +720,26 @@ and Context =
         | Section(st,n,_,pa) ->
                             match st with
                             | Scope  // scope without body could be a helper
-                            | Helper         -> c.GetHelper (n.ToString()) c Map.empty pa (fun () -> c.Write "<!-- no body -->")
+                            | Helper         -> c.GetHelper (n.ToString()) c Map.empty pa 
                             | LogicHelper(_) -> failwith "LogicHelper should be a SectionBlock"
                             | _ -> ()
         | SectionBlock(st,n,x,map,l,bodies) ->
             let renderIf (cc:Context) cond =   if cond then l |> cc.Render
                                                else bodies.TryFind "else" |> cc.RenderOpt
             match st with
-            | Condition     ->  renderIf c (c.EvalBool n)
-            | NotCondition  ->  renderIf c (not (c.EvalBool n))
-            | Helper         -> c.GetHelper (n.ToString()) c bodies map (fun () -> l |> c.Render)
+            | Condition      -> renderIf c (c.EvalBool n)
+            | NotCondition   -> renderIf c (not (c.EvalBool n))
+            | Helper         -> let bmap = bodies |> Map.add "block" l
+                                c.GetHelper (n.ToString()) c bmap map 
             | LogicHelper(t) -> let get s = match map.TryFind s with
                                             | Some(VInline(x)) -> box x
                                             | Some(VNumber(x)) -> box x
                                             | Some(VIdent(x))  -> match c.Get x with
                                                                     | Some(o) -> box o
-                                                                    | None -> failwithf "%s must be defined" s
-                                            | _ -> failwithf "missing %s" s
+                                                                    | None -> null // warn failwithf "%s must be defined" s
+                                            | _ ->  match s with
+                                                    | "key" -> c.Local?__select__
+                                                    | _     -> failwithf "missing %s" s
 
                                 let l, rr = get "key", get "value"
                                 let r = try Convert.ChangeType(rr, l.GetType()) // try align types to left side (data type)
@@ -753,7 +769,7 @@ and Context =
                                                 | null -> renderIf cc false
                                                 | o ->  l |> { cc with Parent = Some cc; Current = Some o }.Render
                                 | None ->       match c.Helpers.TryGetValue (n.ToString()) with
-                                                | true, ref -> ref cc Map.empty map (fun () -> failwith "not available")
+                                                | true, ref -> ref cc Map.empty map 
                                                 | _ ->         renderIf cc false
             | Block         ->  let name = n.ToString()
                                 match cache.TryGetValue name with

@@ -129,7 +129,7 @@ module NewsHelpers =
         | _ -> failwith "bad type"
 
 
-    let testHelper (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) =
+    let testHelper (c:Context) (bodies:BodyDict) (param:KeyValue) =
         c.Write("This is a test")
 
 filters.["niceDate"] <- NewsHelpers.niceDate

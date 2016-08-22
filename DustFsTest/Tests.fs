@@ -727,7 +727,7 @@ module R11_PartialParams =
 
     [<SetUp>]
     let ``setup partials`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
+      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) ->
                                 c.Write c.TmplName
                             )
       "Hello {name}! You have {count} new messages." |> named "partial"
@@ -840,7 +840,7 @@ module R12_InlineParams =
 
     [<SetUp>]
     let ``setup partials`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
+      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) ->
                                 match  param.TryFind "foo" with
                                 | Some foo -> c.Write foo
                                 | _ -> ()
@@ -889,7 +889,7 @@ module R12_InlineParams =
 
     [<Test>]
     let ``should test parameters with dashes`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
+      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) ->
                                 match  param.TryFind "data-foo" with
                                 | Some foo -> c.Write foo
                                 | _ -> ()
@@ -904,7 +904,7 @@ module R15_CoreGrammar =
 
     [<SetUp>]
     let ``setup helper`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) (renderBody: unit -> unit) ->
+      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) ->
                                 match param.TryFind "boo", param.TryFind "foo" with
                                 | Some b, Some f -> c.Write b; c.Write " "; c.Write f
                                 | _ -> ()
