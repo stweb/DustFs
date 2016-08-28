@@ -42,6 +42,12 @@ type Value =
     | VInline of string
     | VIdent of Identifier
     | VNumber of decimal
+with
+    override this.ToString() =
+        match this with
+        | VIdent(i)  -> i.ToString()
+        | VNumber(n) -> n.ToString()
+        | VInline(s) -> s
 
 type Logic =
     | Eq | Ne | Lt | Lte | Gt | Gte  // Logic Helper
@@ -470,37 +476,50 @@ open Microsoft.CSharp.RuntimeBinder
 let (?) (o:obj) (name:string) : 'TargetResult  = 
     let targetResultType = typeof<'TargetResult>
 
-    let toResult valu =
-        if targetResultType.IsAssignableFrom(valu.GetType()) then unbox valu
+    let def = // default 
+        if targetResultType.IsValueType then
+            Unchecked.defaultof<'TargetResult>
+        elif targetResultType.IsAssignableFrom(typeof<string>) then
+            unbox String.Empty
+        elif targetResultType.IsAssignableFrom(typeof<Value>) then
+            unbox (VInline String.Empty) // avoid null Value
+        elif targetResultType.IsAssignableFrom(typeof<Identifier>) then
+            unbox (Key String.Empty) // avoid null Identifier
         else
-            if typeof<Identifier>.IsAssignableFrom(valu.GetType()) then
-              unbox (valu.ToString())
-            else
-              try
-                let res = Convert.ChangeType(valu, targetResultType);
-                unbox(res)
-              with | e->   
-                printfn "%s: %A ? %s  %s" name valu (targetResultType.ToString()) e.Message
-                Unchecked.defaultof<'TargetResult>                
+            failwithf "not defined %s" name
+
+    let toResult valu =       
+        try
+            let res = Convert.ChangeType(valu, targetResultType);
+            unbox(res)
+        with | e->   
+            printfn "%s: %A ? %s  %s" name valu (targetResultType.ToString()) e.Message
+            def
+
+    let valToResult (v:Value) =
+        if targetResultType.IsAssignableFrom(typeof<Value>) then unbox v
+        else match v with
+             | VIdent(i)  -> if targetResultType.IsAssignableFrom(typeof<Identifier>) then unbox i
+                             else toResult (i.ToString())
+             | VNumber(n) -> toResult n
+             | VInline(s) -> toResult s
 
     if not (FSharpType.IsFunction targetResultType)
     then 
         match o with
-        | null -> Unchecked.defaultof<'TargetResult>
+        | null -> def
         | :? Params as p ->
             match p.TryFind name with
-            | Some(v) -> match v with
-                         | VIdent(i)  -> toResult i
-                         | VNumber(n) -> toResult n
-                         | VInline(s) -> toResult s
-            | _       -> Unchecked.defaultof<'TargetResult>
+            | Some(v) -> valToResult v
+            | _       -> def
        
         | :? IDictionary<string,obj> as dict ->
             match dict.TryGetValue name with
-            | false,   _ -> Unchecked.defaultof<'TargetResult> // failwith ("unknown property/key " + name)
+            | false,   _ -> def
             | true, valu -> match valu with
                             | :? 'TargetResult -> unbox(valu)
-                            | null ->   Unchecked.defaultof<'TargetResult>
+                            | :? Value as v -> valToResult v
+                            | null ->   def
                             | _ ->      toResult valu       
         | _ ->  match o.TryFindProp name with
                 | Some(v) -> toResult v
@@ -525,7 +544,7 @@ and Context =
         Parent:     Context option      // replaces Stack.Tail in orginal impl via chained Parents
         Current:    obj option          // replaces Stack.Head in orginal impl / "this" in data context
         Model:      Model
-        Local:      KeyValue            // local extra data, currently used for @select only - TODO 
+        Local:      IDictionary<string, Value>  // local extra data, currently used for @select only - TODO 
         Global:     obj                 // global data
         Index:      (int * int) option  // inside #array
         Culture:    CultureInfo         // used for formatting of values
@@ -539,7 +558,7 @@ and Context =
         // Options:    Whitespace
     }
 
-    static member defaults = { TmplDir = ""; TmplName = ""; W = null; Global = null; Culture = CultureInfo.InvariantCulture;
+    static member defaults = { TmplDir = ""; TmplName = ""; W = new StringWriter(System.Text.StringBuilder()); Global = null; Culture = CultureInfo.InvariantCulture;
                                Helpers = new ConcurrentDictionary<string, Helper>(); Model = Model.empty; Local = Map.empty; Partials = Map.empty
                                Current = None; Index = None; Parent = None; Logger = fun s -> () }
 
@@ -571,9 +590,16 @@ and Context =
         | Some (_, body) -> Some body
         | _              -> None
 
+    member this.GetStr(id:Identifier) = match this.Get id with
+                                        | Some(x) -> x.ToString()
+                                        | None -> String.Empty
+    member this.Resolve(v:Value)      = match v with
+                                        | VNumber n -> n.ToString(this.Culture) 
+                                        | VInline s -> s 
+                                        | VIdent  i -> match this.Get i with | Some v -> v.ToString() | None -> String.Empty
     member this.Write (v:Value)       = match v with
                                         | VNumber n -> n.ToString(this.Culture) |> this.Write
-                                        | VInline s -> s |> this.Write
+                                        | VInline s -> s |> this.WriteI
                                         | VIdent  i -> match this.Get i with | Some v -> this.WriteFiltered [] v | None -> ()
     member this.Write (s:string)      = this.W.Write(s)
     member this.Write (c:char)        = this.W.Write(c)
@@ -584,6 +610,7 @@ and Context =
                                             | :? decimal as d           ->  box <| d.ToString(this.Culture)
                                             | :? IEnumerable<obj> as ie ->  let arr = ie |> Seq.cast<obj> |> Seq.map( fun o -> Convert.ToString(o))
                                                                             String.Join(",", arr) :> obj
+                                            | :? string as s            ->  s |> this.RexInterpolate rexRefs |> box
                                             | _ -> v
 
                                         if Seq.isEmpty f && o :? string then
@@ -593,16 +620,14 @@ and Context =
     // write with interpolation of {data}
     member this.RexInterpolate (rex:Regex) (s:string)= 
                                         rex.Replace(s, (fun m ->    let str = m.ToString()
-                                                                    let tag = str.Substring(1, str.Length-2).TrimStart('_');                                                
-                                                                    match this.Get (Key(tag)) with
+                                                                    let tag = str.Substring(1, str.Length-2)
+                                                                    let arr = tag.Split '|' // TODO parse filters
+                                                                    match this.Get (Key(arr.[0])) with
                                                                     | Some(v) -> v.ToString()
                                                                     | None    -> tag
                                                    )   )    
     member this.WriteI (s:string)     = s |> this.RexInterpolate rexRefs |> this.W.Write
     member this.WriteI2(s:string)     = s |> this.RexInterpolate rexRefB |> this.W.Write
-    member this.GetStr(key:string)    = match this.Get (Key key) with
-                                        | Some(o) -> o.ToString()
-                                        | None    -> ""
     member this.Log msg               = this.Logger msg
 
     member c.GetPartial name          = match c.Partials.TryFind name with
@@ -635,14 +660,11 @@ and Context =
                                                 | _            -> false, p
         c.GetPath cur path
 
-    member c.Resolve (id:Identifier) =
-        match c.Get id with
-        | Some(x) -> x.ToString()
-        | None -> null
-
     member c.GetPath (cur:bool) (p:Segment list) : obj Option =
         let rec searchUpStack ctx =
-            let value = match ctx.Current with | Some obj -> c.TryFindSegment obj p.Head | _ -> None
+            let value = match ctx.Current with | Some obj -> c.TryFindSegment obj p.Head 
+                                               | _ -> printfn "not found %A" p
+                                                      None
             match value, ctx.Parent with
             | None, Some(p) -> searchUpStack p
             | _             -> value
@@ -662,13 +684,19 @@ and Context =
             let ctx,v = match cur with
                         | true  ->  c, None // fixed to current context
                         | false ->  let result = searchUpStack c // Search up the stack for the first value
-                                    match result with // Try looking in the global context if we haven't found anything yet
+                                    match result with // Try looking in the local context if we haven't found anything yet
                                     | Some _ -> c, result
-                                    | None   -> c, (c.TryFindSegment c.Global p.Head)
+                                    | None   -> let local = c.TryFindSegment c.Local p.Head
+                                                match local with // Try looking in the global context if we haven't found anything yet
+                                                | Some _ -> c, local
+                                                | None   -> c, (c.TryFindSegment c.Global p.Head)
             match v, p.Tail with
             | Some _ , [] -> v
             | Some o , _  -> resolve o p.Tail
-            | None   , _  -> match ctx.Current with | Some o -> resolve o p | _ -> None
+            | None   , _  -> match ctx.Current with 
+                             | Some o -> resolve o p 
+                             | _ -> printfn "not found %A" p
+                                    None
 
     member c.EvalBool cond =
         match c.Get cond with
@@ -738,13 +766,15 @@ and Context =
                                                                     | Some(o) -> box o
                                                                     | None -> null // warn failwithf "%s must be defined" s
                                             | _ ->  match s with
-                                                    | "key" -> c.Local?__select__
+                                                    | "key" -> match c.Local.TryGetValue "__select__" with
+                                                               | true, v -> box <| v.ToString() 
+                                                               | _ -> null
                                                     | _     -> failwithf "missing %s" s
 
                                 let l, rr = get "key", get "value"
                                 let r = try Convert.ChangeType(rr, l.GetType()) // try align types to left side (data type)
                                         with | e -> rr
-                                renderIf c   <| match t with
+                                let res = match t with
                                                 | Eq -> l = r
                                                 | Ne -> l <> r
                                                 | Gt -> System.Convert.ToDouble(l) >  System.Convert.ToDouble(r)
@@ -752,6 +782,11 @@ and Context =
                                                 | Lt -> System.Convert.ToDouble(l) <  System.Convert.ToDouble(r)
                                                 | Lte-> System.Convert.ToDouble(l) <= System.Convert.ToDouble(r)
                                                 | _  -> false
+
+                                renderIf c res
+                                if res && not(c.Local.IsReadOnly) then
+                                    c.Local.Remove "__select__" |> ignore // ugly but the select/default helper needs state
+
             | Scope         ->  let cc =  match x with // if a new context x is specified, then rebase WITHOUT parent
                                                 | Some i -> { c with Parent = None;   Current = c.Get i }
                                                 | None   -> { c with Parent = Some c; Current = Some(map :> obj) }

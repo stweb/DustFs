@@ -56,6 +56,7 @@
     <Compile Include="DustTest.fs" />
     <Compile Include="Tests.fs" />
     <Compile Include="Todo.fs" />
+    <Compile Include="TestUtils.fs" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="mscorlib" />
