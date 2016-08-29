@@ -596,7 +596,7 @@ and Context =
                                         | None -> String.Empty
     member this.Resolve(v:Value)      = match v with
                                         | VNumber n -> n.ToString(this.Culture) 
-                                        | VInline s -> s 
+                                        | VInline s -> s  |> this.RexInterpolate rexRefs 
                                         | VIdent  i -> match this.Get i with | Some v -> v.ToString() | None -> String.Empty
     member this.Write (v:Value)       = match v with
                                         | VNumber n -> n.ToString(this.Culture) |> this.Write
