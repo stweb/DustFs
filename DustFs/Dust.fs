@@ -294,6 +294,7 @@ let compress body =
         body
         |> List.filter (fun p -> match p with | Comment(_) -> false | _ -> true )
         |> List.fold folder []
+        |> List.filter (fun p -> match p with | Buffer("") -> false | _ -> true )
 
     match tmp with
     | Buffer(a) :: tail -> List.rev <| Buffer(a.TrimEnd([|'\t'; '\n'; '\r'|])) :: tail
