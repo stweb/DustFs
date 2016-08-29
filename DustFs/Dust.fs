@@ -684,12 +684,12 @@ and Context =
         | _ ->
             let ctx,v = match cur with
                         | true  ->  c, None // fixed to current context
-                        | false ->  let result = searchUpStack c // Search up the stack for the first value
-                                    match result with // Try looking in the local context if we haven't found anything yet
-                                    | Some _ -> c, result
-                                    | None   -> let local = c.TryFindSegment c.Local p.Head
-                                                match local with // Try looking in the global context if we haven't found anything yet
-                                                | Some _ -> c, local
+                        | false ->  let local = c.TryFindSegment c.Local p.Head
+                                    match local with // Try looking in the global context if we haven't found anything yet
+                                    | Some _ -> c, local
+                                    | None   -> let result = searchUpStack c // Search up the stack for the first value
+                                                match result with // Try looking in the local context if we haven't found anything yet
+                                                | Some _ -> c, result
                                                 | None   -> c, (c.TryFindSegment c.Global p.Head)
             match v, p.Tail with
             | Some _ , [] -> v
