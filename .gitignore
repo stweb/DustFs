@@ -8,3 +8,5 @@ Settings.FSharpLint
 .fake/build.fsx_*_config.xml
 .fake/build.fsx_*.txt
 test/
+.fake
+TestResult.xml
