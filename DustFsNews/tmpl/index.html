@@ -48,8 +48,9 @@
         <div class="row">
             <div class="col-md-12">
                 <div class="page-footer">
-                    <small>{request.url}</small><br/>
-                    <small>{host}</small><br/>
+                    <small>request {request.url}</small><br/>
+                    <small>rendered in {ctx.userState.stopwatch.ElapsedMilliseconds} ms</small><br/>
+                    <small>on host {host}</small><br/>
                     <small>{@test/}</small>
                 </div>
             </div>

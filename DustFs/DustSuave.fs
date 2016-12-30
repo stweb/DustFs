@@ -36,6 +36,7 @@ let page<'T> (atmpl:Async<Body option>) (model : 'T) ctx = async {
                         Logger = slog
                         // pass the Suave request to Dust - box'ed objects to ensure IDictionary<string,obj> compatibility
                         Global = ([("request", box ctx.request);
+                                   ("ctx", box ctx);
                                    ("host", box System.Environment.MachineName)] |> Map.ofList)
                         Current = Some(box model);
                         Helpers = helpers

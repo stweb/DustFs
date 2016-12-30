@@ -10,6 +10,7 @@ open Dust.Suave
 open Suave
 open Suave.Logging
 open Suave.Http
+open Suave.Operators
 
 // ----------------------------------------------------------------------------
 // Domain model for the F# Times homepage
@@ -150,7 +151,8 @@ let index getFeed : WebPart = fun ctx -> async {
     let weather = []
     #endif
 
-    System.Threading.Thread.Sleep(1000)
+    // uncomment to test waiting for async results in template
+    // System.Threading.Thread.Sleep(1000)
 
     let! html = page aTmpl { News = aNews; Weather = weather } ctx
     return html
@@ -161,8 +163,7 @@ let timed (part : WebPart) : WebPart = fun ctx -> async {
     let sw = System.Diagnostics.Stopwatch()
     sw.Start()
 
-    let! e = part ctx
-
+    let! e = (Writers.setUserData "stopwatch" sw >=> part) ctx
     sw.Stop()
     Log.verbose ctx.runtime.logger "timed" TraceHeader.empty 
        (sprintf "timed %s %.3f [ms]" ctx.request.url.AbsolutePath (elapsedMs sw))
