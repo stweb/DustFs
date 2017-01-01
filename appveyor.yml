@@ -1,0 +1,14 @@
+init:
+  - git config --global core.autocrlf input
+build_script:
+  - cmd: build.cmd Clean
+  - cmd: build.cmd AppVeyorBuildVersion
+  - cmd: build.cmd RunTests
+  - cmd: build.cmd NuGet
+test: off
+artifacts:
+  - path: build\*.nupkg
+branches:
+  except:
+    - gh-pages
+    - release
