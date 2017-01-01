@@ -10,6 +10,8 @@ When I recently saw his talk [End-to-end functional web development (June) - NDC
 
 ## Technical Summary
 
+[![Build status](https://ci.appveyor.com/api/projects/status/5coryl3vacq5263t?svg=true)](https://ci.appveyor.com/project/stweb/dustfs)
+
 Dust.fs parses textual Dust templates into an AST (Abstract Syntax Tree) representation using F# Discriminated Unions. The template is rendered by traversing the AST. Templates can be cached in memory and partial templates are handled separately and combined during rendering. The data can be provided as .net object tree, supporting dynamic (ExpandoObjects) as well as F# Maps and IDictionary.
 
 Even without further optimization, I've seen up to 10x faster rendering compared to dotliquid. Depending on your hardware the news page renders in <1ms (excluding data collection).
