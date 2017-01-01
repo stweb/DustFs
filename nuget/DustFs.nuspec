@@ -8,7 +8,7 @@
     <owners>@authors@</owners>
     <licenseUrl>https://github.com/stweb/DustFs/blob/master/LICENSE</licenseUrl>
     <projectUrl>https://github.com/stweb/DustFs/</projectUrl>
-    <iconUrl>https://raw.github.com/fsharp/FSharp.Data/master/misc/logo.png</iconUrl>
+    <iconUrl>https://github.com/stweb/DustFs/blob/master/nuget/logo.png</iconUrl>
     <requireLicenseAcceptance>false</requireLicenseAcceptance>
     <summary>@summary@</summary>
     <description>@description@</description>
