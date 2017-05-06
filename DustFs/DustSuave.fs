@@ -7,6 +7,7 @@ open Dust.Engine
 open Suave
 open Suave.Http
 open Suave.Logging
+open Suave.Logging.Message
 open Suave.RequestErrors
 
 // global template directory
@@ -16,8 +17,7 @@ let helpers = new ConcurrentDictionary<string, Helper>()
 
 // parse template from global directory and cache
 let parseToCache ctx name = async {
-    let slog msg = Log.info ctx.runtime.logger "Dust" TraceHeader.empty
-                            (sprintf "%s %s" msg ctx.request.url.AbsolutePath)
+    let slog msg = ctx.runtime.logger.info (eventX (sprintf "%s %s" msg ctx.request.url.AbsolutePath))
 
     let dustctx = { Context.defaults with TmplDir = templateDir; Logger = slog }
     return dustctx.ParseCached parse name
@@ -26,8 +26,8 @@ let parseToCache ctx name = async {
 // render Dust page asynchronously for Suave
 let page<'T> (atmpl:Async<Body option>) (model : 'T) ctx = async {
 
-    let slog msg = Log.info ctx.runtime.logger "Dust" TraceHeader.empty
-                            (sprintf "%s %s" msg ctx.request.url.AbsolutePath)
+    let slog msg = ctx.runtime.logger.info (eventX
+                        (sprintf "%s %s" msg ctx.request.url.AbsolutePath))
 
     let sb = System.Text.StringBuilder()
     let dustctx = { Context.defaults with

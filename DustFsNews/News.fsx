@@ -1,5 +1,7 @@
 #if INTERACTIVE
 #load "scripts/load-references-debug.fsx"
+#else
+module News
 #endif
 
 open System
@@ -104,17 +106,19 @@ let getSpiegel ctx = async {
 
 type RSS = XmlProvider<"http://feeds.bbci.co.uk/news/rss.xml">
 
+let logger = Log.create "News"
+
 let getNews ctx = async {
-  Log.info ctx.runtime.logger "News.index" TraceHeader.empty "Get News"
+  //logger.log LogLevel.Info Message.eventX "Get News") |> Async.RunSynchronously
   let! res = RSS.AsyncGetSample()
-  Log.info ctx.runtime.logger "News.index" TraceHeader.empty "Got News"
+  //Log ctx.runtime.logger "News.index" TraceHeader.empty "Got News"
   let news =
     [ for item in res.Channel.Items |> Seq.take 15 do
         yield
           { ThumbUrl = item.Thumbnail.Url; LinkUrl = item.Link;
             Title = item.Title; Description = item.Description } ] 
 
-  Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Got News %d" (List.length news))
+  //Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Got News %d" (List.length news))
   return box news  
 }
 
@@ -140,7 +144,7 @@ helpers.["test"] <- NewsHelpers.testHelper
 // Building asynchronous Suave server
 // ----------------------------------------------------------------------------
 let index getFeed : WebPart = fun ctx -> async {
-    Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Getting News %s" ctx.request.url.AbsolutePath)
+    //Log. ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Getting News %s" ctx.request.url.AbsolutePath)
     // perform in parallel
     let! aNews = Async.StartChild <| getFeed ctx
     let! aTmpl = Async.StartChild <| parseToCache ctx "index.html"
@@ -165,8 +169,8 @@ let timed (part : WebPart) : WebPart = fun ctx -> async {
 
     let! e = (Writers.setUserData "stopwatch" sw >=> part) ctx
     sw.Stop()
-    Log.verbose ctx.runtime.logger "timed" TraceHeader.empty 
-       (sprintf "timed %s %.3f [ms]" ctx.request.url.AbsolutePath (elapsedMs sw))
+    //Log.verbose ctx.runtime.logger "timed" TraceHeader.empty 
+    //   (sprintf "timed %s %.3f [ms]" ctx.request.url.AbsolutePath (elapsedMs sw))
 
     return e
 }

@@ -91,8 +91,8 @@ Target "RunUnitTests" (fun _ ->
 let appFsx = __SOURCE_DIRECTORY__ @@ "DustFsNews/News.fsx"
 let appDir = System.IO.Path.GetDirectoryName(appFsx)
 
-let sbOut = new Text.StringBuilder()
-let sbErr = new Text.StringBuilder()
+let sbOut = Text.StringBuilder()
+let sbErr = Text.StringBuilder()
 
 let fsiSession =
   let inStream = new StringReader("")
@@ -126,8 +126,8 @@ let currentApp = ref (fun _ -> async { return None })
 let serverConfig =
   { defaultConfig with
       homeFolder = Some appDir
-      logger = Logging.Loggers.saneDefaultsFor Logging.LogLevel.Debug
-      bindings = [ HttpBinding.mk HTTP IPAddress.Loopback 8083us] }
+      //logger = Logging.Loggers.saneDefaultsFor Logging.LogLevel.Debug
+      bindings = [ HttpBinding.create HTTP IPAddress.Loopback 8083us] }
 
 let reloadAppServer () =
   reloadScript() |> Option.iter (fun app ->

@@ -7,12 +7,12 @@ open System.Collections.Concurrent
 open System.Globalization
 open System.Text.RegularExpressions
 
-let rexKey   = new Regex("^[a-zA-Z_\$][0-9a-zA-Z_\-\$]*", RegexOptions.Compiled)
-let rexFloat = new Regex("^(-)?[0-9]*(?:\.[0-9]*)?", RegexOptions.Compiled)
-let rexInt   = new Regex("^[0-9]+", RegexOptions.Compiled)
+let rexKey   = Regex("^[a-zA-Z_\$][0-9a-zA-Z_\-\$]*", RegexOptions.Compiled)
+let rexFloat = Regex("^(-)?[0-9]*(?:\.[0-9]*)?", RegexOptions.Compiled)
+let rexInt   = Regex("^[0-9]+", RegexOptions.Compiled)
 
-let rexRefs  = new Regex("\{[^}]*\}", RegexOptions.Compiled)
-let rexRefB  = new Regex("\[(.*?)\]", RegexOptions.Compiled)
+let rexRefs  = Regex("\{[^}]*\}", RegexOptions.Compiled)
+let rexRefB  = Regex("\[(.*?)\]", RegexOptions.Compiled)
 
 type Identifier =
     | Key of string
