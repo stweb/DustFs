@@ -99,7 +99,7 @@ type SpiegelRSS = XmlProvider<"""<?xml version="1.0" encoding="UTF-8" standalone
 let getSpiegel ctx = async {
   let! res = SpiegelRSS.AsyncLoad("http://www.spiegel.de/schlagzeilen/tops/index.rss")
   return box
-    [ for item in res.Channel.Items |> Seq.take 15 do
+    [ for item in res.Channel.Items |> Seq.truncate 15 do
         match item.Enclosure with
         | Some thumb -> yield { ThumbUrl = thumb.Url; LinkUrl = item.Link;
                                 Title = item.Title; Description = item.Description }
@@ -112,7 +112,7 @@ let getNews ctx = async {
   let! res = RSS.AsyncGetSample()
   ctx.runtime.logger.info (eventX "News.index - Got News")
   let news =
-    [ for item in res.Channel.Items |> Seq.take 15 do
+    [ for item in res.Channel.Items |> Seq.truncate 15 do
         yield
           { ThumbUrl = item.Thumbnail.Url; LinkUrl = item.Link;
             Title = item.Title; Description = item.Description } ] 
