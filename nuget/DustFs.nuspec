@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+<package xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema">
+  <metadata xmlns="http://schemas.microsoft.com/packaging/2010/07/nuspec.xsd">
+    <id>@project@</id>
+    <title>DustFs</title>
+    <version>@build.number@</version>
+    <authors>@authors@</authors>
+    <owners>@authors@</owners>
+    <licenseUrl>https://github.com/stweb/DustFs/blob/master/LICENSE</licenseUrl>
+    <projectUrl>https://github.com/stweb/DustFs/</projectUrl>
+    <iconUrl>https://github.com/stweb/DustFs/blob/master/nuget/logo.png</iconUrl>
+    <requireLicenseAcceptance>false</requireLicenseAcceptance>
+    <summary>@summary@</summary>
+    <description>@description@</description>
+    <releaseNotes>@releaseNotes@</releaseNotes>
+    <copyright>Copyright 2016-2017</copyright>
+    <tags>@tags@</tags>
+    @dependencies@
+    @references@
+    </metadata>
+    <files>
+      <file src="..\build\DustFs.dll" target="lib/net45" />
+    </files>
+</package>

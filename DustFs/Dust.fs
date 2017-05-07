@@ -297,7 +297,8 @@ let compress body =
         |> List.filter (fun p -> match p with | Buffer("") -> false | _ -> true )
 
     match tmp with
-    | Buffer(a) :: tail -> List.rev <| Buffer(a.TrimEnd([|'\t'; '\n'; '\r'|])) :: tail
+    | Buffer(a) :: tail -> let text = a.TrimEnd([|'\t'; '\n'; '\r'|])
+                           List.rev <| if text.Length > 0 then Buffer(text) :: tail else tail
     | _                 -> List.rev <| tmp
 #else
     body

@@ -40,6 +40,52 @@ Target "BuildApp" (fun _ ->
      |> Log "AppBuild-Output: "
 )
 
+// --------------------------------------------------------------------------------------
+// Creates a NuGet package - see http://fsharp.github.io/FAKE/create-nuget-package.html
+
+let authors = ["Stefan Weber"]
+let project = "DustFs"
+let summary = "Dust templating engine for F#"
+let description = """
+  Dust.fs implements a Dust.js compatible templating engine using FSharp 
+  which works great with Suave.io and standalone."""
+let tags = "F# fsharp Dust template view engine html"
+
+let gitOwner = "stweb"
+let gitHome = "https://github.com/" + gitOwner
+let gitName = "DustFs"
+let gitRaw = environVarOrDefault "gitRaw" "https://raw.github.com/fsharp"
+
+// Read release notes & version info from RELEASE_NOTES.md
+let release = 
+    File.ReadLines "RELEASE_NOTES.md" 
+    |> ReleaseNotesHelper.parseReleaseNotes
+
+let isAppVeyorBuild = environVar "APPVEYOR" <> null
+let nugetVersion = 
+    if isAppVeyorBuild then sprintf "%s-a%s" release.NugetVersion (DateTime.UtcNow.ToString "yyMMddHHmm")
+    else release.NugetVersion
+
+Target "AppVeyorBuildVersion" (fun _ ->
+    Shell.Exec("appveyor", sprintf "UpdateBuild -Version \"%s\"" nugetVersion) |> ignore
+)
+
+Target "NuGet" (fun _ ->
+    NuGet (fun p -> 
+        { p with   
+            Authors = authors
+            Project = project
+            Summary = summary
+            Description = description
+            Version = nugetVersion
+            ReleaseNotes = release.Notes |> String.concat "\n"
+            Tags = tags
+            OutputPath = "build"
+            AccessKey = getBuildParamOrDefault "nugetkey" ""
+            Publish = hasBuildParam "nugetkey"
+            Dependencies = [] })
+        "nuget/DustFs.nuspec"
+)
 
 // --------------------------------------------------------------------------------------
 // Run the unit tests using test runner
