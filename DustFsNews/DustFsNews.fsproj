@@ -42,10 +42,10 @@
     <None Include="Scripts/load-project-release.fsx" />
     <Content Include="tmpl/_style.css" />
     <None Include="tmpl/index.html" />
-    <Compile Include="News.fsx" />
-    <Compile Include="Main.fs" />
     <Content Include="App.config" />
     <Compile Include="AssemblyInfo.fs" />
+    <Compile Include="News.fsx" />
+    <Compile Include="Main.fs" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
   <Choose>

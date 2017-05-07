@@ -11,6 +11,7 @@ open Dust.Engine
 open Dust.Suave
 open Suave
 open Suave.Logging
+open Suave.Logging.Message
 open Suave.Http
 open Suave.Operators
 
@@ -106,19 +107,17 @@ let getSpiegel ctx = async {
 
 type RSS = XmlProvider<"http://feeds.bbci.co.uk/news/rss.xml">
 
-let logger = Log.create "News"
-
 let getNews ctx = async {
-  //logger.log LogLevel.Info Message.eventX "Get News") |> Async.RunSynchronously
+  ctx.runtime.logger.info (eventX "Get News") 
   let! res = RSS.AsyncGetSample()
-  //Log ctx.runtime.logger "News.index" TraceHeader.empty "Got News"
+  ctx.runtime.logger.info (eventX "News.index - Got News")
   let news =
     [ for item in res.Channel.Items |> Seq.take 15 do
         yield
           { ThumbUrl = item.Thumbnail.Url; LinkUrl = item.Link;
             Title = item.Title; Description = item.Description } ] 
 
-  //Log.info ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Got News %d" (List.length news))
+  ctx.runtime.logger.info (eventX (sprintf "Got News %d" (List.length news)))
   return box news  
 }
 
@@ -144,7 +143,7 @@ helpers.["test"] <- NewsHelpers.testHelper
 // Building asynchronous Suave server
 // ----------------------------------------------------------------------------
 let index getFeed : WebPart = fun ctx -> async {
-    //Log. ctx.runtime.logger "News.index" TraceHeader.empty (sprintf "Getting News %s" ctx.request.url.AbsolutePath)
+    ctx.runtime.logger.info (eventX (sprintf "Getting News %s" ctx.request.url.AbsolutePath))
     // perform in parallel
     let! aNews = Async.StartChild <| getFeed ctx
     let! aTmpl = Async.StartChild <| parseToCache ctx "index.html"
@@ -169,8 +168,7 @@ let timed (part : WebPart) : WebPart = fun ctx -> async {
 
     let! e = (Writers.setUserData "stopwatch" sw >=> part) ctx
     sw.Stop()
-    //Log.verbose ctx.runtime.logger "timed" TraceHeader.empty 
-    //   (sprintf "timed %s %.3f [ms]" ctx.request.url.AbsolutePath (elapsedMs sw))
+    ctx.runtime.logger.info (eventX (sprintf "timed %s %.3f [ms]" ctx.request.url.AbsolutePath (elapsedMs sw)))
 
     return e
 }

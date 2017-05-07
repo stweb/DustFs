@@ -43,7 +43,12 @@ let page<'T> (atmpl:Async<Body option>) (model : 'T) ctx = async {
                   }
     let! doc = atmpl // get parsed template async and render
     return! match doc with
-            | None      -> RequestErrors.NOT_FOUND "template not found" ctx
-            | Some body -> body |> dustctx.Render
-                           Response.response HTTP_200 (Encoding.UTF8.GetBytes (sb.ToString())) ctx
+            | None      ->  RequestErrors.NOT_FOUND "template not found" ctx
+            | Some body ->  try
+                                body |> dustctx.Render
+                                Response.response HTTP_200 (Encoding.UTF8.GetBytes (sb.ToString())) ctx
+                            with
+                            | e -> 
+                                ctx.runtime.logger.error (eventX e.Message)
+                                ServerErrors.INTERNAL_ERROR "something went wrong" ctx
 }
