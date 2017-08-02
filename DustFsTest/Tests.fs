@@ -4,6 +4,7 @@ open Dust.Engine
 open Dust.Test
 open NUnit.Framework
 open System
+open FsUnit
 
 #if !TODO
 
@@ -916,13 +917,16 @@ module R15_CoreGrammar =
       |> dust "{# helper foo=\"bar\" boo=\"boo\" } {/helper}"
       |> expect "boo bar"
 
+// (fun () -> getNumber "" |> ignore) |> should throw typeof<LogicModule.EmptyStringException>
+
     [<Test>]
-    [<ExpectedException>]
     [<Ignore "test removed due CSS conflicts in favor of stricter parsing -> returns buffer">]
-    let ``should show an error for whitespaces between the opening brace and any of (#,?,at,^,+,%)`` () =
-      empty
-      |> dust   "{ # helper foo=\"bar\" boo=\"boo\" } {/helper}"
-      |> ignore
+    let ``should show an error for whitespaces between the opening brace and any of (#,?,at,^,+,%)`` () = 
+      ( fun () ->  
+        empty
+        |> dust   "{ # helper foo=\"bar\" boo=\"boo\" } {/helper}"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
     let ``should ignore extra whitespaces between the closing brace plus slash and the tag identifier`` () =
@@ -931,11 +935,12 @@ module R15_CoreGrammar =
       |> expect "boo bar"
 
     [<Test>]
-    [<ExpectedException>]
     let ``should show an error because whitespaces between the '{' and the forward slash are not allowed in the closing tags`` () =
-      empty
-      |> dust   "{# helper foo=\"bar\" boo=\"boo\"} { / helper }"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{# helper foo=\"bar\" boo=\"boo\"} { / helper }"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
     let ``should ignore extra whitespaces before the self closing tags`` () =
@@ -944,11 +949,12 @@ module R15_CoreGrammar =
       |> expect "boo bar"
 
     [<Test>]
-    [<ExpectedException>]
     let ``should show an error for whitespaces between the forward slash and the closing brace in self closing tags`` () =
-      empty
-      |> dust   "{#helper foo=\"bar\" boo=\"boo\" / }"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{#helper foo=\"bar\" boo=\"boo\" / }"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
     let ``should ignore extra whitespaces between inline params`` () =
@@ -957,12 +963,13 @@ module R15_CoreGrammar =
       |> expect "boo bar"
 
     [<Test>]
-    [<ExpectedException>]
     [<Ignore "test removed due CSS conflicts in favor of stricter parsing -> returns buffer">]
     let ``should show an error for whitespaces between the '{' plus '>' and partial identifier`` () =
-      json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
-      |> dust   "{ > partial/} {> \"hello_world\"/} {> \"{ref}\"/}"
-      |> ignore
+      ( fun () ->  
+        json "{\"name\":\"Jim\",\"count\":42,\"ref\":\"hello_world\"}"
+        |> dust   "{ > partial/} {> \"hello_world\"/} {> \"{ref}\"/}"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
     let ``should ignore extra whitespacesbefore the forward slash and the closing brace in partials`` () =
@@ -1027,81 +1034,92 @@ module R15_CoreGrammar =
 module R16_SyntaxError =
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test that the error message shows line and column`` () =
-      json "{\"name\":\"Mick\",\"count\":30}"
-      |> dust   "RRR {##}"
-      |> ignore
+      ( fun () ->  
+        json "{\"name\":\"Mick\",\"count\":30}"
+        |> dust   "RRR {##}"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test the errors message for section with error`` () =
-      empty
-      |> dust   "{#s}\n{#&2}\n{/s}"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{#s}\n{#&2}\n{/s}"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test the errors message for section with a buffer and error inside`` () =
-      empty
-      |> dust   "{#s}\nthis is the\nbuffer\n{#&2}\na second\nbuffer\n{/s}"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{#s}\nthis is the\nbuffer\n{#&2}\na second\nbuffer\n{/s}"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test the errors message for section without end tag shows`` () =
-      empty
-      |> dust   "{#s}\nthis is the\nbuffer\na second\nbuffer"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{#s}\nthis is the\nbuffer\na second\nbuffer"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test the errors message for partials with a buffer inside`` () =
-      empty
-      |> dust   "{+header}\nthis is a Partial\nwith Error\neeee{@#@$fdf}\ndefault header \n{/header}"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{+header}\nthis is a Partial\nwith Error\neeee{@#@$fdf}\ndefault header \n{/header}"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test the errors message for partial without end tag`` () =
-      empty
-      |> dust   "{+header}\nthis is the\nbuffer\na second\nbuffer"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{+header}\nthis is the\nbuffer\na second\nbuffer"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test the errors message for Scalar`` () =
-      empty
-      |> dust   "{#scalar}\ntrue\n {#@#fger}\n{:else}\nfalse\n{/scalar}"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{#scalar}\ntrue\n {#@#fger}\n{:else}\nfalse\n{/scalar}"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test the errors message for Scalar 2`` () =
+      ( fun () ->  
       empty
       |> dust   "{#scalar}\ntrue\n{:else}\nfalse\n {#@#fger}\n{/scalar}"
       |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test the errors message for Conditionals`` () =
-      empty
-      |> dust   "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{#@$}</li>{~n}\n{/tags}\n</ul>\n{:else}\nNo Tags!\n{/tags}"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{#@$}</li>{~n}\n{/tags}\n</ul>\n{:else}\nNo Tags!\n{/tags}"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test the errors message for Conditionals else`` () =
-      empty
-      |> dust   "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{.}</li>{~n}\n{/tags}\n</ul>\n{:else}\n{#@$}\nNo Tags!\n{/tags}"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{.}</li>{~n}\n{/tags}\n</ul>\n{:else}\n{#@$}\nNo Tags!\n{/tags}"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
-    [<ExpectedException>]
     let ``should test the errors message for Conditional without end tag`` () =
-      empty
-      |> dust   "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{.}</li>{~n}\n{/tags}\n</ul>\n{:else}\nNo Tags!"
-      |> ignore
+      ( fun () ->  
+        empty
+        |> dust   "{?tags}\n<ul>{~n}\n{#tags}{~s}\n<li>{.}</li>{~n}\n{/tags}\n</ul>\n{:else}\nNo Tags!"
+        |> ignore
+      ) |> should throw typeof<System.Exception>
 
     [<Test>]
     let ``should test helper syntax errors being handled gracefully`` () =

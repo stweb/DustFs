@@ -13,6 +13,7 @@
 open Fake
 open Fake.OpenCoverHelper
 open Fake.ProcessHelper
+open Fake.Testing
 
 open System
 open System.IO
@@ -88,13 +89,13 @@ Target "NuGet" (fun _ ->
 )
 
 // --------------------------------------------------------------------------------------
-// Run the unit tests using test runner
+// Run the unit tests using test runner - https://fake.build/apidocs/fake-testing-nunit3.html
 
 Target "RunTests" (fun _ ->
     !! testAssemblies 
-    |> NUnit (fun p ->
+    |> NUnit3 (fun p ->
         { p with
-            DisableShadowCopy = true
+            ShadowCopy = false
             TimeOut = TimeSpan.FromMinutes 20.
             })
 )
@@ -110,7 +111,7 @@ Target "RunUnitTests" (fun _ ->
     OpenCover
         (fun p -> { p with 
                             ExePath = "./packages/OpenCover/tools/OpenCover.Console.exe"
-                            TestRunnerExePath = "./packages/NUnit.Runners/tools/nunit-console-x86.exe"
+                            TestRunnerExePath = "./packages/NUnit.ConsoleRunner/tools/nunit3-console.exe"
                             Output = coverageDir + "results.xml"
                             Register = RegisterUser
                             Filter = "+[*]* -[*.Tests*]*"
