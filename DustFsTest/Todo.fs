@@ -1,10 +1,10 @@
 ﻿module Todo
 
+#if TODO
+
 open Dust.Engine
 open Dust.Test
 open NUnit.Framework
-
-#if TODO
 
 module T06_ArrayIndexAccess =
 

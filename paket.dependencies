@@ -1,11 +1,12 @@
-framework: net45
 source https://www.nuget.org/api/v2/
+framework: auto-detect
+storage: symlink
 
-nuget FSharp.Data framework: >= net45
+nuget FSharp.Data
 nuget FsUnit
-nuget Newtonsoft.Json framework: >= net45
+nuget Newtonsoft.Json
 nuget OpenCover
-nuget Suave framework: >= net45
+nuget Suave
 nuget FSharp.Compiler.Service
 nuget FAKE
 nuget NUnit.Runners

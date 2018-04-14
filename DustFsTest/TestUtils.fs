@@ -2,7 +2,6 @@
 
 open Dust.Engine
 open NUnit.Framework
-open System
 
 module U01_Conversion =       
     [<Test>]

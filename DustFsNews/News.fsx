@@ -104,16 +104,48 @@ let getSpiegel _ = async {
                                 Title = item.Title; Description = item.Description }
         | None -> () ] }
 
-type RSS = XmlProvider<"http://feeds.bbci.co.uk/news/rss.xml">
+type RSS = XmlProvider<"""<?xml version="1.0" encoding="UTF-8"?>
+<rss xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:atom="http://www.w3.org/2005/Atom" version="2.0" xmlns:media="http://search.yahoo.com/mrss/">
+    <channel>
+        <title><![CDATA[BBC News - Home]]></title>
+        <description><![CDATA[BBC News - Home]]></description>
+        <link>http://www.bbc.co.uk/news/</link>
+        <image>
+            <url>http://news.bbcimg.co.uk/nol/shared/img/bbc_news_120x60.gif</url>
+            <title>BBC News - Home</title>
+            <link>http://www.bbc.co.uk/news/</link>
+        </image>
+        <generator>RSS for Node</generator>
+        <lastBuildDate>Sat, 14 Apr 2018 11:50:44 GMT</lastBuildDate>
+        <copyright><![CDATA[Copyright]]></copyright>
+        <language><![CDATA[en-gb]]></language>
+        <ttl>15</ttl>
+        <item>
+            <title><![CDATA[investigation]]></title>
+            <description><![CDATA[text]]></description>
+            <link>http://www.test.org</link>
+            <guid isPermaLink="true">http://www.test.org</guid>
+            <pubDate>Fri, 13 Apr 2018 22:33:40 GMT</pubDate>
+            <media:thumbnail width="976" height="549" url="#"/>
+        </item>
+        <item>
+            <title><![CDATA[investigation]]></title>
+            <description><![CDATA[text]]></description>
+            <link>http://www.test.org</link>
+            <guid isPermaLink="true">http://www.test.org</guid>
+            <pubDate>Fri, 13 Apr 2018 22:33:40 GMT</pubDate>
+        </item>
+    </channel>
+</rss>""">
 
 let getNews ctx = async {
   ctx.runtime.logger.info (eventX "Get News") 
-  let! res = RSS.AsyncGetSample()
+  let! res = RSS.AsyncLoad("http://feeds.bbci.co.uk/news/rss.xml")
   ctx.runtime.logger.info (eventX "News.index - Got News")
   let news =
     [ for item in res.Channel.Items |> Seq.truncate 15 do
         yield
-          { ThumbUrl = item.Thumbnail.Url; LinkUrl = item.Link;
+          { ThumbUrl = item.Thumbnail.Value.Url; LinkUrl = item.Link;
             Title = item.Title; Description = item.Description } ] 
 
   ctx.runtime.logger.info (eventX (sprintf "Got News %d" (List.length news)))

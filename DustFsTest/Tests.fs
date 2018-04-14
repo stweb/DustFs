@@ -13,7 +13,7 @@ module R01_DustFs =
     let ``parsing`` () =
         let test s =
             let p1 = match s |> List.ofSeq with
-                     | IPath(p,r) -> Some p
+                     | IPath(p,_) -> Some p
                      | _ -> None
 
             let tostr so =
@@ -728,7 +728,7 @@ module R11_PartialParams =
 
     [<SetUp>]
     let ``setup partials`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) ->
+      helpers.["helper"] <- (fun (c:Context) (_:BodyDict) (_:KeyValue) ->
                                 c.Write c.TmplName
                             )
       "Hello {name}! You have {count} new messages." |> named "partial"
@@ -841,7 +841,7 @@ module R12_InlineParams =
 
     [<SetUp>]
     let ``setup partials`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) ->
+      helpers.["helper"] <- (fun (c:Context) (_:BodyDict) (param:KeyValue) ->
                                 match  param.TryFind "foo" with
                                 | Some foo -> c.Write foo
                                 | _ -> ()
@@ -890,7 +890,7 @@ module R12_InlineParams =
 
     [<Test>]
     let ``should test parameters with dashes`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) ->
+      helpers.["helper"] <- (fun (c:Context) (_:BodyDict) (param:KeyValue) ->
                                 match  param.TryFind "data-foo" with
                                 | Some foo -> c.Write foo
                                 | _ -> ()
@@ -905,7 +905,7 @@ module R15_CoreGrammar =
 
     [<SetUp>]
     let ``setup helper`` () =
-      helpers.["helper"] <- (fun (c:Context) (bodies:BodyDict) (param:KeyValue) ->
+      helpers.["helper"] <- (fun (c:Context) (_:BodyDict) (param:KeyValue) ->
                                 match param.TryFind "boo", param.TryFind "foo" with
                                 | Some b, Some f -> c.Write b; c.Write " "; c.Write f
                                 | _ -> ()
