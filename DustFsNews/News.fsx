@@ -12,7 +12,6 @@ open Dust.Suave
 open Suave
 open Suave.Logging
 open Suave.Logging.Message
-open Suave.Http
 open Suave.Operators
 
 // ----------------------------------------------------------------------------
@@ -96,7 +95,7 @@ type SpiegelRSS = XmlProvider<"""<?xml version="1.0" encoding="UTF-8" standalone
 </channel>
 </rss>""">
 
-let getSpiegel ctx = async {
+let getSpiegel _ = async {
   let! res = SpiegelRSS.AsyncLoad("http://www.spiegel.de/schlagzeilen/tops/index.rss")
   return box
     [ for item in res.Channel.Items |> Seq.truncate 15 do
@@ -133,7 +132,7 @@ module NewsHelpers =
         | _ -> failwith "bad type"
 
 
-    let testHelper (c:Context) (bodies:BodyDict) (param:KeyValue) =
+    let testHelper (c:Context) (_:BodyDict) (_:KeyValue) =
         c.Write("This is a test")
 
 filters.["niceDate"] <- NewsHelpers.niceDate
@@ -177,7 +176,6 @@ let timed (part : WebPart) : WebPart = fun ctx -> async {
 templateDir <- Path.Combine(__SOURCE_DIRECTORY__ , "tmpl")
 printfn "templates %s" templateDir
 
-open Suave.Operators
 open Suave.Filters
 open Suave.RequestErrors
 
