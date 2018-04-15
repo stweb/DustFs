@@ -1,0 +1,18 @@
+﻿<Properties StartupConfiguration="{D40C1290-A244-4E10-BC82-85C5D0884FEA}|Default">
+  <MonoDevelop.Ide.Workbench ActiveDocument="DustFs/Dust.fs">
+    <Files>
+      <File FileName="DustFs/Dust.fs" Line="515" Column="39" />
+    </Files>
+  </MonoDevelop.Ide.Workbench>
+  <MonoDevelop.Ide.ItemProperties.DustSuave FirstBuild="True" />
+  <MonoDevelop.Ide.Workspace ActiveConfiguration="Debug|AnyCPU" />
+  <MonoDevelop.Ide.DebuggingService.Breakpoints>
+    <BreakpointStore />
+  </MonoDevelop.Ide.DebuggingService.Breakpoints>
+  <MonoDevelop.Ide.DebuggingService.PinnedWatches>
+    <Watch file="DustFsTest/Program.fs" line="274" offsetX="551" offsetY="4095" expression="result" liveUpdate="False" />
+  </MonoDevelop.Ide.DebuggingService.PinnedWatches>
+  <MonoDevelop.Ide.ItemProperties.DustFsNews PreferredExecutionTarget="MonoDevelop.Default" />
+  <MultiItemStartupConfigurations />
+  <MonoDevelop.Ide.ItemProperties.DustFsTest PreferredExecutionTarget="MonoDevelop.Default" />
+</Properties>

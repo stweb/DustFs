@@ -1,11 +1,16 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Dust.fs" />
+    <ProjectReference Include="..\DustFs\DustFs.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.CSharp" Version="4.4.1" />
+    <Compile Include="DustSuave.fs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Suave" Version="2.2.1" />
   </ItemGroup>
 </Project>

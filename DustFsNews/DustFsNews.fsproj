@@ -4,7 +4,6 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="paket.references" />
     <None Include="Scripts/load-references-debug.fsx" />
     <None Include="Scripts/load-project-debug.fsx" />
     <None Include="Scripts/load-references-release.fsx" />
@@ -16,6 +15,11 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\DustFs\DustFs.fsproj" />
+    <ProjectReference Include="..\DustSuave\DustSuave.fsproj" />
   </ItemGroup>
-  <Import Project="..\.paket\Paket.Restore.targets" />
+  <ItemGroup>
+    <PackageReference Include="Suave" Version="2.2.1" />
+    <PackageReference Include="FSharp.Data" Version="3.0.0-beta3" />
+    <PackageReference Include="FSharp.Core" Version="4.3.4" />
+  </ItemGroup>
 </Project>

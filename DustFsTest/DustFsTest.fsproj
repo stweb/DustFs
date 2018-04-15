@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>netstandard2.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="DustTest.fs" />
@@ -11,5 +11,9 @@
   <ItemGroup>
     <ProjectReference Include="..\DustFs\DustFs.fsproj" />
   </ItemGroup>
-  <Import Project="..\.paket\Paket.Restore.targets" />
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="FsUnit" Version="3.1.0" />
+    <PackageReference Include="NUnit" Version="3.10.1" />
+  </ItemGroup>
 </Project>

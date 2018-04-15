@@ -5,10 +5,8 @@ open System.Text
 open System.IO
 open Dust.Engine
 open Suave
-open Suave.Http
 open Suave.Logging
 open Suave.Logging.Message
-open Suave.RequestErrors
 
 // global template directory
 let mutable templateDir = ""
