@@ -144,9 +144,10 @@ let getNews ctx = async {
   ctx.runtime.logger.info (eventX "News.index - Got News")
   let news =
     [ for item in res.Channel.Items |> Seq.truncate 15 do
-        yield
-          { ThumbUrl = item.Thumbnail.Value.Url; LinkUrl = item.Link;
-            Title = item.Title; Description = item.Description } ] 
+        let url =   match item.Thumbnail with 
+                    | Some t -> t.Url
+                    | None   -> "" 
+        yield { ThumbUrl = url; LinkUrl = item.Link; Title = item.Title; Description = item.Description } ] 
 
   ctx.runtime.logger.info (eventX (sprintf "Got News %d" (List.length news)))
   return box news  

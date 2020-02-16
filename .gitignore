@@ -10,3 +10,5 @@ Settings.FSharpLint
 test/
 .fake
 TestResult.xml
+.vs/
+.ionide/
