@@ -7,5 +7,6 @@
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
+    <PackageReference Include="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
 </Project>

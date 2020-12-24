@@ -4,10 +4,6 @@
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="Scripts/load-references-debug.fsx" />
-    <None Include="Scripts/load-project-debug.fsx" />
-    <None Include="Scripts/load-references-release.fsx" />
-    <None Include="Scripts/load-project-release.fsx" />
     <Content Include="tmpl/_style.css" />
     <None Include="tmpl/index.html" />
     <Compile Include="News.fsx" />
@@ -18,8 +14,8 @@
     <ProjectReference Include="..\DustSuave\DustSuave.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Suave" Version="2.5.6" />
+    <PackageReference Include="Suave" Version="2.6.0" />
     <PackageReference Include="FSharp.Data" Version="3.3.3" />
-    <PackageReference Include="FSharp.Core" Version="4.7.0" />
+    <PackageReference Include="FSharp.Core" Version="5.0.0" />
   </ItemGroup>
 </Project>

@@ -442,7 +442,7 @@ let parse text =
 let optional (o:obj) = 
     match o with
     | null               -> None
-    | :? Async<'t> as a  -> a |> Async.RunSynchronously |> Some
+    | :? Async<obj> as a -> a |> Async.RunSynchronously |> Some
     | o                  -> Some o
 
 // extension method to use objects like a Map, works with ExpandoObjects
