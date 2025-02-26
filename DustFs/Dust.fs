@@ -471,7 +471,9 @@ type System.Object with
 
 open System.Runtime.CompilerServices
 open Microsoft.FSharp.Reflection
+#if dynamic
 open Microsoft.CSharp.RuntimeBinder
+#endif
 
 // read dynamic properties
 // see https://gist.github.com/mattpodwysocki/300628
@@ -525,8 +527,13 @@ let (?) (o:obj) (name:string) : 'TargetResult  =
                             | _ ->      toResult valu       
         | _ ->  match o.TryFindProp name with
                 | Some(v) -> toResult v
-                | _ ->  let cs = CallSite<Func<CallSite, obj, obj>>.Create(Binder.GetMember(CSharpBinderFlags.None, name, null, [| CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null) |]))
+                | _ ->  
+#if dynamic                
+                        let cs = CallSite<Func<CallSite, obj, obj>>.Create(Binder.GetMember(CSharpBinderFlags.None, name, null, [| CSharpArgumentInfo.Create(CSharpArgumentInfoFlags.None, null) |]))
                         unbox (cs.Target.Invoke(cs, o))
+#else
+                        failwith "not implemented"
+#endif
     else
         failwith "not implemented"
 

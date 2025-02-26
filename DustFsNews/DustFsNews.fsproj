@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net9.0</TargetFramework>
     <OutputType>Exe</OutputType>
   </PropertyGroup>
   <ItemGroup>
@@ -14,8 +14,6 @@
     <ProjectReference Include="..\DustSuave\DustSuave.fsproj" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Suave" Version="2.6.0" />
     <PackageReference Include="FSharp.Data" Version="4.0.1" />
-    <PackageReference Include="FSharp.Core" Version="5.0.1" />
   </ItemGroup>
 </Project>

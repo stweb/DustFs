@@ -10,8 +10,6 @@ When I saw his talk [End-to-end functional web development (June) - NDC Oslo 201
 
 ## Technical Summary
 
-[![Build status](https://ci.appveyor.com/api/projects/status/5coryl3vacq5263t?svg=true)](https://ci.appveyor.com/project/stweb/dustfs)
-
 Dust.fs parses textual Dust templates into an AST (Abstract Syntax Tree) representation using F# Discriminated Unions. The template is rendered by traversing the AST. Templates can be cached in memory and partial templates are handled separately and combined during rendering. The data can be provided as .NET object tree, supporting dynamic (ExpandoObjects) as well as F# Maps and IDictionary.
 
 Even without further optimization, I've seen up to 10x faster rendering compared to dotliquid. Depending on your hardware the news page renders in <1ms (excluding data collection).
@@ -26,6 +24,12 @@ The current implementation is considered a working Proof-of-Concept but needs mo
 - Helpers use a slightly different signature and the API needs to be elaborated.
 - The parser may not be 100% accepting the same input, although I used the orginal [PEGjs syntax](https://github.com/linkedin/dustjs/blob/master/src/dust.pegjs) as a reference and tested the code on a number of complex examples.
 - Evaluation of references needs to be modified to pass all orginal scenarios after unit tests have been added. (The orginal tests are based on Javascript and I tried connecting those in via Edge.js) 
+
+## Build & Run
+
+> dotnet build
+
+> dotnet run --project DustFsNews/DustFsNews.fsproj
 
 ## Contributing
 

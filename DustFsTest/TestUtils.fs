@@ -2,6 +2,7 @@
 
 open Dust.Engine
 open NUnit.Framework
+open NUnit.Framework.Legacy
 
 module U01_Conversion =       
     [<Test>]
@@ -9,10 +10,10 @@ module U01_Conversion =
       let data = [ ("key", VInline "inline") ] |> Map.ofSeq
       
       let str : string = data?key
-      Assert.AreEqual("inline", str)
+      ClassicAssert.AreEqual("inline", str)
 
       let v : Value = data?key
-      Assert.AreEqual(VInline "inline", v)
+      ClassicAssert.AreEqual(VInline "inline", v)
 
       // NOT possible 
       //let id : Identifier = data?key
@@ -23,13 +24,13 @@ module U01_Conversion =
       let data = [ ("key", VIdent(Key "ident")) ] |> Map.ofSeq
       
       let str : string = data?key
-      Assert.AreEqual("ident", str)
+      ClassicAssert.AreEqual("ident", str)
 
       let v : Value = data?key
-      Assert.AreEqual(VIdent(Key "ident"), v)
+      ClassicAssert.AreEqual(VIdent(Key "ident"), v)
 
       let id : Identifier = data?key
-      Assert.AreEqual(Key("ident"), id)
+      ClassicAssert.AreEqual(Key("ident"), id)
       
 
 //module U20_Misc =
